@@ -1,0 +1,63 @@
+{
+    "name": "gin0115/wp-pixie",
+    "description": "An adoptation of Pixie (created byusmanhalalit) for WordPress using WPDB over PDO.",
+    "homepage": "https://github.com/usmanhalalit/pixie",
+    "keywords": [
+        "query builder",
+        "sql",
+        "database",
+        "wpdb",
+        "WordPress"
+    ],
+    "license": "MIT",
+    "minimum-stability": "dev",
+    "authors": [{
+            "name": "Glynn Quelch",
+            "email": "glynn@pinkcrab.co.uk",
+            "role": "Developer"
+        },
+        {
+            "name": "Muhammad Usman",
+            "email": "hi@usman.it",
+            "role": "Developer"
+        },
+        {
+            "name": "Pavel Puchkin",
+            "email": "i@neoascetic.me",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": ">=5.4.0",
+        "usmanhalalit/viocon": "1.0.*@dev"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^7.0",
+        "mockery/mockery": "0.9.4",
+        "phpstan/phpstan": "^1.0",
+        "szepeviktor/phpstan-wordpress": "^1.0",
+        "php-stubs/wordpress-stubs": "^5.8.0",
+        "roots/wordpress": "^5.8",
+        "wp-phpunit/wp-phpunit": "^5.8",
+        "symfony/var-dumper": "4.*",
+        "yoast/phpunit-polyfills": "^0.2.0 || ^1.0.0",
+        "gin0115/wpunit-helpers": "~1.0.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pixie\\": "src/"
+        },
+        "files": []
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Pixie\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit --coverage-clover clover.xml --testdox",
+        "coverage": "phpunit --coverage-html coverage-report --testdox",
+        "analyse": "vendor/bin/phpstan analyse src -l8",
+        "all": "composer test"
+    }
+}

@@ -1,0 +1,12 @@
+vendor
+composer.phar
+composer.lock
+.DS_Store
+.idea
+test.php
+*~
+.vscode
+_tests
+wordpress
+clover.xml
+coverage-report
