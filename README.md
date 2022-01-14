@@ -11,9 +11,9 @@
 
 ![alt text](https://img.shields.io/badge/Current_Version-0.1.0-yellow.svg?style=flat " ") 
 [![Open Source Love](https://badges.frapsoft.com/os/mit/mit.svg?v=102)]()
-![](https://github.com/gin0115/pixie/workflows/GitHub_CI/badge.svg " ")
-[![codecov](https://codecov.io/gh/gin0115/pixie/branch/master/graph/badge.svg?token=4yEceIaSFP)](https://codecov.io/gh/gin0115/pixie)
-[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/gin0115/pixie/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/gin0115/pixie/?branch=master)
+![](https://github.com/gin0115/pixie-wpdb/workflows/GitHub_CI/badge.svg " ")
+[![codecov](https://codecov.io/gh/gin0115/pixie-wpdb/branch/master/graph/badge.svg?token=4yEceIaSFP)](https://codecov.io/gh/gin0115/pixie-wpdb)
+[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/gin0115/pixie-wpdb/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/gin0115/pixie-wpdb/?branch=master)
 
 
 A lightweight, expressive, framework agnostic query builder for PHP it can also be referred as a Database Abstraction Layer. Pixie supports MySQL, SQLite and PostgreSQL and it takes care of query sanitization, table prefixing and many other things with a unified API.
@@ -83,13 +83,13 @@ Pixie uses [Composer](http://getcomposer.org/doc/00-intro.md#installation-nix) t
 
 Learn to use composer and add this to require section (in your composer.json):
 
-    "gin0115/pixie": "1.*@dev"
+    "gin0115/pixie-wpdb": "1.*@dev"
 
 And run:
 
     composer update
 
-Library on [Packagist](https://packagist.org/packages/gin0115/pixie).
+Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
 
 ## Full Usage API
 
