@@ -32,7 +32,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
     public function setUp(): void
     {
         global $wpdb;
-        $this->wpdb = $wpdb;
+        $this->wpdb = clone $wpdb;
         parent::setUp();
 
         if (! static::$createdTables) {
@@ -245,7 +245,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         // Get all FRUITS (from mock_bar) with the TYPE (from mock_foo)
         $fruitsInner = $this->queryBuilderProvider('mock_')
-            ->select(['bar.string' => 'name', 'foo.string' => 'type'])
+            ->select(['bar.string' => 'name','foo.string' => 'type'])
             ->from('bar')
             ->join('foo', 'bar.number', '=', 'foo.number')
             ->setFetchMode(\ARRAY_A)
@@ -266,7 +266,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         // Left Join
         $fruitsLeft = $this->queryBuilderProvider('mock_')
-            ->select(['bar.string' => 'name', 'foo.string' => 'type'])
+            ->select(['bar.string' => 'name','foo.string' => 'type'])
             ->from('bar')
             ->leftJoin('foo', 'bar.number', '=', 'foo.number')
             ->setFetchMode(\ARRAY_A)
@@ -287,7 +287,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         // Right Join
         $fruitsRight = $this->queryBuilderProvider('mock_')
-            ->select(['bar.string' => 'name', 'foo.string' => 'type'])
+            ->select(['bar.string' => 'name','foo.string' => 'type'])
             ->from('bar')
             ->rightJoin('foo', 'bar.number', '=', 'foo.number')
             ->setFetchMode(\ARRAY_A)

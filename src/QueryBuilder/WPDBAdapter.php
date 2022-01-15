@@ -33,12 +33,12 @@ class WPDBAdapter
     /**
      * Build select query string and bindings
      *
-     * @param $statements
+     * @param array<string|\Closure, mixed|mixed[]> $statements
      *
      * @throws Exception
-     * @return array
+     * @return array{sql:string,bindings:mixed[]}
      */
-    public function select($statements)
+    public function select(array $statements): array
     {
         if (!array_key_exists('tables', $statements)) {
             throw new Exception('No table specified.', 3);
@@ -82,6 +82,7 @@ class WPDBAdapter
         // Joins
         $joinString = $this->buildJoin($statements);
 
+        /** @var string[] */
         $sqlArray = array(
             'SELECT' . (isset($statements['distinct']) ? ' DISTINCT' : ''),
             $selects,
@@ -109,12 +110,12 @@ class WPDBAdapter
     /**
      * Build just criteria part of the query
      *
-     * @param      $statements
+     * @param array<string|\Closure, mixed|mixed[]> $statements
      * @param bool $bindValues
      *
-     * @return array
+     * @return array{sql:string[]|string, bindings:array<mixed>}
      */
-    public function criteriaOnly($statements, $bindValues = true)
+    public function criteriaOnly(array $statements, bool $bindValues = true): array
     {
         $sql = $bindings = array();
         if (!isset($statements['criteria'])) {
@@ -129,13 +130,14 @@ class WPDBAdapter
     /**
      * Build a generic insert/ignore/replace query
      *
-     * @param       $statements
-     * @param array $data
+     * @param array<string|\Closure, mixed|mixed[]> $statements
+     * @param array<string, mixed> $data
+     * @param string $type
      *
-     * @return array
+     * @return array{sql:string, bindings:mixed[]}
      * @throws Exception
      */
-    private function doInsert($statements, array $data, $type)
+    private function doInsert(array $statements, array $data, string $type): array
     {
         if (!isset($statements['tables'])) {
             throw new Exception('No table specified', 3);
@@ -160,7 +162,7 @@ class WPDBAdapter
             $this->wrapSanitizer($table),
             '(' . $this->arrayStr($keys, ',') . ')',
             'VALUES',
-            '(' . $this->arrayStr($values, ',', false) . ')',
+            '(' . $this->arrayStr($values, ',') . ')',
         );
 
         if (isset($statements['onduplicate'])) {
@@ -180,10 +182,10 @@ class WPDBAdapter
     /**
      * Build Insert query
      *
-     * @param       $statements
-     * @param array $data
+     * @param array<string|\Closure, mixed|mixed[]> $statements
+     * @param array<string, mixed> $data $data
      *
-     * @return array
+     * @return array{sql:string, bindings:mixed[]}
      * @throws Exception
      */
     public function insert($statements, array $data)
@@ -194,10 +196,10 @@ class WPDBAdapter
     /**
      * Build Insert Ignore query
      *
-     * @param       $statements
-     * @param array $data
+     * @param array<string|\Closure, mixed|mixed[]> $statements
+     * @param array<string, mixed> $data $data
      *
-     * @return array
+     * @return array{sql:string, bindings:mixed[]}
      * @throws Exception
      */
     public function insertIgnore($statements, array $data)
@@ -208,10 +210,10 @@ class WPDBAdapter
     /**
      * Build Insert Ignore query
      *
-     * @param       $statements
-     * @param array $data
+     * @param array<string|\Closure, mixed|mixed[]> $statements
+     * @param array<string, mixed> $data $data
      *
-     * @return array
+     * @return array{sql:string, bindings:mixed[]}
      * @throws Exception
      */
     public function replace($statements, array $data)
@@ -222,11 +224,11 @@ class WPDBAdapter
     /**
      * Build fields assignment part of SET ... or ON DUBLICATE KEY UPDATE ... statements
      *
-     * @param array $data
+     * @param array<string, mixed> $data
      *
-     * @return array
+     * @return array{0:string,1:mixed[]}
      */
-    private function getUpdateStatement($data)
+    private function getUpdateStatement(array $data): array
     {
         $bindings = array();
         $statement = '';
@@ -247,10 +249,10 @@ class WPDBAdapter
     /**
      * Build update query
      *
-     * @param       $statements
-     * @param array $data
+     * @param array<string|\Closure, mixed|mixed[]> $statements
+     * @param array<string, mixed> $data
      *
-     * @return array
+     * @return array{sql:string, bindings:mixed[]}
      * @throws Exception
      */
     public function update($statements, array $data)
@@ -289,9 +291,9 @@ class WPDBAdapter
     /**
      * Build delete query
      *
-     * @param $statements
+     * @param array<string|\Closure, mixed|mixed[]> $statements
      *
-     * @return array
+     * @return array{sql:string, bindings:mixed[]}
      * @throws Exception
      */
     public function delete($statements)
@@ -319,22 +321,17 @@ class WPDBAdapter
      * Array concatenating method, like implode.
      * But it does wrap sanitizer and trims last glue
      *
-     * @param array $pieces
-     * @param       $glue
-     * @param bool  $wrapSanitizer
+     * @param array<string|int, string> $pieces
+     * @param string $glue
      *
      * @return string
      */
-    protected function arrayStr(array $pieces, $glue, $wrapSanitizer = true)
+    protected function arrayStr(array $pieces, string $glue): string
     {
         $str = '';
         foreach ($pieces as $key => $piece) {
-            if ($wrapSanitizer) {
-                $piece = $this->wrapSanitizer($piece);
-            }
-
             if (!is_int($key)) {
-                $piece = ($wrapSanitizer ? $this->wrapSanitizer($key) : $key) . ' AS ' . $piece;
+                $piece = $key . ' AS ' . $piece;
             }
 
             $str .= $piece . $glue;
@@ -346,11 +343,11 @@ class WPDBAdapter
     /**
      * Join different part of queries with a space.
      *
-     * @param array $pieces
+     * @param array<string|int, string> $pieces
      *
      * @return string
      */
-    protected function concatenateQuery(array $pieces)
+    protected function concatenateQuery(array $pieces): string
     {
         $str = '';
         foreach ($pieces as $piece) {
@@ -362,17 +359,17 @@ class WPDBAdapter
     /**
      * Build generic criteria string and bindings from statements, like "a = b and c = ?"
      *
-     * @param      $statements
+     * @param array<string|\Closure, mixed|mixed[]> $statements
      * @param bool $bindValues
      *
-     * @return array
+     * @return array{0:string,1:string[]}
      */
-    protected function buildCriteria($statements, $bindValues = true)
+    protected function buildCriteria(array $statements, bool $bindValues = true): array
     {
         $criteria = '';
         $bindings = array();
         foreach ($statements as $statement) {
-            $key = $this->wrapSanitizer($statement['key']);
+            $key = $statement['key'];
             $value = $statement['value'];
 
             if (is_null($value) && $key instanceof \Closure) {
@@ -382,7 +379,7 @@ class WPDBAdapter
                 // in the closure should reflect here
                 $nestedCriteria = $this->container->build(NestedCriteria::class, array($this->connection));
 
-                $nestedCriteria = & $nestedCriteria;
+                $nestedCriteria = &$nestedCriteria;
                 // Call the closure with our new nestedCriteria object
                 $key($nestedCriteria);
                 // Get the criteria only query from the nestedCriteria object
@@ -443,7 +440,7 @@ class WPDBAdapter
         // Clear all white spaces, and, or from beginning and white spaces from ending
         $criteria = preg_replace('/^(\s?AND ?|\s?OR ?)|\s$/i', '', $criteria);
 
-        return array($criteria, $bindings);
+        return array($criteria ?? '', $bindings);
     }
 
     /**
@@ -470,9 +467,9 @@ class WPDBAdapter
     /**
      * Wrap values with adapter's sanitizer like, '`'
      *
-     * @param $value
+     * @param string|Raw|\Closure $value
      *
-     * @return string
+     * @return string|\Closure
      */
     public function wrapSanitizer($value)
     {
@@ -499,14 +496,14 @@ class WPDBAdapter
     /**
      * Build criteria string and binding with various types added, like WHERE and Having
      *
-     * @param      $statements
-     * @param      $key
-     * @param      $type
+     * @param array<string|\Closure, mixed|mixed[]> $statements
+     * @param string $key
+     * @param string $type
      * @param bool $bindValues
      *
-     * @return array
+     * @return array{0:string, 1:string[]}
      */
-    protected function buildCriteriaWithType($statements, $key, $type, $bindValues = true)
+    protected function buildCriteriaWithType(array $statements, string $key, string $type, bool $bindValues = true)
     {
         $criteria = '';
         $bindings = array();
@@ -526,11 +523,11 @@ class WPDBAdapter
     /**
      * Build join string
      *
-     * @param $statements
+     * @param array<string|\Closure, mixed|mixed[]> $statements
      *
-     * @return array
+     * @return string
      */
-    protected function buildJoin($statements)
+    protected function buildJoin(array $statements): string
     {
         $sql = '';
 

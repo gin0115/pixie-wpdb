@@ -60,7 +60,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     public function testMultiTableQuery(): void
     {
         $builder = $this->queryBuilderProvider()
-            ->table(['foo', 'bar']);
+            ->table('foo', 'bar');
 
         $this->assertEquals('SELECT * FROM foo, bar', $builder->getQuery()->getSql());
     }
