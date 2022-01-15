@@ -2,14 +2,14 @@
 
 use PhpCsFixer\Config;
 use PhpCsFixer\Finder;
+
 require __DIR__ . '/vendor/autoload.php';
 
 $finder = (new Finder())
     ->files()
     ->name('*.php')
     ->in(__DIR__ . '/src')
-    ->in(__DIR__ . '/tests')
-;
+    ->in(__DIR__ . '/tests');
 
 /**
  * Cache file for PHP-CS
@@ -37,13 +37,13 @@ return (new Config('pecee-pixie'))
         'no_useless_return'          => true,
         'no_superfluous_phpdoc_tags' => false,
         'ordered_imports'            => true,
-        'phpdoc_align'               => true,
-        'phpdoc_order'               => true,
-        'phpdoc_trim'                => true,
+        'phpdoc_align'               => false,
+        'phpdoc_order'               => false,
+        'phpdoc_trim'                => false,
         'phpdoc_summary'             => false,
         'simplified_null_return'     => false,
         'ternary_to_null_coalescing' => true,
         'binary_operator_spaces'     => ['default' => 'align'],
+        'global_namespace_import' => ['import_classes' => true, 'import_functions' => true]
     ])
-    ->setFinder($finder)
-    ;
+    ->setFinder($finder);
