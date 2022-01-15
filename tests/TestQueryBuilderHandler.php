@@ -25,7 +25,7 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
 
     /** Mocked WPDB instance.
      * @var Logable_WPDB
-    */
+     */
     private $wpdb;
 
     public function setUp(): void
@@ -112,13 +112,13 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
                 $builder->rollback();
             });
         $this->assertSame(["START TRANSACTION", "ROLLBACK"], $this->wpdb->usage_log['query']);
-                $this->assertTrue(true, 'Avoids issues with no assertion in test!');
+        $this->assertTrue(true, 'Avoids issues with no assertion in test!');
     }
 
     /** @testdox It should be possible to use WPDB errors which are printed to the screen as a trigger for auto rollback with a transaction. This mimics PDO */
     public function testTransactionCatchWPDBError(): void
     {
-         $this->queryBuilderProvider()
+        $this->queryBuilderProvider()
             ->transaction(function (Transaction $builder) {
                 $builder->table('foo')->insert(['name' => 'Dave']);
                 print('WPDB ERROR - Insert name=Dave');
@@ -130,7 +130,7 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
     /** @testdox It should be possible to catch an exceptions and trigger for auto rollback with a transaction. This mimics PDO */
     public function testTransactionCatchException(): void
     {
-         $this->queryBuilderProvider()
+        $this->queryBuilderProvider()
             ->transaction(function (Transaction $builder) {
                 $builder->table('foo')->insert(['name' => 'Dave']);
                 throw new Exception("Error Processing Request", 1);
@@ -216,5 +216,71 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
             false
         );
         $this->assertEquals('prefix_someTable', $prefixedSingle);
+    }
+
+    /** @testdox It should be possible to create a nested query using subQueries. (Example from Readme) */
+    public function testSubQueryForTable(): void
+    {
+        $builder = $this->queryBuilderProvider();
+
+        $subQuery = $builder->table('person_details')
+            ->select('details')
+            ->where('person_id', '=', 3);
+
+
+        $query = $builder->table('my_table')
+            ->select('my_table.*')
+            ->select($builder->subQuery($subQuery, 'table_alias1'));
+
+        $builder->table($builder->subQuery($query, 'table_alias2'))
+            ->select('*')
+            ->get();
+
+        $this->assertEquals(
+            'SELECT * FROM (SELECT my_table.*, (SELECT details FROM person_details WHERE person_id = 3) as table_alias1 FROM my_table) as table_alias2',
+            $this->wpdb->usage_log['get_results'][0]['query']
+        );
+    }
+
+    /**
+     * @see https://www.mysqltutorial.org/mysql-subquery/
+     * @testdox ...find customers whose payments are greater than the average payment using a subquery
+     */
+    public function testSubQueryExample()
+    {
+        $builder = $this->queryBuilderProvider();
+
+        $avgSubQuery = $builder->table('payments')->select("AVG(amount)");
+
+        $builder->select(['customerNumber', 'checkNumber', 'amount'])
+            ->from('payments')
+            ->where('amount', '>', $builder->subQuery($avgSubQuery))
+            ->get();
+
+        $this->assertEquals(
+            'SELECT customerNumber, checkNumber, amount FROM payments WHERE amount > (SELECT AVG(amount) FROM payments)',
+            $this->wpdb->usage_log['get_results'][0]['query']
+        );
+    }
+
+    /**
+     * @see https://www.mysqltutorial.org/mysql-subquery/
+     * @testdox ...you can use a subquery with NOT IN operator to find the customers who have not placed any orders
+     */
+    public function testSubQueryInOperatorExample()
+    {
+        $builder = $this->queryBuilderProvider();
+
+        $avgSubQuery = $builder->table('orders')->selectDistinct("customerNumber");
+
+        $builder->table('customers')
+            ->select('customerName')
+            ->whereNotIn('customerNumber', $builder->subQuery($avgSubQuery))
+            ->get();
+
+        $this->assertEquals(
+            'SELECT customerName FROM customers WHERE customerNumber NOT IN (SELECT DISTINCT customerNumber FROM orders)',
+            $this->wpdb->usage_log['get_results'][0]['query']
+        );
     }
 }
