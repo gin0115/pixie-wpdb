@@ -723,4 +723,85 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals('DELETE FROM foo WHERE id > %d', $prepared['query']);
         $this->assertEquals('DELETE FROM foo WHERE id > 5', $query['query']);
     }
+
+    /** @testdox It should be possible to create a nested query using subQueries. (Example from Readme) */
+    public function testSubQueryForTable(): void
+    {
+        $builder = $this->queryBuilderProvider();
+
+        $subQuery = $builder->table('person_details')
+            ->select('details')
+            ->where('person_id', '=', 3);
+
+
+        $query = $builder->table('my_table')
+            ->select('my_table.*')
+            ->select($builder->subQuery($subQuery, 'table_alias1'));
+
+        $builder->table($builder->subQuery($query, 'table_alias2'))
+            ->select('*')
+            ->get();
+
+        $this->assertEquals(
+            'SELECT * FROM (SELECT my_table.*, (SELECT details FROM person_details WHERE person_id = 3) as table_alias1 FROM my_table) as table_alias2',
+            $this->wpdb->usage_log['get_results'][0]['query']
+        );
+    }
+
+    /**
+     * @see https://www.mysqltutorial.org/mysql-subquery/
+     * @testdox ...find customers whose payments are greater than the average payment using a subquery
+     */
+    public function testSubQueryExample()
+    {
+        $builder = $this->queryBuilderProvider();
+
+        $avgSubQuery = $builder->table('payments')->select("AVG(amount)");
+
+        $builder->select(['customerNumber', 'checkNumber', 'amount'])
+            ->from('payments')
+            ->where('amount', '>', $builder->subQuery($avgSubQuery))
+            ->get();
+
+        $this->assertEquals(
+            'SELECT customerNumber, checkNumber, amount FROM payments WHERE amount > (SELECT AVG(amount) FROM payments)',
+            $this->wpdb->usage_log['get_results'][0]['query']
+        );
+    }
+
+    /**
+     * @see https://www.mysqltutorial.org/mysql-subquery/
+     * @testdox ...you can use a subquery with NOT IN operator to find the customers who have not placed any orders
+     */
+    public function testSubQueryInOperatorExample()
+    {
+        $builder = $this->queryBuilderProvider();
+
+        $avgSubQuery = $builder->table('orders')->selectDistinct("customerNumber");
+
+        $builder->table('customers')
+            ->select('customerName')
+            ->whereNotIn('customerNumber', $builder->subQuery($avgSubQuery))
+            ->get();
+
+        $this->assertEquals(
+            'SELECT customerName FROM customers WHERE customerNumber NOT IN (SELECT DISTINCT customerNumber FROM orders)',
+            $this->wpdb->usage_log['get_results'][0]['query']
+        );
+    }
+
+    /** @testdox It should be possible to use partial expressions as strings and not have quotes added automatically by WPDB::prepare() */
+    public function testUseRawValueForUnescapedMysqlConstants(): void
+    {
+        $this->queryBuilderProvider()->table('foo')->update(['bar' => new Raw('TIMESTAMP')]);
+        $this->assertEquals("UPDATE foo SET bar=TIMESTAMP", $this->wpdb->usage_log['get_results'][0]['query']);
+
+        $this->queryBuilderProvider()->table('orders')
+            ->select(['Order_ID', 'Product_Name', new Raw("DATE_FORMAT(Order_Date,'%d--%m--%y') as new_date_formate") ])
+            ->get();
+        $this->assertEquals(
+            "SELECT Order_ID, Product_Name, DATE_FORMAT(Order_Date,'%d--%m--%y') as new_date_formate FROM orders",
+            $this->wpdb->usage_log['get_results'][1]['query']
+        );
+    }
 }
