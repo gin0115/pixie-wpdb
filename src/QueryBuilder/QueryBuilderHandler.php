@@ -707,7 +707,7 @@ class QueryBuilderHandler
      *
      * @return static
      */
-    public function where($key, $operator = null, $value = null): void
+    public function where($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
         if (func_num_args() == 2) {
@@ -724,7 +724,7 @@ class QueryBuilderHandler
      *
      * @return static
      */
-    public function orWhere($key, $operator = null, $value = null)
+    public function orWhere($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
         if (func_num_args() == 2) {
@@ -742,7 +742,7 @@ class QueryBuilderHandler
      *
      * @return static
      */
-    public function whereNot($key, $operator = null, $value = null)
+    public function whereNot($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
         if (func_num_args() == 2) {
