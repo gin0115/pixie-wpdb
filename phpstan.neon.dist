@@ -12,3 +12,13 @@ parameters:
         - %currentWorkingDirectory%/tests/*
     bootstrapFiles:
         - vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
+    parallel:
+		processTimeout: 300.0
+		jobSize: 10
+		maximumNumberOfProcesses: 4
+		minimumNumberOfJobsPerProcess: 4
+    includes:
+        - vendor/phpstan/phpstan-strict-rules/rules.neon
+        - vendor/phpstan/phpstan-phpunit/extension.neon
+        - vendor/phpstan/phpstan-phpunit/rules.neon
+        - vendor/phpstan/phpstan-deprecation-rules/rules.neon
