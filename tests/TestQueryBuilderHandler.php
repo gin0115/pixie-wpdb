@@ -283,4 +283,19 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
             $this->wpdb->usage_log['get_results'][0]['query']
         );
     }
+
+    /** @testdox It should be possible to use partial expressions as strings and not have quotes added automatically by WPDB::prepare() */
+    public function testUseRawValueForUnescapedMysqlConstants(): void
+    {
+        $this->queryBuilderProvider()->table('foo')->update(['bar' => new Raw('TIMESTAMP')]);
+        $this->assertEquals("UPDATE foo SET bar=TIMESTAMP", $this->wpdb->usage_log['get_results'][0]['query']);
+
+        $this->queryBuilderProvider()->table('orders')
+            ->select(['Order_ID', 'Product_Name', new Raw("DATE_FORMAT(Order_Date,'%d--%m--%y') as new_date_formate") ])
+            ->get();
+        $this->assertEquals(
+            "SELECT Order_ID, Product_Name, DATE_FORMAT(Order_Date,'%d--%m--%y') as new_date_formate FROM orders",
+            $this->wpdb->usage_log['get_results'][1]['query']
+        );
+    }
 }
