@@ -2,20 +2,18 @@
 
 namespace Pixie\QueryBuilder;
 
+use wpdb;
 use Closure;
-use PDO;
-use Pixie\Connection;
+use Throwable;
 use Pixie\Exception;
+use Pixie\Connection;
+use function mb_strlen;
+use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
-use Pixie\QueryBuilder\Raw;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-use Throwable;
-use wpdb;
-use function mb_strlen;
-use function strlen;
 
 class QueryBuilderHandler
 {
@@ -947,7 +945,7 @@ class QueryBuilderHandler
      */
     protected function whereNullHandler($key, string $prefix = '', $operator = ''): self
     {
-        $prefix = 0 === strlen($prefix) ? '' : " {$prefix}";
+        $prefix = 0 === mb_strlen($prefix) ? '' : " {$prefix}";
 
         $key = $this->adapterInstance->wrapSanitizer($this->addTablePrefix($key));
         if ($key instanceof Closure) {
