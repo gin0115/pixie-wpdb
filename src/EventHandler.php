@@ -71,7 +71,6 @@ class EventHandler
      */
     public function fireEvents(QueryBuilderHandler $queryBuilder, string $event)
     {
-        dump($this);
         $statements = $queryBuilder->getStatements();
         $tables = isset($statements['tables']) ? $statements['tables'] : array();
 

@@ -36,7 +36,7 @@ class TestEvents extends WP_UnitTestCase
     {
         $handler = new EventHandler();
         $handler->registerEvent('for_bar_table', 'bar', $this->createClosure('bar_table'));
-        $handler->registerEvent('for_any_table', false, $this->createClosure('any_table'));
+        $handler->registerEvent('for_any_table', null, $this->createClosure('any_table'));
 
         // Get all events and check the keys are used correctly.
         $events = $handler->getEvents();
