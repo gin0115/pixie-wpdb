@@ -3,9 +3,9 @@
 class NestedCriteria extends QueryBuilderHandler
 {
     /**
-     * @param        $key
-     * @param null   $operator
-     * @param null   $value
+     * @param string|Raw $key
+     * @param string|null|mixed $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
      * @param string $joiner
      *
      * @return $this

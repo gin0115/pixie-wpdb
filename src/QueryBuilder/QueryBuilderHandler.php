@@ -10,7 +10,6 @@ use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
-// use Pixie\QueryBuilder\Adapters\wpdb
 use Pixie\QueryBuilder\WPDBAdapter;
 
 class QueryBuilderHandler
@@ -27,7 +26,7 @@ class QueryBuilderHandler
     protected $connection;
 
     /**
-     * @var array
+     * @var array<string, mixed[]|mixed>
      */
     protected $statements = array();
 
@@ -37,7 +36,7 @@ class QueryBuilderHandler
     protected $dbInstance;
 
     /**
-     * @var null|string[]
+     * @var null|string|string[]
      */
     protected $sqlStatement = null;
 
@@ -47,7 +46,7 @@ class QueryBuilderHandler
     protected $tablePrefix = null;
 
     /**
-     * @var \Pixie\QueryBuilder\Adapters\BaseAdapter
+     * @var WPDBAdapter
      */
     protected $adapterInstance;
 
@@ -69,9 +68,10 @@ class QueryBuilderHandler
     /**
      * @param null|\Pixie\Connection $connection
      * @param string $fetchMode
+     * @param mixed[] $hydratorConstructorArgs
      * @throws Exception If no connection passed and not previously established.
      */
-    public function __construct(
+    final public function __construct(
         Connection $connection = null,
         string $fetchMode = \OBJECT,
         ?array $hydratorConstructorArgs = null
@@ -81,15 +81,11 @@ class QueryBuilderHandler
             $connection = Connection::getStoredConnection();
         }
 
+        // Set all dependencies from connection.
         $this->connection = $connection;
         $this->container = $this->connection->getContainer();
         $this->dbInstance = $this->connection->getDbInstance();
-        $this->adapter = 'wpdb';
-        $this->adapterConfig = $this->connection->getAdapterConfig();
-
-        if (isset($this->adapterConfig['prefix'])) {
-            $this->tablePrefix = $this->adapterConfig['prefix'];
-        }
+        $this->setAdapterConfig($this->connection->getAdapterConfig());
 
         // Set up optional hydration details.
         $this->setFetchMode($fetchMode);
@@ -104,11 +100,24 @@ class QueryBuilderHandler
     }
 
     /**
+     * Sets the config for WPDB
+     *
+     * @param array<string, mixed> $adapterConfig
+     * @return void
+     */
+    protected function setAdapterConfig(array $adapterConfig): void
+    {
+        if (isset($adapterConfig['prefix'])) {
+            $this->tablePrefix = $adapterConfig['prefix'];
+        }
+    }
+
+    /**
      * Set the fetch mode
      *
      * @param string $mode
      * @param null|array<int, mixed> $constructorArgs
-     * @return $this
+     * @return static
      */
     public function setFetchMode(string $mode, ?array $constructorArgs = null): self
     {
@@ -119,43 +128,58 @@ class QueryBuilderHandler
 
     /**
      * @param null|Connection $connection
-     * @return QueryBuilderHandler
+     * @return static
      * @throws Exception
      */
-    public function newQuery(Connection $connection = null)
+    public function newQuery(Connection $connection = null): self
     {
         if (is_null($connection)) {
             $connection = $this->connection;
         }
 
-        $new = new static($connection);
-        $new->setFetchMode($this->getFetchMode(), $this->hydratorConstructorArgs);
-        return $new;
+        $newQuery = $this->constructCurrentBuilderClass($connection);
+        $newQuery->setFetchMode($this->getFetchMode(), $this->hydratorConstructorArgs);
+        return $newQuery;
+    }
+
+
+    /**
+     * Returns a new instance of the current, with the passed connection.
+     *
+     * @param \Pixie\Connection $connection
+     * @return static
+     */
+    protected function constructCurrentBuilderClass(Connection $connection): self
+    {
+        return new static($connection);
     }
 
     /**
-     * @param       $sql
-     * @param array $bindings
+     * @param string           $sql
+     * @param array<int,mixed> $bindings
      *
-     * @return $this
+     * @return static
      */
-    public function query($sql, $bindings = array())
+    public function query($sql, $bindings = array()): self
     {
         list($this->sqlStatement) = $this->statement($sql, $bindings);
-
         return $this;
     }
 
     /**
-     * @param       $sql
-     * @param array $bindings
+     * @param string           $sql
+     * @param array<int,mixed> $bindings
      *
-     * @return array sqlStatement and execution time as float
+     * @return array{0:string, 1:float}
      */
-    public function statement($sql, $bindings = array())
+    public function statement(string $sql, $bindings = array()): array
     {
         $start = microtime(true);
         $sqlStatement = empty($bindings) ? $sql : $this->dbInstance->prepare($sql, $bindings);
+
+        if (!is_string($sqlStatement)) {
+            throw new Exception("Could not interpolate query", 1);
+        }
 
         return array($sqlStatement, microtime(true) - $start);
     }
@@ -163,7 +187,7 @@ class QueryBuilderHandler
     /**
      * Get all rows
      *
-     * @return object|object[]
+     * @return array<mixed,mixed>|null
      * @throws Exception
      */
     public function get()
@@ -174,24 +198,33 @@ class QueryBuilderHandler
         };
         $executionTime = 0;
         if (is_null($this->sqlStatement)) {
-            $queryObject = $this->getQuery('select');
 
-            list($this->sqlStatement, $executionTime) = $this->statement(
+            $queryObject = $this->getQuery('select');
+            $statement = $this->statement(
                 $queryObject->getSql(),
                 $queryObject->getBindings()
             );
+
+            $this->sqlStatement = $statement[0];
+            $executionTime = $statement[1];
         }
 
         $start = microtime(true);
         $result = $this->dbInstance()->get_results(
-            $this->sqlStatement,
+            is_array($this->sqlStatement) ? (end($this->sqlStatement) ?: '') : $this->sqlStatement,
+            // If we are using the hydrator, return as OBJECT and let the hydrator map the correct model.
             $this->useHydrator() ? OBJECT : $this->getFetchMode()
         );
         $executionTime += microtime(true) - $start;
         $this->sqlStatement = null;
 
+        // Ensure we have an array of results.
+        if (!is_array($result) && null !== $result) {
+            $result = [$result];
+        }
+
         // Maybe hydrate the results.
-        if (is_array($result) && $this->useHydrator()) {
+        if (null !== $result && $this->useHydrator()) {
             $result = $this->getHydrator()->fromMany($result);
         }
 
@@ -204,9 +237,10 @@ class QueryBuilderHandler
      *
      * @return Hydrator
      */
-    protected function getHydrator(): Hydrator
+    protected function getHydrator(): Hydrator /** @phpstan-ignore-line */
     {
-        return new Hydrator($this->getFetchMode(), $this->hydratorConstructorArgs ?? []);
+        $hydrator = new Hydrator($this->getFetchMode(), $this->hydratorConstructorArgs ?? []); /** @phpstan-ignore-line */
+        return $hydrator;
     }
 
     /**
@@ -216,13 +250,15 @@ class QueryBuilderHandler
      */
     protected function useHydrator(): bool
     {
-        return ! in_array($this->getFetchMode(), [\ARRAY_A, \ARRAY_N, \OBJECT, \OBJECT_K]);
+        return !in_array($this->getFetchMode(), [\ARRAY_A, \ARRAY_N, \OBJECT, \OBJECT_K]);
     }
 
     /**
-     * Get first row
+     * Find all matching a simple where condition.
      *
-     * @return \stdClass|array|null
+     * Shortcut of ->where('key','=','value')->limit(1)->get();
+     *
+     * @return null|\stdClass\array<mixed,mixed>|object Can return any object using hydrator
      */
     public function first()
     {
@@ -232,10 +268,14 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param        $value
-     * @param string $fieldName
+     * Find all matching a simple where condition.
      *
-     * @return null|\stdClass
+     * Shortcut of ->where('key','=','value')->get();
+     *
+     * @param string $fieldName
+     * @param mixed $value
+     *
+     * @return null|array<mixed,mixed> Can return any object using hydrator
      */
     public function findAll($fieldName, $value)
     {
@@ -244,10 +284,10 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param        $value
      * @param string $fieldName
+     * @param mixed $value
      *
-     * @return null|\stdClass
+     * @return null|\stdClass\array<mixed,mixed>|object Can return any object using hydrator
      */
     public function find($value, $fieldName = 'id')
     {
@@ -351,12 +391,12 @@ class QueryBuilderHandler
 
     /**
      * @param string $type
-     * @param array $dataToBePassed
+     * @param bool|array<mixed, mixed> $dataToBePassed
      *
      * @return mixed
      * @throws Exception
      */
-    public function getQuery($type = 'select', $dataToBePassed = array())
+    public function getQuery(string $type = 'select', $dataToBePassed = array())
     {
         $allowedTypes = array('select', 'insert', 'insertignore', 'replace', 'delete', 'update', 'criteriaonly');
         if (!in_array(strtolower($type), $allowedTypes)) {
@@ -373,14 +413,14 @@ class QueryBuilderHandler
 
     /**
      * @param QueryBuilderHandler $queryBuilder
-     * @param null $alias
+     * @param string|null $alias
      *
      * @return Raw
      */
-    public function subQuery(QueryBuilderHandler $queryBuilder, $alias = null)
+    public function subQuery(QueryBuilderHandler $queryBuilder, ?string $alias = null)
     {
         $sql = '(' . $queryBuilder->getQuery()->getRawSql() . ')';
-        if ($alias) {
+        if (is_string($alias) && \mb_strlen($alias) !== 0) {
             $sql = $sql . ' as ' . $alias;
         }
 
@@ -388,11 +428,13 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $data
+     * Handles the various insert operations based on the type.
      *
-     * @return array|string
+     * @param array<int|string, mixed|mixed[]> $data
+     * @param string $type
+     * @return int|int[]|null|mixed Can return a single row id, array of row ids, null (for failed) or any other value short circuited from event.
      */
-    private function doInsert($data, $type)
+    private function doInsert(array $data, string $type)
     {
         $eventResult = $this->fireEvents('before-insert');
         if (!is_null($eventResult)) {
@@ -431,9 +473,9 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $data
+     * @param array<int|string, mixed|mixed[]> $data Either key=>value array for single or array of arrays for bulk.
      *
-     * @return array|string
+     * @return int|int[]|null|mixed Can return a single row id, array of row ids, null (for failed) or any other value short circuited from event.
      */
     public function insert($data)
     {
@@ -441,9 +483,9 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $data
      *
-     * @return array|string
+     * @param array<int|string, mixed|mixed[]> $data Either key=>value array for single or array of arrays for bulk.
+     * @return int|int[]|null|mixed Can return a single row id, array of row ids, null (for failed) or any other value short circuited from event.
      */
     public function insertIgnore($data)
     {
@@ -451,9 +493,9 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $data
      *
-     * @return array|string
+     * @param array<int|string, mixed|mixed[]> $data Either key=>value array for single or array of arrays for bulk.
+     * @return int|int[]|null|mixed Can return a single row id, array of row ids, null (for failed) or any other value short circuited from event.
      */
     public function replace($data)
     {
@@ -461,9 +503,9 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $data
+     * @param array<string, mixed> $data
      *
-     * @return bool
+     * @return int|null
      */
     public function update($data)
     {
@@ -484,9 +526,8 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $data
-     *
-     * @return array|string
+     * @param array<string, mixed> $data
+     * @return int|null Will return row id for insert and bool for success/fail on update.
      */
     public function updateOrInsert($data)
     {
@@ -498,9 +539,8 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $data
-     *
-     * @return $this
+     * @param array<string, mixed> $data
+     * @return static
      */
     public function onDuplicateKeyUpdate($data)
     {
@@ -509,9 +549,9 @@ class QueryBuilderHandler
     }
 
     /**
-     *
+     * @return int Number of rows effected.
      */
-    public function delete()
+    public function delete(): int
     {
         $eventResult = $this->fireEvents('before-delete');
         if (!is_null($eventResult)) {
@@ -521,27 +561,22 @@ class QueryBuilderHandler
         $queryObject = $this->getQuery('delete');
 
         list($preparedQuery, $executionTime) = $this->statement($queryObject->getSql(), $queryObject->getBindings());
-        $response = $this->dbInstance()->get_results($preparedQuery);
+        $this->dbInstance()->get_results($preparedQuery);
         $this->fireEvents('after-delete', $queryObject, $executionTime);
 
-        return $response;
+        return $this->dbInstance()->rows_affected;
     }
 
     /**
-     * @param string|array $tables Single table or array of tables
+     * @param string|Raw ...$tables Single table or array of tables
      *
-     * @return QueryBuilderHandler
+     * @return static
      * @throws Exception
      */
-    public function table($tables)
+    public function table(...$tables): QueryBuilderHandler
     {
-        if (!is_array($tables)) {
-            // because a single table is converted to an array anyways,
-            // this makes sense.
-            $tables = func_get_args();
-        }
 
-        $instance = new static($this->connection);
+        $instance =  $this->constructCurrentBuilderClass($this->connection);
         $this->setFetchMode($this->getFetchMode(), $this->hydratorConstructorArgs);
         $tables = $this->addTablePrefix($tables, false);
         $instance->addStatement('tables', $tables);
@@ -549,15 +584,12 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $tables
+     * @param string|Raw ...$tables Single table or array of tables
      *
-     * @return $this
+     * @return static
      */
-    public function from($tables)
+    public function from(...$tables): self
     {
-        if (!is_array($tables)) {
-            $tables = func_get_args();
-        }
 
         $tables = $this->addTablePrefix($tables, false);
         $this->addStatement('tables', $tables);
@@ -565,11 +597,11 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $fields
+     * @param string|string[]|Raw[]|array<string, string> $fields
      *
-     * @return $this
+     * @return static
      */
-    public function select($fields)
+    public function select($fields): self
     {
         if (!is_array($fields)) {
             $fields = func_get_args();
@@ -581,9 +613,9 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $fields
+     * @param string|string[]|Raw[]|array<string, string> $fields
      *
-     * @return $this
+     * @return static
      */
     public function selectDistinct($fields)
     {
@@ -595,9 +627,9 @@ class QueryBuilderHandler
     /**
      * @param string|string[] $field Either the single field or an array of fields.
      *
-     * @return $this
+     * @return static
      */
-    public function groupBy($field)
+    public function groupBy($field): self
     {
         $field = $this->addTablePrefix($field);
         $this->addStatement('groupBys', $field);
@@ -605,12 +637,12 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param string|string[] $fields
+     * @param string|array<string|Raw, mixed> $fields
      * @param string          $defaultDirection
      *
-     * @return $this
+     * @return static
      */
-    public function orderBy($fields, $defaultDirection = 'ASC')
+    public function orderBy($fields, string $defaultDirection = 'ASC'): self
     {
         if (!is_array($fields)) {
             $fields = array($fields);
@@ -633,36 +665,36 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $limit
+     * @param int $limit
      *
-     * @return $this
+     * @return static
      */
-    public function limit($limit)
+    public function limit(int $limit): self
     {
         $this->statements['limit'] = $limit;
         return $this;
     }
 
     /**
-     * @param $offset
+     * @param int $offset
      *
-     * @return $this
+     * @return static
      */
-    public function offset($offset)
+    public function offset(int $offset): self
     {
         $this->statements['offset'] = $offset;
         return $this;
     }
 
     /**
-     * @param        $key
-     * @param        $operator
-     * @param        $value
+     * @param string|string[]|Raw|Raw[]       $key
+     * @param string $operator
+     * @param mixed $value
      * @param string $joiner
      *
-     * @return $this
+     * @return static
      */
-    public function having($key, $operator, $value, $joiner = 'AND')
+    public function having($key, string $operator, $value, string $joiner = 'AND')
     {
         $key = $this->addTablePrefix($key);
         $this->statements['havings'][] = compact('key', 'operator', 'value', 'joiner');
@@ -670,11 +702,11 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param        $key
-     * @param        $operator
-     * @param        $value
+     * @param string|string[]|Raw|Raw[]       $key
+     * @param string $operator
+     * @param mixed $value
      *
-     * @return $this
+     * @return static
      */
     public function orHaving($key, $operator, $value)
     {
@@ -682,13 +714,13 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $key
-     * @param $operator
-     * @param $value
+     * @param string|Raw $key
+     * @param string|null|mixed $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
      *
-     * @return $this
+     * @return static
      */
-    public function where($key, $operator = null, $value = null)
+    public function where($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
         if (func_num_args() == 2) {
@@ -699,13 +731,13 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $key
-     * @param $operator
-     * @param $value
+     * @param string|Raw $key
+     * @param string|null|mixed $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
      *
-     * @return $this
+     * @return static
      */
-    public function orWhere($key, $operator = null, $value = null)
+    public function orWhere($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
         if (func_num_args() == 2) {
@@ -717,13 +749,13 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $key
-     * @param $operator
-     * @param $value
+     * @param string|Raw $key
+     * @param string|null|mixed $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
      *
-     * @return $this
+     * @return static
      */
-    public function whereNot($key, $operator = null, $value = null)
+    public function whereNot($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
         if (func_num_args() == 2) {
@@ -734,11 +766,11 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $key
-     * @param $operator
-     * @param $value
+     * @param string|Raw $key
+     * @param string|null|mixed $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
      *
-     * @return $this
+     * @return static
      */
     public function orWhereNot($key, $operator = null, $value = null)
     {
@@ -751,127 +783,136 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param       $key
-     * @param array $values
+     * @param string|Raw $key
+     * @param mixed[]|string|Raw $values
      *
-     * @return $this
+     * @return static
      */
-    public function whereIn($key, $values)
+    public function whereIn($key, $values): self
     {
         return $this->whereHandler($key, 'IN', $values, 'AND');
     }
 
     /**
-     * @param       $key
-     * @param array $values
+     * @param string|Raw $key
+     * @param mixed[]|string|Raw $values
      *
-     * @return $this
+     * @return static
      */
-    public function whereNotIn($key, $values)
+    public function whereNotIn($key, $values): self
     {
         return $this->whereHandler($key, 'NOT IN', $values, 'AND');
     }
 
     /**
-     * @param       $key
-     * @param array $values
+     * @param string|Raw $key
+     * @param mixed[]|string|Raw $values
      *
-     * @return $this
+     * @return static
      */
-    public function orWhereIn($key, $values)
+    public function orWhereIn($key, $values): self
     {
         return $this->whereHandler($key, 'IN', $values, 'OR');
     }
 
     /**
-     * @param       $key
-     * @param array $values
+     * @param string|Raw $key
+     * @param mixed[]|string|Raw $values
      *
-     * @return $this
+     * @return static
      */
-    public function orWhereNotIn($key, $values)
+    public function orWhereNotIn($key, $values): self
     {
         return $this->whereHandler($key, 'NOT IN', $values, 'OR');
     }
 
     /**
-     * @param $key
-     * @param $valueFrom
-     * @param $valueTo
+     * @param string|Raw $key
+     * @param mixed $valueFrom
+     * @param mixed $valueTo
      *
-     * @return $this
+     * @return static
      */
-    public function whereBetween($key, $valueFrom, $valueTo)
+    public function whereBetween($key, $valueFrom, $valueTo): self
     {
         return $this->whereHandler($key, 'BETWEEN', array($valueFrom, $valueTo), 'AND');
     }
 
     /**
-     * @param $key
-     * @param $valueFrom
-     * @param $valueTo
+     * @param string|Raw $key
+     * @param mixed $valueFrom
+     * @param mixed $valueTo
      *
-     * @return $this
+     * @return static
      */
-    public function orWhereBetween($key, $valueFrom, $valueTo)
+    public function orWhereBetween($key, $valueFrom, $valueTo): self
     {
         return $this->whereHandler($key, 'BETWEEN', array($valueFrom, $valueTo), 'OR');
     }
 
     /**
-     * @param $key
-     * @return QueryBuilderHandler
+     * @param string|Raw $key
+     * @return static
      */
-    public function whereNull($key)
+    public function whereNull($key): self
     {
         return $this->whereNullHandler($key);
     }
 
     /**
-     * @param $key
-     * @return QueryBuilderHandler
+     * @param string|Raw $key
+     * @return static
      */
-    public function whereNotNull($key)
+    public function whereNotNull($key): self
     {
         return $this->whereNullHandler($key, 'NOT');
     }
 
     /**
-     * @param $key
-     * @return QueryBuilderHandler
+     * @param string|Raw $key
+     * @return static
      */
-    public function orWhereNull($key)
+    public function orWhereNull($key): self
     {
         return $this->whereNullHandler($key, '', 'or');
     }
 
     /**
-     * @param $key
-     * @return QueryBuilderHandler
+     * @param string|Raw $key
+     * @return static
      */
-    public function orWhereNotNull($key)
+    public function orWhereNotNull($key): self
     {
         return $this->whereNullHandler($key, 'NOT', 'or');
     }
 
-    protected function whereNullHandler($key, string $prefix = '', $operator = '')
+    /**
+     * @param string|Raw $key
+     * @param string $prefix
+     * @param string $operator
+     * @return static
+     */
+    protected function whereNullHandler($key, string $prefix = '', $operator = ''): self
     {
         $prefix = \strlen($prefix) === 0 ? '' : " {$prefix}";
 
         $key = $this->adapterInstance->wrapSanitizer($this->addTablePrefix($key));
+        if ($key instanceof \Closure) {
+            throw new Exception("Key used for whereNull condition must be a string or raw exrpession.", 1);
+        }
         return $this->{$operator . 'Where'}($this->raw("{$key} IS{$prefix} NULL"));
     }
 
     /**
-     * @param        $table
-     * @param        $key
-     * @param        $operator
-     * @param        $value
+     * @param string|Raw $table
+     * @param string|Raw|\Closure $key
+     * @param string|null $operator
+     * @param mixed $value
      * @param string $type
      *
-     * @return $this
+     * @return static
      */
-    public function join($table, $key, $operator = null, $value = null, $type = 'inner')
+    public function join($table, $key, ?string $operator = null, $value = null, $type = 'inner')
     {
         if (!$key instanceof \Closure) {
             $key = function ($joinBuilder) use ($key, $operator, $value) {
@@ -895,11 +936,10 @@ class QueryBuilderHandler
     /**
      * Runs a transaction
      *
-     * @param $callback
-     *
-     * @return $this
+     * @param \Closure(Transaction):void $callback
+     * @return static
      */
-    public function transaction(\Closure $callback)
+    public function transaction(\Closure $callback): self
     {
         try {
             // Begin the transaction
@@ -929,16 +969,17 @@ class QueryBuilderHandler
      *
      * Catches any WP Errors (printed)
      *
-     * @param callable    $callback
+     * @param \Closure    $callback
      * @param Transaction $transaction
      * @return void
+     * @throws Exception
      */
-    protected function handleTransactionCall(callable $callback, Transaction $transaction): void
+    protected function handleTransactionCall(\Closure $callback, Transaction $transaction): void
     {
         try {
             ob_start();
             $callback($transaction);
-            $output = ob_get_clean();
+            $output = ob_get_clean() ?: '';
         } catch (\Throwable $th) {
             ob_end_clean();
             throw $th;
@@ -951,12 +992,12 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param      $table
-     * @param      $key
-     * @param null $operator
-     * @param null $value
+     * @param string|Raw $table
+     * @param string|Raw|\Closure $key
+     * @param string|null $operator
+     * @param mixed $value
      *
-     * @return $this
+     * @return static
      */
     public function leftJoin($table, $key, $operator = null, $value = null)
     {
@@ -964,12 +1005,12 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param      $table
-     * @param      $key
-     * @param null $operator
-     * @param null $value
+     * @param string|Raw $table
+     * @param string|Raw|\Closure $key
+     * @param string|null $operator
+     * @param mixed $value
      *
-     * @return $this
+     * @return static
      */
     public function rightJoin($table, $key, $operator = null, $value = null)
     {
@@ -977,12 +1018,12 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param      $table
-     * @param      $key
-     * @param null $operator
-     * @param null $value
+     * @param string|Raw $table
+     * @param string|Raw|\Closure $key
+     * @param string|null $operator
+     * @param mixed $value
      *
-     * @return $this
+     * @return static
      */
     public function innerJoin($table, $key, $operator = null, $value = null)
     {
@@ -990,11 +1031,11 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param string           $table
-     * @param callable|string  $key
-     * @param null|string      $operator
-     * @param null|mixed       $value
-     * @return this
+     * @param string|Raw $table
+     * @param string|Raw|\Closure $key
+     * @param string|null $operator
+     * @param mixed $value
+     * @return static
      */
     public function crossJoin($table, $key, $operator = null, $value = null)
     {
@@ -1002,11 +1043,11 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param string           $table
-     * @param callable|string  $key
-     * @param null|string      $operator
-     * @param null|mixed       $value
-     * @return this
+     * @param string|Raw $table
+     * @param string|Raw|\Closure $key
+     * @param string|null $operator
+     * @param mixed $value
+     * @return static
      */
     public function outerJoin($table, $key, $operator = null, $value = null)
     {
@@ -1016,20 +1057,20 @@ class QueryBuilderHandler
     /**
      * Add a raw query
      *
-     * @param $value
-     * @param $bindings
+     * @param string|Raw $value
+     * @param mixed|mixed[] $bindings
      *
-     * @return mixed
+     * @return Raw
      */
-    public function raw($value, $bindings = array())
+    public function raw($value, $bindings = array()): Raw
     {
-        return $this->container->build(Raw::class, array($value, $bindings));
+        return new Raw($value, $bindings);
     }
 
     /**
      * Return wpdb instance
      *
-     * @return wpdb
+     * @return \wpdb
      */
     public function dbInstance(): \wpdb
     {
@@ -1039,9 +1080,9 @@ class QueryBuilderHandler
     /**
      * @param Connection $connection
      *
-     * @return $this
+     * @return static
      */
-    public function setConnection(Connection $connection)
+    public function setConnection(Connection $connection): self
     {
         $this->connection = $connection;
         return $this;
@@ -1056,12 +1097,12 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param        $key
-     * @param        $operator
-     * @param        $value
+     * @param string|Raw|\Closure $key
+     * @param null|string      $operator
+     * @param null|mixed       $value
      * @param string $joiner
-     *
-     * @return $this
+     * 
+     * @return static
      */
     protected function whereHandler($key, $operator = null, $value = null, $joiner = 'AND')
     {
@@ -1073,12 +1114,12 @@ class QueryBuilderHandler
     /**
      * Add table prefix (if given) on given string.
      *
-     * @param string|string[]     $values
+     * @param array<string|int, string|int|float|bool|Raw|\Closure>|string|int|float|bool|Raw|\Closure     $values
      * @param bool $tableFieldMix If we have mixes of field and table names with a "."
      *
-     * @return array|mixed
+     * @return mixed|mixed[]
      */
-    public function addTablePrefix($values, $tableFieldMix = true)
+    public function addTablePrefix($values, bool $tableFieldMix = true)
     {
         if (is_null($this->tablePrefix)) {
             return $values;
@@ -1110,7 +1151,7 @@ class QueryBuilderHandler
                 $target = &$key;
             }
 
-            if (!$tableFieldMix || ($tableFieldMix && strpos($target, '.') !== false)) {
+            if (!$tableFieldMix || (is_string($target) && strpos($target, '.') !== false)) {
                 $target = $this->tablePrefix . $target;
             }
 
@@ -1118,12 +1159,13 @@ class QueryBuilderHandler
         }
 
         // If we had single value then we should return a single value (end value of the array)
-        return $single ? end($return) : $return;
+        return true === $single ? end($return) : $return;
     }
 
     /**
-     * @param $key
-     * @param $value
+     * @param string $key
+     * @param mixed|mixed[]|bool $value
+     * @return void
      */
     protected function addStatement($key, $value)
     {
@@ -1139,24 +1181,24 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $event
-     * @param $table
+     * @param string $event
+     * @param string|Raw $table
      *
      * @return callable|null
      */
-    public function getEvent($event, $table = ':any')
+    public function getEvent(string $event, $table = ':any'): ?callable
     {
         return $this->connection->getEventHandler()->getEvent($event, $table);
     }
 
     /**
-     * @param          $event
-     * @param string $table
-     * @param callable $action
+     * @param string $event
+     * @param string|Raw $table
+     * @param \Closure $action
      *
      * @return void
      */
-    public function registerEvent($event, $table, \Closure $action)
+    public function registerEvent($event, $table, \Closure $action): void
     {
         $table = $table ?: ':any';
 
@@ -1164,37 +1206,37 @@ class QueryBuilderHandler
             $table = $this->addTablePrefix($table, false);
         }
 
-        return $this->connection->getEventHandler()->registerEvent($event, $table, $action);
+        $this->connection->getEventHandler()->registerEvent($event, $table, $action);
     }
 
     /**
-     * @param          $event
-     * @param string $table
+     * @param string $event
+     * @param string|Raw $table
      *
      * @return void
      */
-    public function removeEvent($event, $table = ':any')
+    public function removeEvent(string $event, $table = ':any')
     {
         if ($table != ':any') {
             $table = $this->addTablePrefix($table, false);
         }
 
-        return $this->connection->getEventHandler()->removeEvent($event, $table);
+        $this->connection->getEventHandler()->removeEvent($event, $table);
     }
 
     /**
-     * @param      $event
+     * @param string $event
      * @return mixed
      */
-    public function fireEvents($event)
+    public function fireEvents(string $event)
     {
-        $params = func_get_args();
+        $params = func_get_args(); // @todo Replace this with an easier to read alteratnive
         array_unshift($params, $this);
         return call_user_func_array(array($this->connection->getEventHandler(), 'fireEvents'), $params);
     }
 
     /**
-     * @return array
+     * @return array<string, mixed[]>
      */
     public function getStatements()
     {

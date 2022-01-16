@@ -33,12 +33,12 @@ class WPDBAdapter
     /**
      * Build select query string and bindings
      *
-     * @param $statements
+     * @param array<string|\Closure, mixed|mixed[]> $statements
      *
      * @throws Exception
-     * @return array
+     * @return array{sql:string,bindings:mixed[]}
      */
-    public function select($statements)
+    public function select(array $statements): array
     {
         if (!array_key_exists('tables', $statements)) {
             throw new Exception('No table specified.', 3);
@@ -64,7 +64,11 @@ class WPDBAdapter
         $orderBys = '';
         if (isset($statements['orderBys']) && is_array($statements['orderBys'])) {
             foreach ($statements['orderBys'] as $orderBy) {
-                $orderBys .= $this->wrapSanitizer($orderBy['field']) . ' ' . $orderBy['type'] . ', ';
+                $field = $this->wrapSanitizer($orderBy['field']);
+                if ($field instanceof \Closure) {
+                    continue;
+                }
+                $orderBys .= $field . ' ' . $orderBy['type'] . ', ';
             }
 
             if ($orderBys = trim($orderBys, ', ')) {
@@ -82,6 +86,7 @@ class WPDBAdapter
         // Joins
         $joinString = $this->buildJoin($statements);
 
+        /** @var string[] */
         $sqlArray = array(
             'SELECT' . (isset($statements['distinct']) ? ' DISTINCT' : ''),
             $selects,
@@ -109,12 +114,12 @@ class WPDBAdapter
     /**
      * Build just criteria part of the query
      *
-     * @param      $statements
+     * @param array<string|\Closure, mixed|mixed[]> $statements
      * @param bool $bindValues
      *
-     * @return array
+     * @return array{sql:string[]|string, bindings:array<mixed>}
      */
-    public function criteriaOnly($statements, $bindValues = true)
+    public function criteriaOnly(array $statements, bool $bindValues = true): array
     {
         $sql = $bindings = array();
         if (!isset($statements['criteria'])) {
@@ -129,13 +134,14 @@ class WPDBAdapter
     /**
      * Build a generic insert/ignore/replace query
      *
-     * @param       $statements
-     * @param array $data
+     * @param array<string|\Closure, mixed|mixed[]> $statements
+     * @param array<string, mixed> $data
+     * @param string $type
      *
-     * @return array
+     * @return array{sql:string, bindings:mixed[]}
      * @throws Exception
      */
-    private function doInsert($statements, array $data, $type)
+    private function doInsert(array $statements, array $data, string $type): array
     {
         if (!isset($statements['tables'])) {
             throw new Exception('No table specified', 3);
@@ -160,7 +166,7 @@ class WPDBAdapter
             $this->wrapSanitizer($table),
             '(' . $this->arrayStr($keys, ',') . ')',
             'VALUES',
-            '(' . $this->arrayStr($values, ',', false) . ')',
+            '(' . $this->arrayStr($values, ',') . ')',
         );
 
         if (isset($statements['onduplicate'])) {
@@ -172,18 +178,51 @@ class WPDBAdapter
             $bindings = array_merge($bindings, $updateBindings);
         }
 
-        $sql = $this->concatenateQuery($sqlArray);
+        $sql = $this->concatenateQuery($this->stringifyValues($sqlArray));
 
         return compact('sql', 'bindings');
     }
 
     /**
+     * Attempts to stringify an array of values.
+     *
+     * @param array<string|int, string|\Closure> $values
+     * @return string[]
+     */
+    protected function stringifyValues(array $values): array
+    {
+        $values = array_map([$this, 'stringifyValue'], $values);
+        /** @var string[] */
+        return array_filter($values, 'is_string');
+    }
+
+    /**
+     * Attempts to stringify a single of values.
+     *
+     * @param string|\Closure|Raw $value
+     * @return string|null
+     */
+    protected function stringifyValue($value): ?string
+    {
+        if ($value instanceof \Closure) {
+            $value = $value();
+            return is_string($value) ? $value : null;
+        }
+
+        if ($value instanceof Raw) {
+            return (string) $value;
+        }
+
+        return $value;
+    }
+
+    /**
      * Build Insert query
      *
-     * @param       $statements
-     * @param array $data
+     * @param array<string|\Closure, mixed|mixed[]> $statements
+     * @param array<string, mixed> $data $data
      *
-     * @return array
+     * @return array{sql:string, bindings:mixed[]}
      * @throws Exception
      */
     public function insert($statements, array $data)
@@ -194,10 +233,10 @@ class WPDBAdapter
     /**
      * Build Insert Ignore query
      *
-     * @param       $statements
-     * @param array $data
+     * @param array<string|\Closure, mixed|mixed[]> $statements
+     * @param array<string, mixed> $data $data
      *
-     * @return array
+     * @return array{sql:string, bindings:mixed[]}
      * @throws Exception
      */
     public function insertIgnore($statements, array $data)
@@ -208,10 +247,10 @@ class WPDBAdapter
     /**
      * Build Insert Ignore query
      *
-     * @param       $statements
-     * @param array $data
+     * @param array<string|\Closure, mixed|mixed[]> $statements
+     * @param array<string, mixed> $data $data
      *
-     * @return array
+     * @return array{sql:string, bindings:mixed[]}
      * @throws Exception
      */
     public function replace($statements, array $data)
@@ -222,20 +261,20 @@ class WPDBAdapter
     /**
      * Build fields assignment part of SET ... or ON DUBLICATE KEY UPDATE ... statements
      *
-     * @param array $data
+     * @param array<string, mixed> $data
      *
-     * @return array
+     * @return array{0:string,1:mixed[]}
      */
-    private function getUpdateStatement($data)
+    private function getUpdateStatement(array $data): array
     {
         $bindings = array();
         $statement = '';
 
         foreach ($data as $key => $value) {
             if ($value instanceof Raw) {
-                $statement .= $this->wrapSanitizer($key) . '=' . $value . ',';
+                $statement .= $this->stringifyValue($this->wrapSanitizer($key)) . '=' . $value . ',';
             } else {
-                $statement .= $this->wrapSanitizer($key) . sprintf('=%s,', $this->inferType($value));
+                $statement .= $this->stringifyValue($this->wrapSanitizer($key)) . sprintf('=%s,', $this->inferType($value));
                 $bindings[] = $value;
             }
         }
@@ -247,10 +286,10 @@ class WPDBAdapter
     /**
      * Build update query
      *
-     * @param       $statements
-     * @param array $data
+     * @param array<string|\Closure, mixed|mixed[]> $statements
+     * @param array<string, mixed> $data
      *
-     * @return array
+     * @return array{sql:string, bindings:mixed[]}
      * @throws Exception
      */
     public function update($statements, array $data)
@@ -280,7 +319,7 @@ class WPDBAdapter
             $limit
         );
 
-        $sql = $this->concatenateQuery($sqlArray);
+        $sql = $this->concatenateQuery($this->stringifyValues($sqlArray));
 
         $bindings = array_merge($bindings, $whereBindings);
         return compact('sql', 'bindings');
@@ -289,9 +328,9 @@ class WPDBAdapter
     /**
      * Build delete query
      *
-     * @param $statements
+     * @param array<string|\Closure, mixed|mixed[]> $statements
      *
-     * @return array
+     * @return array{sql:string, bindings:mixed[]}
      * @throws Exception
      */
     public function delete($statements)
@@ -301,6 +340,11 @@ class WPDBAdapter
         }
 
         $table = end($statements['tables']);
+        // Ensure table name is a string
+        $table = $this->stringifyValue($this->wrapSanitizer($table));
+        if (null === $table) {
+            throw new Exception('Table must be a valid string.', 5);
+        }
 
         // Wheres
         list($whereCriteria, $whereBindings) = $this->buildCriteriaWithType($statements, 'wheres', 'WHERE');
@@ -308,7 +352,8 @@ class WPDBAdapter
         // Limit
         $limit = isset($statements['limit']) ? 'LIMIT ' . $statements['limit'] : '';
 
-        $sqlArray = array('DELETE FROM', $this->wrapSanitizer($table), $whereCriteria);
+
+        $sqlArray = array('DELETE FROM', $table, $whereCriteria);
         $sql = $this->concatenateQuery($sqlArray);
         $bindings = $whereBindings;
 
@@ -319,22 +364,17 @@ class WPDBAdapter
      * Array concatenating method, like implode.
      * But it does wrap sanitizer and trims last glue
      *
-     * @param array $pieces
-     * @param       $glue
-     * @param bool  $wrapSanitizer
+     * @param array<string|int, string> $pieces
+     * @param string $glue
      *
      * @return string
      */
-    protected function arrayStr(array $pieces, $glue, $wrapSanitizer = true)
+    protected function arrayStr(array $pieces, string $glue): string
     {
         $str = '';
         foreach ($pieces as $key => $piece) {
-            if ($wrapSanitizer) {
-                $piece = $this->wrapSanitizer($piece);
-            }
-
             if (!is_int($key)) {
-                $piece = ($wrapSanitizer ? $this->wrapSanitizer($key) : $key) . ' AS ' . $piece;
+                $piece = $key . ' AS ' . $piece;
             }
 
             $str .= $piece . $glue;
@@ -346,11 +386,11 @@ class WPDBAdapter
     /**
      * Join different part of queries with a space.
      *
-     * @param array $pieces
+     * @param array<string|int, string> $pieces
      *
      * @return string
      */
-    protected function concatenateQuery(array $pieces)
+    protected function concatenateQuery(array $pieces): string
     {
         $str = '';
         foreach ($pieces as $piece) {
@@ -362,17 +402,17 @@ class WPDBAdapter
     /**
      * Build generic criteria string and bindings from statements, like "a = b and c = ?"
      *
-     * @param      $statements
+     * @param array<string|\Closure, mixed|mixed[]> $statements
      * @param bool $bindValues
      *
-     * @return array
+     * @return array{0:string,1:string[]}
      */
-    protected function buildCriteria($statements, $bindValues = true)
+    protected function buildCriteria(array $statements, bool $bindValues = true): array
     {
         $criteria = '';
         $bindings = array();
         foreach ($statements as $statement) {
-            $key = $this->wrapSanitizer($statement['key']);
+            $key = $statement['key'];
             $value = $statement['value'];
 
             if (is_null($value) && $key instanceof \Closure) {
@@ -382,7 +422,7 @@ class WPDBAdapter
                 // in the closure should reflect here
                 $nestedCriteria = $this->container->build(NestedCriteria::class, array($this->connection));
 
-                $nestedCriteria = & $nestedCriteria;
+                $nestedCriteria = &$nestedCriteria;
                 // Call the closure with our new nestedCriteria object
                 $key($nestedCriteria);
                 // Get the criteria only query from the nestedCriteria object
@@ -425,7 +465,7 @@ class WPDBAdapter
                     // Specially for joins
 
                     // We are not binding values, lets sanitize then
-                    $value = $this->wrapSanitizer($value);
+                    $value = $this->stringifyValue($this->wrapSanitizer($value)) ?? '';
                     $criteria .= $statement['joiner'] . ' ' . $key . ' ' . $statement['operator'] . ' ' . $value . ' ';
                 } elseif ($statement['key'] instanceof Raw) {
                     $criteria .= $statement['joiner'] . ' ' . $key . ' ';
@@ -443,7 +483,7 @@ class WPDBAdapter
         // Clear all white spaces, and, or from beginning and white spaces from ending
         $criteria = preg_replace('/^(\s?AND ?|\s?OR ?)|\s$/i', '', $criteria);
 
-        return array($criteria, $bindings);
+        return array($criteria ?? '', $bindings);
     }
 
     /**
@@ -470,9 +510,9 @@ class WPDBAdapter
     /**
      * Wrap values with adapter's sanitizer like, '`'
      *
-     * @param $value
+     * @param string|Raw|\Closure $value
      *
-     * @return string
+     * @return string|\Closure
      */
     public function wrapSanitizer($value)
     {
@@ -499,14 +539,14 @@ class WPDBAdapter
     /**
      * Build criteria string and binding with various types added, like WHERE and Having
      *
-     * @param      $statements
-     * @param      $key
-     * @param      $type
+     * @param array<string|\Closure, mixed|mixed[]> $statements
+     * @param string $key
+     * @param string $type
      * @param bool $bindValues
      *
-     * @return array
+     * @return array{0:string, 1:string[]}
      */
-    protected function buildCriteriaWithType($statements, $key, $type, $bindValues = true)
+    protected function buildCriteriaWithType(array $statements, string $key, string $type, bool $bindValues = true)
     {
         $criteria = '';
         $bindings = array();
@@ -526,11 +566,11 @@ class WPDBAdapter
     /**
      * Build join string
      *
-     * @param $statements
+     * @param array<string|\Closure, mixed|mixed[]> $statements
      *
-     * @return array
+     * @return string
      */
-    protected function buildJoin($statements)
+    protected function buildJoin(array $statements): string
     {
         $sql = '';
 
@@ -540,9 +580,9 @@ class WPDBAdapter
 
         foreach ($statements['joins'] as $joinArr) {
             if (is_array($joinArr['table'])) {
-                $mainTable = $joinArr['table'][0];
-                $aliasTable = $joinArr['table'][1];
-                $table = $this->wrapSanitizer($mainTable) . ' AS ' . $this->wrapSanitizer($aliasTable);
+                $mainTable = $this->stringifyValue($this->wrapSanitizer($joinArr['table'][0]));
+                $aliasTable = $this->stringifyValue($this->wrapSanitizer($joinArr['table'][1]));
+                $table = $mainTable . ' AS ' . $aliasTable;
             } else {
                 $table = $joinArr['table'] instanceof Raw ?
                     (string) $joinArr['table'] :
@@ -550,6 +590,7 @@ class WPDBAdapter
             }
             $joinBuilder = $joinArr['joinBuilder'];
 
+            /** @var string[] */
             $sqlArr = array(
                 $sql,
                 strtoupper($joinArr['type']),
