@@ -130,7 +130,7 @@ class TestQueryBuilderUsesWPDBPrepare extends TestCase
         $this->assertEquals('string', $prepared['args'][2]);
     }
 
-     /** @testdox It should be possible to create a get call with value (BETWEEN) condition and have this generated and run through WPDB::prepare() */
+    /** @testdox It should be possible to create a get call with value (BETWEEN) condition and have this generated and run through WPDB::prepare() */
     public function testGetWithSingleConditionBetweenValue(): void
     {
         $builder = $this->queryBuilderProvider();
@@ -183,7 +183,7 @@ class TestQueryBuilderUsesWPDBPrepare extends TestCase
             ->table('foo')
             ->insert($data);
 
-         // Query and values passed to prepare();
+        // Query and values passed to prepare();
         $prepared = $this->wpdb->usage_log['prepare'][0];
 
         // Check that the query is passed to prepare.
@@ -207,4 +207,5 @@ class TestQueryBuilderUsesWPDBPrepare extends TestCase
             $this->wpdb->usage_log['prepare'][0]['query']
         );
     }
+
 }

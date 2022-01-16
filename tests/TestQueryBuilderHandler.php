@@ -17,6 +17,7 @@ use Pixie\Connection;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Tests\Logable_WPDB;
 use Pixie\QueryBuilder\Transaction;
+use Pixie\Exception as PixieException;
 use Pixie\QueryBuilder\QueryBuilderHandler;
 use Pixie\QueryBuilder\TransactionHaltException;
 
@@ -216,5 +217,42 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
             false
         );
         $this->assertEquals('prefix_someTable', $prefixedSingle);
+    }
+
+    /** @testdox It should be possible to create a simple joinUsing query for simple FROM tableA JOIN tableB ON tableA.key = tableB.key, using only the table and key. */
+    public function testJoinUsing(): void
+    {
+        $this->queryBuilderProvider()
+            ->table('foo')
+            ->joinUsing('bar', 'id')
+            ->get();
+
+        $this->assertEquals(
+            "SELECT * FROM foo INNER JOIN foo.id ON bar.id = foo.id",
+            $this->wpdb->usage_log['get_results'][0]['query']
+        );
+    }
+
+    /** @testdox When attempting to use joinUsing, a base table must be defined or an exception will be thrown */
+    public function testJoinUsingThrowsIfNoTableSelected(): void
+    {
+        $this->expectExceptionMessage('JoinUsing can only be used with a single table set as the base of the query');
+        $this->expectException(PixieException::class);
+
+        $this->queryBuilderProvider()
+            ->joinUsing('bar', 'id')
+            ->get();
+    }
+
+        /** @testdox When attempting to use joinUsing, only a single base table must be defined or an exception will be thrown */
+    public function testJoinUsingThrowsIfMultipleTableSelected(): void
+    {
+        $this->expectExceptionMessage('JoinUsing can only be used with a single table set as the base of the query');
+        $this->expectException(PixieException::class);
+
+        $this->queryBuilderProvider()
+            ->table('a', 'b')
+            ->joinUsing('bar', 'id')
+            ->get();
     }
 }

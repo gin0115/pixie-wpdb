@@ -7,13 +7,13 @@ use Closure;
 use Throwable;
 use Pixie\Exception;
 use Pixie\Connection;
+use function mb_strlen;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-use function mb_strlen;
 
 class QueryBuilderHandler
 {
@@ -981,7 +981,6 @@ class QueryBuilderHandler
         $table = $this->addTablePrefix($table, false);
         // Get the criteria only query from the joinBuilder object
         $this->statements['joins'][] = compact('type', 'table', 'joinBuilder');
-
         return $this;
     }
 
@@ -1110,6 +1109,28 @@ class QueryBuilderHandler
     public function outerJoin($table, $key, $operator = null, $value = null)
     {
         return $this->join($table, $key, $operator, $value, 'outer');
+    }
+
+    /**
+     * Shortcut to join 2 tables on the same key name with equals
+     *
+     * @param string|Raw $table
+     * @param string|Raw|Closure $key
+     * @param string $operator
+     * @return self
+     * @throws Exception If base table is set as more than 1 or 0
+     */
+    public function joinUsing($table, $key, $operator = '='): self
+    {
+
+        if (!array_key_exists('tables', $this->statements) || count($this->statements['tables']) !== 1) {
+            throw new Exception("JoinUsing can only be used with a single table set as the base of the query", 1);
+        }
+        $baseTable = end($this->statements['tables']);
+
+        $remoteKey = $table = $this->addTablePrefix("{$table}.{$key}", true);
+        $localKey = $table = $this->addTablePrefix("{$baseTable}.{$key}", true);
+        return $this->join($table, $remoteKey, '=', $localKey);
     }
 
     /**
