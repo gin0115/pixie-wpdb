@@ -1218,7 +1218,7 @@ class QueryBuilderHandler
     }
 
     /**
-     * @return array
+     * @return array<string, mixed[]>
      */
     public function getStatements()
     {
