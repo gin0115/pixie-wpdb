@@ -25,7 +25,7 @@ return (new Config('pecee-pixie'))
     ->setRiskyAllowed(true)
     ->setRules([
         // default
-        '@PSR2'                      => true,
+        '@PSR12'                      => true,
         '@Symfony'                   => true,
         // additionally
         'array_syntax'               => ['syntax' => 'short'],
