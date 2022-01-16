@@ -10,7 +10,6 @@ use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
-// use Pixie\QueryBuilder\Adapters\wpdb
 use Pixie\QueryBuilder\WPDBAdapter;
 
 class QueryBuilderHandler
@@ -238,9 +237,10 @@ class QueryBuilderHandler
      *
      * @return Hydrator
      */
-    protected function getHydrator(): Hydrator
+    protected function getHydrator(): Hydrator /** @phpstan-ignore-line */
     {
-        return new Hydrator($this->getFetchMode(), $this->hydratorConstructorArgs ?? []);
+        $hydrator = new Hydrator($this->getFetchMode(), $this->hydratorConstructorArgs ?? []); /** @phpstan-ignore-line */
+        return $hydrator;
     }
 
     /**

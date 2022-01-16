@@ -8,12 +8,15 @@ declare(strict_types=1);
 
 namespace Pixie\Hydration;
 
+/**
+ * @template T
+ */
 class Hydrator
 {
 
     /**
      * The model to hydrate
-     *
+
      * @var class-string<T>
      */
     protected $model;
@@ -21,10 +24,15 @@ class Hydrator
     /**
      * The arguments used to create the new instance.
      *
-     * @var array<string, mixed>
+     * @var array<string|int, mixed>
      */
     protected $constructorArgs;
 
+    /**
+
+     * @param class-string<T> $model
+     * @param array<string|int, mixed> $constructorArgs
+     */
     public function __construct(string $model = \stdClass::class, array $constructorArgs = [])
     {
         $this->model = $model;
@@ -33,9 +41,8 @@ class Hydrator
 
     /**
      * Map many models
-     *
      * @param array<int, object|mixed[]> $sources
-     * @return T[]
+     * @return array<T>
      */
     public function fromMany(array $sources): array
     {
@@ -44,7 +51,6 @@ class Hydrator
 
     /**
      * Map a single model
-     *
      * @param object|mixed[] $source
      * @return T
      */
@@ -64,8 +70,7 @@ class Hydrator
 
     /**
      * Maps the model from an array of data.
-     *
-     * @param array $source
+     * @param array<string, mixed> $source
      * @return T
      */
     protected function fromArray(array $source)
@@ -79,7 +84,6 @@ class Hydrator
 
     /**
      * Maps a model from an Object of data
-     *
      * @param object $source
      * @return T
      */
@@ -91,13 +95,14 @@ class Hydrator
 
     /**
      * Construct an instance of the model
-     *
-     * @return void
+    
+     * @return T
      */
     protected function newInstance()
     {
         $class = $this->model;
         try {
+            /** @var T */
             $instance = empty($this->constructorArgs)
                 ? new $class()
                 : new $class(...$this->constructorArgs);
@@ -110,7 +115,6 @@ class Hydrator
 
     /**
      * Sets a property to the current model
-     *
      * @param T $model
      * @param string $property
      * @param mixed $value
@@ -152,7 +156,9 @@ class Hydrator
      */
     protected function normaliseProperty(string $property): string
     {
-        return \trim(preg_replace('/[^a-z0-9]+/', '_', strtolower($property)));
+        return \trim(
+            preg_replace('/[^a-z0-9]+/', '_', strtolower($property)) ?: ''
+        );
     }
 
     /**
