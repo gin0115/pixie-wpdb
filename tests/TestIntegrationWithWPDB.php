@@ -400,7 +400,6 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         // Remove all with a NUMBER of 2 or more.
         $r = $builder->table('mock_foo')->where('number', '>=', 2)->delete();
-        dump($r,$this->wpdb);
 
         // Check we only have the first value.
         $rows = $builder->table('mock_foo')->get();
