@@ -8,8 +8,7 @@ require __DIR__ . '/vendor/autoload.php';
 $finder = (new Finder())
     ->files()
     ->name('*.php')
-    ->in(__DIR__ . '/src')
-    ->in(__DIR__ . '/tests');
+    ->in(__DIR__ . '/src');
 
 /**
  * Cache file for PHP-CS
