@@ -16,7 +16,7 @@ class Raw
     protected $bindings;
 
     /**
-     * @param string|\Stringable|int|float|bool $value
+     * @param string|Raw $value
      * @param mixed|mixed[] $bindings
      */
     public function __construct($value, $bindings = array())
