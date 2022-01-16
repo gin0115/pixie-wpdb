@@ -1,4 +1,6 @@
-<?php namespace Pixie;
+<?php
+
+namespace Pixie;
 
 use Pixie\QueryBuilder\QueryBuilderHandler;
 
@@ -7,11 +9,9 @@ use Pixie\QueryBuilder\QueryBuilderHandler;
  *
  * Class AliasFacade
  *
- * @package Pixie
  */
 class AliasFacade
 {
-
     /**
      * @var QueryBuilderHandler|null
      */
@@ -30,7 +30,8 @@ class AliasFacade
         }
 
         // Call the non-static method from the class instance
-        $callable = array(static::$queryBuilderInstance, $method);
+        $callable = [static::$queryBuilderInstance, $method];
+
         return is_callable($callable)
             ? call_user_func_array($callable, $args)
             : null;

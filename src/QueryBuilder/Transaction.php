@@ -4,7 +4,6 @@ namespace Pixie\QueryBuilder;
 
 class Transaction extends QueryBuilderHandler
 {
-
     /**
      * Commit the database changes
      *
