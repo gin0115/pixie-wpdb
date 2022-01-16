@@ -3,14 +3,14 @@
 namespace Pixie;
 
 use Exception;
-use Viocon\Container;
 use Pixie\AliasFacade;
 use Pixie\EventHandler;
 use Pixie\QueryBuilder\QueryBuilderHandler;
+use Viocon\Container;
+use wpdb;
 
 class Connection
 {
-
     /**
      * @var Container
      */
@@ -27,7 +27,7 @@ class Connection
     protected $adapterConfig;
 
     /**
-     * @var \wpdb
+     * @var wpdb
      */
     protected $dbInstance;
 
@@ -42,13 +42,13 @@ class Connection
     protected $eventHandler;
 
     /**
-     * @param \wpdb                 $wpdb
+     * @param wpdb                 $wpdb
      * @param array<string, mixed>  $adapterConfig
-     * @param null|string           $alias
-     * @param null|Container        $container
+     * @param string|null           $alias
+     * @param Container|null        $container
      */
     public function __construct(
-        \wpdb $wpdb,
+        wpdb $wpdb,
         array $adapterConfig = [],
         ?string $alias = null,
         ?Container $container = null
@@ -56,7 +56,7 @@ class Connection
         $this->dbInstance = $wpdb;
         $this->setAdapterConfig($adapterConfig);
 
-        $this->container = $container ?? new Container();
+        $this->container    = $container ?? new Container();
         $this->eventHandler = $this->container->build(EventHandler::class);
 
         if ($alias) {
@@ -64,7 +64,7 @@ class Connection
         }
 
         // Preserve the first database connection with a static property
-        if (! static::$storedConnection) {
+        if (!static::$storedConnection) {
             static::$storedConnection = $this;
         }
     }
@@ -77,7 +77,7 @@ class Connection
     public function createAlias(string $alias): void
     {
         class_alias(AliasFacade::class, $alias);
-        $builder = $this->container->build(QueryBuilderHandler::class, array( $this ));
+        $builder = $this->container->build(QueryBuilderHandler::class, [$this]);
         AliasFacade::setQueryBuilderInstance($builder);
     }
 
@@ -86,22 +86,23 @@ class Connection
      */
     public function getQueryBuilder(): QueryBuilderHandler
     {
-        return $this->container->build(QueryBuilderHandler::class, array( $this ));
+        return $this->container->build(QueryBuilderHandler::class, [$this]);
     }
 
     /**
-     * @param \wpdb $wpdb
+     * @param wpdb $wpdb
      *
      * @return $this
      */
-    public function setDbInstance(\wpdb $wpdb)
+    public function setDbInstance(wpdb $wpdb)
     {
         $this->dbInstance = $wpdb;
+
         return $this;
     }
 
     /**
-     * @return \wpdb
+     * @return wpdb
      */
     public function getDbInstance()
     {
@@ -116,6 +117,7 @@ class Connection
     public function setAdapterConfig(array $adapterConfig)
     {
         $this->adapterConfig = $adapterConfig;
+
         return $this;
     }
 
@@ -147,13 +149,15 @@ class Connection
      * Returns the initial instance created.
      *
      * @return Connection
+     *
      * @throws Exception If connection not already established
      */
     public static function getStoredConnection()
     {
         if (null === static::$storedConnection) {
-            throw new Exception("No initial instance of Connection created");
+            throw new Exception('No initial instance of Connection created');
         }
+
         return static::$storedConnection;
     }
 }

@@ -2,9 +2,10 @@
 
 namespace Pixie\QueryBuilder;
 
+use wpdb;
+
 class QueryObject
 {
-
     /**
      * @var string
      */
@@ -13,22 +14,22 @@ class QueryObject
     /**
      * @var mixed[]
      */
-    protected $bindings = array();
+    protected $bindings = [];
 
     /**
-     * @var \wpdb
+     * @var wpdb
      */
     protected $dbInstance;
 
     /**
      * @param string $sql
      * @param mixed[] $bindings
-     * @param \wpdb $dbInstance
+     * @param wpdb $dbInstance
      */
-    public function __construct(string $sql, array $bindings, \wpdb $dbInstance)
+    public function __construct(string $sql, array $bindings, wpdb $dbInstance)
     {
-        $this->sql = (string)$sql;
-        $this->bindings = $bindings;
+        $this->sql        = (string)$sql;
+        $this->bindings   = $bindings;
         $this->dbInstance = $dbInstance;
     }
 
@@ -71,6 +72,7 @@ class QueryObject
     {
         // Only call this when we have valid params (avoids wpdb::prepare() incorrectly called error)
         $value = empty($params) ? $query : $this->dbInstance->prepare($query, $params);
+
         return is_string($value) ? $value : '';
     }
 }

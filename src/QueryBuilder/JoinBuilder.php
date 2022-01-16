@@ -1,4 +1,6 @@
-<?php namespace Pixie\QueryBuilder;
+<?php
+
+namespace Pixie\QueryBuilder;
 
 class JoinBuilder extends QueryBuilderHandler
 {
@@ -35,9 +37,10 @@ class JoinBuilder extends QueryBuilderHandler
      */
     protected function joinHandler($key, ?string $operator = null, $value = null, string $joiner = 'AND'): self
     {
-        $key = $this->addTablePrefix($key);
-        $value = $this->addTablePrefix($value);
+        $key                            = $this->addTablePrefix($key);
+        $value                          = $this->addTablePrefix($value);
         $this->statements['criteria'][] = compact('key', 'operator', 'value', 'joiner');
+
         return $this;
     }
 }

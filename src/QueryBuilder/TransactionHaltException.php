@@ -2,6 +2,8 @@
 
 namespace Pixie\QueryBuilder;
 
-class TransactionHaltException extends \Exception
+use Exception;
+
+class TransactionHaltException extends Exception
 {
 }
