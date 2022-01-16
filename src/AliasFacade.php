@@ -13,13 +13,13 @@ class AliasFacade
 {
 
     /**
-     * @var QueryBuilderHandler
+     * @var QueryBuilderHandler|null
      */
     protected static $queryBuilderInstance;
 
     /**
-     * @param $method
-     * @param $args
+     * @param string $method
+     * @param mixed[] $args
      *
      * @return mixed
      */
@@ -30,13 +30,16 @@ class AliasFacade
         }
 
         // Call the non-static method from the class instance
-        return call_user_func_array(array(static::$queryBuilderInstance, $method), $args);
+        $callable = array(static::$queryBuilderInstance, $method);
+        return is_callable($callable)
+            ? call_user_func_array($callable, $args)
+            : null;
     }
 
     /**
      * @param QueryBuilderHandler $queryBuilderInstance
      */
-    public static function setQueryBuilderInstance($queryBuilderInstance)
+    public static function setQueryBuilderInstance($queryBuilderInstance): void
     {
         static::$queryBuilderInstance = $queryBuilderInstance;
     }

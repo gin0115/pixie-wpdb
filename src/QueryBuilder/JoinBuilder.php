@@ -3,38 +3,37 @@
 class JoinBuilder extends QueryBuilderHandler
 {
     /**
-     * @param $key
-     * @param $operator
-     * @param $value
+     * @param string|Raw $key
+     * @param string|null $operator
+     * @param mixed $value
      *
-     * @return $this
+     * @return static
      */
-    public function on($key, $operator, $value)
+    public function on($key, ?string $operator, $value): self
     {
         return $this->joinHandler($key, $operator, $value, 'AND');
     }
 
     /**
-     * @param $key
-     * @param $operator
-     * @param $value
+     * @param string|Raw $key
+     * @param string|null $operator
+     * @param mixed $value
      *
-     * @return $this
+     * @return static
      */
-    public function orOn($key, $operator, $value)
+    public function orOn($key, ?string $operator, $value): self
     {
         return $this->joinHandler($key, $operator, $value, 'OR');
     }
 
     /**
-     * @param        $key
-     * @param null   $operator
-     * @param null   $value
-     * @param string $joiner
+     * @param string|Raw $key
+     * @param string|null $operator
+     * @param mixed $value
      *
-     * @return $this
+     * @return static
      */
-    protected function joinHandler($key, $operator = null, $value = null, $joiner = 'AND')
+    protected function joinHandler($key, ?string $operator = null, $value = null, string $joiner = 'AND'): self
     {
         $key = $this->addTablePrefix($key);
         $value = $this->addTablePrefix($value);

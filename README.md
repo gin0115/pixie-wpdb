@@ -174,9 +174,9 @@ var_dump($query->get());
 
 ## Query
 You **must** use `table()` method before every query, except raw `query()`.
-To select from multiple tables just pass an array.
+To select from multiple tables you can use the variadic nature of the method
 ```PHP
-QB::table(array('mytable1', 'mytable2'));
+QB::table('mytable1', 'mytable2');
 ```
 
 

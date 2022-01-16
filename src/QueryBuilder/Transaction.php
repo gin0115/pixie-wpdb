@@ -10,7 +10,7 @@ class Transaction extends QueryBuilderHandler
      *
      * @throws TransactionHaltException
      */
-    public function commit()
+    public function commit(): void
     {
         $this->dbInstance->query('COMMIT');
         throw new TransactionHaltException();
@@ -21,7 +21,7 @@ class Transaction extends QueryBuilderHandler
      *
      * @throws TransactionHaltException
      */
-    public function rollback()
+    public function rollback(): void
     {
         $this->dbInstance->query('ROLLBACK');
         throw new TransactionHaltException();
