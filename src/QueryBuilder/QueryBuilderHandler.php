@@ -27,7 +27,7 @@ class QueryBuilderHandler
     protected $connection;
 
     /**
-     * @var array<string, mixed[]>
+     * @var array<string, mixed[]|mixed>
      */
     protected $statements = array();
 
@@ -69,6 +69,7 @@ class QueryBuilderHandler
     /**
      * @param null|\Pixie\Connection $connection
      * @param string $fetchMode
+     * @param mixed[] $hydratorConstructorArgs
      * @throws Exception If no connection passed and not previously established.
      */
     final public function __construct(
@@ -177,13 +178,17 @@ class QueryBuilderHandler
         $start = microtime(true);
         $sqlStatement = empty($bindings) ? $sql : $this->dbInstance->prepare($sql, $bindings);
 
+        if (!is_string($sqlStatement)) {
+            throw new Exception("Could not interpolate query", 1);
+        }
+
         return array($sqlStatement, microtime(true) - $start);
     }
 
     /**
      * Get all rows
      *
-     * @return object|object[]
+     * @return array<mixed,mixed>|null
      * @throws Exception
      */
     public function get()
@@ -194,24 +199,33 @@ class QueryBuilderHandler
         };
         $executionTime = 0;
         if (is_null($this->sqlStatement)) {
-            $queryObject = $this->getQuery('select');
 
-            list($this->sqlStatement, $executionTime) = $this->statement(
+            $queryObject = $this->getQuery('select');
+            $statement = $this->statement(
                 $queryObject->getSql(),
                 $queryObject->getBindings()
             );
+
+            $this->sqlStatement = $statement[0];
+            $executionTime = $statement[1];
         }
 
         $start = microtime(true);
         $result = $this->dbInstance()->get_results(
-            $this->sqlStatement,
+            is_array($this->sqlStatement) ? (end($this->sqlStatement) ?: '') : $this->sqlStatement,
+            // If we are using the hydrator, return as OBJECT and let the hydrator map the correct model.
             $this->useHydrator() ? OBJECT : $this->getFetchMode()
         );
         $executionTime += microtime(true) - $start;
         $this->sqlStatement = null;
 
+        // Ensure we have an array of results.
+        if (!is_array($result) && null !== $result) {
+            $result = [$result];
+        }
+
         // Maybe hydrate the results.
-        if (is_array($result) && $this->useHydrator()) {
+        if (null !== $result && $this->useHydrator()) {
             $result = $this->getHydrator()->fromMany($result);
         }
 
@@ -261,7 +275,7 @@ class QueryBuilderHandler
      * @param string $fieldName
      * @param mixed $value
      *
-     * @return null|\stdClass\array<mixed,mixed>|object Can return any object using hydrator
+     * @return null|array<mixed,mixed> Can return any object using hydrator
      */
     public function findAll($fieldName, $value)
     {
@@ -377,12 +391,12 @@ class QueryBuilderHandler
 
     /**
      * @param string $type
-     * @param array $dataToBePassed
+     * @param bool|array<mixed, mixed> $dataToBePassed
      *
      * @return mixed
      * @throws Exception
      */
-    public function getQuery($type = 'select', $dataToBePassed = array())
+    public function getQuery(string $type = 'select', $dataToBePassed = array())
     {
         $allowedTypes = array('select', 'insert', 'insertignore', 'replace', 'delete', 'update', 'criteriaonly');
         if (!in_array(strtolower($type), $allowedTypes)) {
@@ -535,9 +549,9 @@ class QueryBuilderHandler
     }
 
     /**
-     *
+     * @return int Number of rows effected.
      */
-    public function delete()
+    public function delete(): int
     {
         $eventResult = $this->fireEvents('before-delete');
         if (!is_null($eventResult)) {
@@ -547,10 +561,10 @@ class QueryBuilderHandler
         $queryObject = $this->getQuery('delete');
 
         list($preparedQuery, $executionTime) = $this->statement($queryObject->getSql(), $queryObject->getBindings());
-        $response = $this->dbInstance()->get_results($preparedQuery);
+        $this->dbInstance()->get_results($preparedQuery);
         $this->fireEvents('after-delete', $queryObject, $executionTime);
 
-        return $response;
+        return $this->dbInstance()->rows_affected;
     }
 
     /**
@@ -883,6 +897,9 @@ class QueryBuilderHandler
         $prefix = \strlen($prefix) === 0 ? '' : " {$prefix}";
 
         $key = $this->adapterInstance->wrapSanitizer($this->addTablePrefix($key));
+        if ($key instanceof \Closure) {
+            throw new Exception("Key used for whereNull condition must be a string or raw exrpession.", 1);
+        }
         return $this->{$operator . 'Where'}($this->raw("{$key} IS{$prefix} NULL"));
     }
 
@@ -962,7 +979,7 @@ class QueryBuilderHandler
         try {
             ob_start();
             $callback($transaction);
-            $output = ob_get_clean();
+            $output = ob_get_clean() ?: '';
         } catch (\Throwable $th) {
             ob_end_clean();
             throw $th;
@@ -1134,7 +1151,7 @@ class QueryBuilderHandler
                 $target = &$key;
             }
 
-            if (!$tableFieldMix || strpos($target, '.') !== false) {
+            if (!$tableFieldMix || (is_string($target) && strpos($target, '.') !== false)) {
                 $target = $this->tablePrefix . $target;
             }
 
@@ -1146,8 +1163,9 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param string|Raw|\Closure $key
-     * @param mixed|mixed[] $value
+     * @param string $key
+     * @param mixed|mixed[]|bool $value
+     * @return void
      */
     protected function addStatement($key, $value)
     {
