@@ -64,7 +64,11 @@ class WPDBAdapter
         $orderBys = '';
         if (isset($statements['orderBys']) && is_array($statements['orderBys'])) {
             foreach ($statements['orderBys'] as $orderBy) {
-                $orderBys .= $this->wrapSanitizer($orderBy['field']) . ' ' . $orderBy['type'] . ', ';
+                $field = $this->wrapSanitizer($orderBy['field']);
+                if ($field instanceof \Closure) {
+                    continue;
+                }
+                $orderBys .= $field . ' ' . $orderBy['type'] . ', ';
             }
 
             if ($orderBys = trim($orderBys, ', ')) {
@@ -174,9 +178,42 @@ class WPDBAdapter
             $bindings = array_merge($bindings, $updateBindings);
         }
 
-        $sql = $this->concatenateQuery($sqlArray);
+        $sql = $this->concatenateQuery($this->stringifyValues($sqlArray));
 
         return compact('sql', 'bindings');
+    }
+
+    /**
+     * Attempts to stringify an array of values.
+     *
+     * @param array<string|int, string|\Closure> $values
+     * @return string[]
+     */
+    protected function stringifyValues(array $values): array
+    {
+        $values = array_map([$this, 'stringifyValue'], $values);
+        /** @var string[] */
+        return array_filter($values, 'is_string');
+    }
+
+    /**
+     * Attempts to stringify a single of values.
+     *
+     * @param string|\Closure|Raw $value
+     * @return string|null
+     */
+    protected function stringifyValue($value): ?string
+    {
+        if ($value instanceof \Closure) {
+            $value = $value();
+            return is_string($value) ? $value : null;
+        }
+
+        if ($value instanceof Raw) {
+            return (string) $value;
+        }
+
+        return $value;
     }
 
     /**
@@ -235,9 +272,9 @@ class WPDBAdapter
 
         foreach ($data as $key => $value) {
             if ($value instanceof Raw) {
-                $statement .= $this->wrapSanitizer($key) . '=' . $value . ',';
+                $statement .= $this->stringifyValue($this->wrapSanitizer($key)) . '=' . $value . ',';
             } else {
-                $statement .= $this->wrapSanitizer($key) . sprintf('=%s,', $this->inferType($value));
+                $statement .= $this->stringifyValue($this->wrapSanitizer($key)) . sprintf('=%s,', $this->inferType($value));
                 $bindings[] = $value;
             }
         }
@@ -282,7 +319,7 @@ class WPDBAdapter
             $limit
         );
 
-        $sql = $this->concatenateQuery($sqlArray);
+        $sql = $this->concatenateQuery($this->stringifyValues($sqlArray));
 
         $bindings = array_merge($bindings, $whereBindings);
         return compact('sql', 'bindings');
@@ -303,6 +340,11 @@ class WPDBAdapter
         }
 
         $table = end($statements['tables']);
+        // Ensure table name is a string
+        $table = $this->stringifyValue($this->wrapSanitizer($table));
+        if (null === $table) {
+            throw new Exception('Table must be a valid string.', 5);
+        }
 
         // Wheres
         list($whereCriteria, $whereBindings) = $this->buildCriteriaWithType($statements, 'wheres', 'WHERE');
@@ -310,7 +352,8 @@ class WPDBAdapter
         // Limit
         $limit = isset($statements['limit']) ? 'LIMIT ' . $statements['limit'] : '';
 
-        $sqlArray = array('DELETE FROM', $this->wrapSanitizer($table), $whereCriteria);
+
+        $sqlArray = array('DELETE FROM', $table, $whereCriteria);
         $sql = $this->concatenateQuery($sqlArray);
         $bindings = $whereBindings;
 
@@ -422,7 +465,7 @@ class WPDBAdapter
                     // Specially for joins
 
                     // We are not binding values, lets sanitize then
-                    $value = $this->wrapSanitizer($value);
+                    $value = $this->stringifyValue($this->wrapSanitizer($value)) ?? '';
                     $criteria .= $statement['joiner'] . ' ' . $key . ' ' . $statement['operator'] . ' ' . $value . ' ';
                 } elseif ($statement['key'] instanceof Raw) {
                     $criteria .= $statement['joiner'] . ' ' . $key . ' ';
@@ -537,9 +580,9 @@ class WPDBAdapter
 
         foreach ($statements['joins'] as $joinArr) {
             if (is_array($joinArr['table'])) {
-                $mainTable = $joinArr['table'][0];
-                $aliasTable = $joinArr['table'][1];
-                $table = $this->wrapSanitizer($mainTable) . ' AS ' . $this->wrapSanitizer($aliasTable);
+                $mainTable = $this->stringifyValue($this->wrapSanitizer($joinArr['table'][0]));
+                $aliasTable = $this->stringifyValue($this->wrapSanitizer($joinArr['table'][1]));
+                $table = $mainTable . ' AS ' . $aliasTable;
             } else {
                 $table = $joinArr['table'] instanceof Raw ?
                     (string) $joinArr['table'] :
@@ -547,6 +590,7 @@ class WPDBAdapter
             }
             $joinBuilder = $joinArr['joinBuilder'];
 
+            /** @var string[] */
             $sqlArr = array(
                 $sql,
                 strtoupper($joinArr['type']),
