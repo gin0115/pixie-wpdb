@@ -1,6 +1,7 @@
-<?php namespace Pixie;
+<?php
 
-class Exception extends \Exception {
+namespace Pixie;
 
-
+class Exception extends \Exception
+{
 }

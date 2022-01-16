@@ -17,6 +17,7 @@ use Pixie\Connection;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Tests\Logable_WPDB;
 use Pixie\QueryBuilder\Transaction;
+use Pixie\Exception as PixieException;
 use Pixie\QueryBuilder\QueryBuilderHandler;
 use Pixie\QueryBuilder\TransactionHaltException;
 
@@ -218,84 +219,40 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
         $this->assertEquals('prefix_someTable', $prefixedSingle);
     }
 
-    /** @testdox It should be possible to create a nested query using subQueries. (Example from Readme) */
-    public function testSubQueryForTable(): void
+    /** @testdox It should be possible to create a simple joinUsing query for simple FROM tableA JOIN tableB ON tableA.key = tableB.key, using only the table and key. */
+    public function testJoinUsing(): void
     {
-        $builder = $this->queryBuilderProvider();
-
-        $subQuery = $builder->table('person_details')
-            ->select('details')
-            ->where('person_id', '=', 3);
-
-
-        $query = $builder->table('my_table')
-            ->select('my_table.*')
-            ->select($builder->subQuery($subQuery, 'table_alias1'));
-
-        $builder->table($builder->subQuery($query, 'table_alias2'))
-            ->select('*')
+        $this->queryBuilderProvider()
+            ->table('foo')
+            ->joinUsing('bar', 'id')
             ->get();
 
         $this->assertEquals(
-            'SELECT * FROM (SELECT my_table.*, (SELECT details FROM person_details WHERE person_id = 3) as table_alias1 FROM my_table) as table_alias2',
+            "SELECT * FROM foo INNER JOIN foo.id ON bar.id = foo.id",
             $this->wpdb->usage_log['get_results'][0]['query']
         );
     }
 
-    /**
-     * @see https://www.mysqltutorial.org/mysql-subquery/
-     * @testdox ...find customers whose payments are greater than the average payment using a subquery
-     */
-    public function testSubQueryExample()
+    /** @testdox When attempting to use joinUsing, a base table must be defined or an exception will be thrown */
+    public function testJoinUsingThrowsIfNoTableSelected(): void
     {
-        $builder = $this->queryBuilderProvider();
+        $this->expectExceptionMessage('JoinUsing can only be used with a single table set as the base of the query');
+        $this->expectException(PixieException::class);
 
-        $avgSubQuery = $builder->table('payments')->select("AVG(amount)");
-
-        $builder->select(['customerNumber', 'checkNumber', 'amount'])
-            ->from('payments')
-            ->where('amount', '>', $builder->subQuery($avgSubQuery))
+        $this->queryBuilderProvider()
+            ->joinUsing('bar', 'id')
             ->get();
-
-        $this->assertEquals(
-            'SELECT customerNumber, checkNumber, amount FROM payments WHERE amount > (SELECT AVG(amount) FROM payments)',
-            $this->wpdb->usage_log['get_results'][0]['query']
-        );
     }
 
-    /**
-     * @see https://www.mysqltutorial.org/mysql-subquery/
-     * @testdox ...you can use a subquery with NOT IN operator to find the customers who have not placed any orders
-     */
-    public function testSubQueryInOperatorExample()
+        /** @testdox When attempting to use joinUsing, only a single base table must be defined or an exception will be thrown */
+    public function testJoinUsingThrowsIfMultipleTableSelected(): void
     {
-        $builder = $this->queryBuilderProvider();
+        $this->expectExceptionMessage('JoinUsing can only be used with a single table set as the base of the query');
+        $this->expectException(PixieException::class);
 
-        $avgSubQuery = $builder->table('orders')->selectDistinct("customerNumber");
-
-        $builder->table('customers')
-            ->select('customerName')
-            ->whereNotIn('customerNumber', $builder->subQuery($avgSubQuery))
+        $this->queryBuilderProvider()
+            ->table('a', 'b')
+            ->joinUsing('bar', 'id')
             ->get();
-
-        $this->assertEquals(
-            'SELECT customerName FROM customers WHERE customerNumber NOT IN (SELECT DISTINCT customerNumber FROM orders)',
-            $this->wpdb->usage_log['get_results'][0]['query']
-        );
-    }
-
-    /** @testdox It should be possible to use partial expressions as strings and not have quotes added automatically by WPDB::prepare() */
-    public function testUseRawValueForUnescapedMysqlConstants(): void
-    {
-        $this->queryBuilderProvider()->table('foo')->update(['bar' => new Raw('TIMESTAMP')]);
-        $this->assertEquals("UPDATE foo SET bar=TIMESTAMP", $this->wpdb->usage_log['get_results'][0]['query']);
-
-        $this->queryBuilderProvider()->table('orders')
-            ->select(['Order_ID', 'Product_Name', new Raw("DATE_FORMAT(Order_Date,'%d--%m--%y') as new_date_formate") ])
-            ->get();
-        $this->assertEquals(
-            "SELECT Order_ID, Product_Name, DATE_FORMAT(Order_Date,'%d--%m--%y') as new_date_formate FROM orders",
-            $this->wpdb->usage_log['get_results'][1]['query']
-        );
     }
 }

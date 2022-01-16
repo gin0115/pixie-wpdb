@@ -4,7 +4,6 @@ namespace Pixie\QueryBuilder;
 
 class Raw
 {
-
     /**
      * @var string
      */
@@ -19,9 +18,9 @@ class Raw
      * @param string|Raw $value
      * @param mixed|mixed[] $bindings
      */
-    public function __construct($value, $bindings = array())
+    public function __construct($value, $bindings = [])
     {
-        $this->value = (string)$value;
+        $this->value    = (string)$value;
         $this->bindings = (array)$bindings;
     }
 

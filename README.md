@@ -200,7 +200,7 @@ $query = QB::table('my_table')->select('*');
 
 #### Multiple Selects
 ```PHP
-->select(array('mytable.myfield1', 'mytable.myfield2', 'another_table.myfield3'));
+->select('mytable.myfield1', 'mytable.myfield2', 'another_table.myfield3');
 ```
 
 Using select method multiple times `select('a')->select('b')` will also select `a` and `b`. Can be useful if you want to do conditional selects (within a PHP `if`).
@@ -338,6 +338,18 @@ Available methods,
  - outerJoin()
  - crossJoin()
 
+### Join Using
+
+It is possible to create a simple join statment between 2 tables, where they are matched on the same key names.
+
+```php
+->table('foo')->join('bar', 'bar.id', '=', 'foo.id');
+
+// Would become
+->table('foo')->joinUsing('bar', 'id');
+```
+> Please note this only works with a single base table defined.
+
 #### Multiple Join Criteria
 If you need more than one criterion to join a table then pass a closure as second parameter.
 
@@ -351,8 +363,6 @@ If you need more than one criterion to join a table then pass a closure as secon
 ```
 
 > Closures can be used as for the $key
-
-// GLYNN
 
 ### Raw Query
 You can always use raw queries if you need,
