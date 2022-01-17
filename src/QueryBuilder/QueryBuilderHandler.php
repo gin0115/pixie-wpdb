@@ -1116,11 +1116,11 @@ class QueryBuilderHandler
      *
      * @param string $table
      * @param string $key
-     * @param string $operator
+     * @param string $type
      * @return self
      * @throws Exception If base table is set as more than 1 or 0
      */
-    public function joinUsing(string $table, string $key, string $operator = '='): self
+    public function joinUsing(string $table, string $key, string $type = 'INNER'): self
     {
         if (!array_key_exists('tables', $this->statements) || count($this->statements['tables']) !== 1) {
             throw new Exception("JoinUsing can only be used with a single table set as the base of the query", 1);
@@ -1129,7 +1129,7 @@ class QueryBuilderHandler
 
         $remoteKey = $table = $this->addTablePrefix("{$table}.{$key}", true);
         $localKey = $table = $this->addTablePrefix("{$baseTable}.{$key}", true);
-        return $this->join($table, $remoteKey, $operator, $localKey);
+        return $this->join($table, $remoteKey, '=', $localKey, $type);
     }
 
     /**
