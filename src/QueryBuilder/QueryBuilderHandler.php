@@ -7,13 +7,13 @@ use Closure;
 use Throwable;
 use Pixie\Exception;
 use Pixie\Connection;
+use function mb_strlen;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-use function mb_strlen;
 
 class QueryBuilderHandler
 {
@@ -183,6 +183,7 @@ class QueryBuilderHandler
      */
     public function statement(string $sql, $bindings = []): array
     {
+        dump($sql);
         $start        = microtime(true);
         $sqlStatement = empty($bindings) ? $sql : $this->dbInstance->prepare($sql, $bindings);
 

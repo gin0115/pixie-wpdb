@@ -4,11 +4,11 @@ namespace Pixie\QueryBuilder;
 
 use Closure;
 use Pixie\Exception;
+use function is_bool;
 use Pixie\Connection;
+use function is_float;
 use Pixie\QueryBuilder\Raw;
 use Pixie\QueryBuilder\NestedCriteria;
-use function is_bool;
-use function is_float;
 
 class WPDBAdapter
 {
