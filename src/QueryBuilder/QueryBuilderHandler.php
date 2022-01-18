@@ -7,7 +7,9 @@ use Closure;
 use Throwable;
 use Pixie\Exception;
 use Pixie\Connection;
+
 use function mb_strlen;
+
 use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
@@ -183,7 +185,6 @@ class QueryBuilderHandler
      */
     public function statement(string $sql, $bindings = []): array
     {
-        dump($sql);
         $start        = microtime(true);
         $sqlStatement = empty($bindings) ? $sql : $this->dbInstance->prepare($sql, $bindings);
 
@@ -547,7 +548,6 @@ class QueryBuilderHandler
         if (!is_null($eventResult)) {
             return $eventResult;
         }
-
         $queryObject                         = $this->getQuery('update', $data);
         list($preparedQuery, $executionTime) = $this->statement($queryObject->getSql(), $queryObject->getBindings());
 
@@ -1188,7 +1188,6 @@ class QueryBuilderHandler
     {
         $key                          = $this->addTablePrefix($key);
         $this->statements['wheres'][] = compact('key', 'operator', 'value', 'joiner');
-
         return $this;
     }
 

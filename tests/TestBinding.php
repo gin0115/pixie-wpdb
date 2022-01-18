@@ -14,10 +14,36 @@ namespace Pixie\Tests;
 use Pixie\Binding;
 use Pixie\Exception;
 use WP_UnitTestCase;
+use Pixie\Connection;
 use Pixie\QueryBuilder\Raw;
+use Pixie\QueryBuilder\QueryBuilderHandler;
 
 class TestBinding extends WP_UnitTestCase
 {
+
+    /** Mocked WPDB instance.
+     * @var Logable_WPDB
+     */
+    private $wpdb;
+
+    public function setUp(): void
+    {
+        $this->wpdb = new Logable_WPDB();
+        parent::setUp();
+    }
+
+    /**
+     * Generates a query builder helper.
+     *
+     * @param string|null $prefix
+     * @return \Pixie\QueryBuilder\QueryBuilderHandler
+     */
+    public function queryBuilderProvider(?string $prefix = null, ?string $alias = null): QueryBuilderHandler
+    {
+        $config = $prefix ? ['prefix' => $prefix] : [];
+        $connection = new Connection($this->wpdb, $config, $alias);
+        return new QueryBuilderHandler($connection);
+    }
 
     /** @testdox It should be possible to create a bindings using the Value and its Type. */
     public function testCanCreateValidBinding()
@@ -126,5 +152,69 @@ class TestBinding extends WP_UnitTestCase
         $binding = Binding::asRAW('Raw');
         $this->assertEquals('Raw', $binding->getValue());
         $this->assertEquals(Binding::RAW, $binding->getType());
+    }
+
+        /** USING BINDING OBJECT */
+
+    /** @testdox It should be possible to define both the value and its expected type, when creating a query using a Binding object. */
+    public function testUsingBindingOnWhere(): void
+    {
+        $this->queryBuilderProvider()
+            ->table('foo')
+            ->where('raw', '=', Binding::asRaw("'value'"))
+            ->where('string', '=', Binding::asString('value'))
+            ->where('int', '=', Binding::asInt(7))
+            ->where('bool', '=', Binding::asBool(7 === 8))
+            ->where('float', '=', Binding::asFloat(3.14))
+            ->where('json', '>', '["something"]')
+            ->get();
+
+            $queryWithPlaceholders = $this->wpdb->usage_log['prepare'][0]['query'];
+
+            $this->assertStringContainsString("raw = 'value'", $queryWithPlaceholders);
+            $this->assertStringContainsString("string = %s", $queryWithPlaceholders);
+            $this->assertStringContainsString("int = %d", $queryWithPlaceholders);
+            $this->assertStringContainsString("bool = %d", $queryWithPlaceholders);
+            $this->assertStringContainsString("float = %f", $queryWithPlaceholders);
+            $this->assertStringContainsString("json > %s", $queryWithPlaceholders);
+    }
+
+    /** @testdox It should be possible to create an update query with the use of binding objects for the value to define the format, regardless of value type. */
+    public function testUsingBindingOnUpdate(): void
+    {
+        $this->queryBuilderProvider()
+            ->table('foo')
+            ->update([
+                'string' => Binding::asString('some string value'),
+                'int' => Binding::asInt('7'),
+                'float' => Binding::asFloat((1 / 3)),
+                'bool' => Binding::asBool('1'),
+                'raw' => Binding::asRaw("'WILD STRING'"),
+            ]);
+
+            $queryWithPlaceholders = $this->wpdb->usage_log['prepare'][0]['query'];
+            $this->assertCount(4, $this->wpdb->usage_log['prepare'][0]['args']);
+            $this->assertStringContainsString("raw='WILD STRING'", $queryWithPlaceholders);
+            $this->assertStringContainsString("string=%s", $queryWithPlaceholders);
+            $this->assertStringContainsString("int=%d", $queryWithPlaceholders);
+            $this->assertStringContainsString("float=%f", $queryWithPlaceholders);
+            $this->assertStringContainsString("bool=%d", $queryWithPlaceholders);
+    }
+
+    /** @testdox It should be possible to create an insert query with the use of binding objects for the value to define the format, regardless of value type. */
+    public function testInertBindingOnUpdate(): void
+    {
+        $this->queryBuilderProvider()
+            ->table('foo')
+            ->insert([
+                'string' => Binding::asString('some string value'),
+                'int' => Binding::asInt('7'),
+                'float' => Binding::asFloat((1 / 3)),
+                'bool' => Binding::asBool('1'),
+                'raw' => Binding::asRaw("'WILD STRING'"),
+            ]);
+
+            $queryWithPlaceholders = $this->wpdb->usage_log['prepare'][0]['query'];
+            $this->assertEquals("INSERT INTO foo (string,int,float,bool,raw) VALUES (%s,%d,%f,%d,'WILD STRING')", $queryWithPlaceholders);
     }
 }

@@ -806,14 +806,5 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         );
     }
 
-    /** USING BINDING OBJECT */
 
-    public function testUsingBindingOnWhere(): void
-    {
-        $builderWhere = $this->queryBuilderProvider()
-            ->table('foo')
-            ->where('key', '=', Binding::asString('value'))
-            ->where('key2', '=', 'value2')->get();
-        // $this->assertEquals("SELECT * FROM foo WHERE key = 'value' AND key2 = 'value2'", $builderWhere->getQuery()->getRawSql());
-    }
 }

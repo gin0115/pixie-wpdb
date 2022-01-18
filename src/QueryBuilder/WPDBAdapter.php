@@ -3,10 +3,15 @@
 namespace Pixie\QueryBuilder;
 
 use Closure;
+use Pixie\Binding;
 use Pixie\Exception;
+
 use function is_bool;
+
 use Pixie\Connection;
+
 use function is_float;
+
 use Pixie\QueryBuilder\Raw;
 use Pixie\QueryBuilder\NestedCriteria;
 
@@ -91,17 +96,17 @@ class WPDBAdapter
 
         /** @var string[] */
         $sqlArray = [
-            'SELECT' . (isset($statements['distinct']) ? ' DISTINCT' : ''),
-            $selects,
-            'FROM',
-            $tables,
-            $joinString,
-            $whereCriteria,
-            $groupBys,
-            $havingCriteria,
-            $orderBys,
-            $limit,
-            $offset,
+        'SELECT' . (isset($statements['distinct']) ? ' DISTINCT' : ''),
+        $selects,
+        'FROM',
+        $tables,
+        $joinString,
+        $whereCriteria,
+        $groupBys,
+        $havingCriteria,
+        $orderBys,
+        $limit,
+        $offset,
         ];
 
         $sql = $this->concatenateQuery($sqlArray);
@@ -157,8 +162,19 @@ class WPDBAdapter
 
         foreach ($data as $key => $value) {
             $keys[] = $key;
+
+            // Handle value as bindings
+            $isBindings = $value instanceof Binding;
+                // If this is a raw binding, extract the Raw and replace value.
+            if ($isBindings && $value->isRaw()) {
+                $value = $value->getValue();
+            }
+
             if ($value instanceof Raw) {
                 $values[] = (string) $value;
+            } elseif ($isBindings) {
+                $values[]   =  $value->getType();
+                $bindings[] = $value->getValue();
             } else {
                 $values[]   =  $this->inferType($value);
                 $bindings[] = $value;
@@ -166,11 +182,11 @@ class WPDBAdapter
         }
 
         $sqlArray = [
-            $type . ' INTO',
-            $this->wrapSanitizer($table),
-            '(' . $this->arrayStr($keys, ',') . ')',
-            'VALUES',
-            '(' . $this->arrayStr($values, ',') . ')',
+        $type . ' INTO',
+        $this->wrapSanitizer($table),
+        '(' . $this->arrayStr($keys, ',') . ')',
+        'VALUES',
+        '(' . $this->arrayStr($values, ',') . ')',
         ];
 
         if (isset($statements['onduplicate'])) {
@@ -279,8 +295,17 @@ class WPDBAdapter
         $statement = '';
 
         foreach ($data as $key => $value) {
+            $isBindings = $value instanceof Binding;
+            // If this is a raw binding, extract the Raw and replace value.
+            if ($isBindings && $value->isRaw()) {
+                $value = $value->getValue();
+            }
+
             if ($value instanceof Raw) {
                 $statement .= $this->stringifyValue($this->wrapSanitizer($key)) . '=' . $value . ',';
+            } elseif ($isBindings) {
+                $statement .= $this->stringifyValue($this->wrapSanitizer($key)) . sprintf('=%s,', $value->getType());
+                $bindings[] = $value->getValue();
             } else {
                 $statement .= $this->stringifyValue($this->wrapSanitizer($key)) . sprintf('=%s,', $this->inferType($value));
                 $bindings[] = $value;
@@ -322,11 +347,11 @@ class WPDBAdapter
         $limit = isset($statements['limit']) ? 'LIMIT ' . $statements['limit'] : '';
 
         $sqlArray = [
-            'UPDATE',
-            $this->wrapSanitizer($table),
-            'SET ' . $updateStatement,
-            $whereCriteria,
-            $limit,
+        'UPDATE',
+        $this->wrapSanitizer($table),
+        'SET ' . $updateStatement,
+        $whereCriteria,
+        $limit,
         ];
 
         $sql = $this->concatenateQuery($this->stringifyValues($sqlArray));
@@ -412,6 +437,20 @@ class WPDBAdapter
     }
 
     /**
+     * Gets the type of a value
+     *
+     * @param mixed $value
+     * @return string
+     */
+    public function getType($value): string
+    {
+        if ($value instanceof Binding) {
+            return '%G';
+        }
+        return $this->inferType($value);
+    }
+
+    /**
      * Build generic criteria string and bindings from statements, like "a = b and c = ?"
      *
      * @param array<string|Closure, mixed|mixed[]> $statements
@@ -426,7 +465,6 @@ class WPDBAdapter
         foreach ($statements as $statement) {
             $key   = $statement['key'];
             $value = $statement['value'];
-
             if (is_null($value) && $key instanceof Closure) {
                 // We have a closure, a nested criteria
 
@@ -452,8 +490,8 @@ class WPDBAdapter
                         $bindings = array_merge($bindings, $statement['value']);
                         $criteria .= sprintf(
                             ' %s AND %s ',
-                            $this->inferType($statement['value'][0]),
-                            $this->inferType($statement['value'][1])
+                            $this->getType($statement['value'][0]),
+                            $this->getType($statement['value'][1])
                         );
                         break;
                     default:
@@ -484,10 +522,23 @@ class WPDBAdapter
                     $bindings = array_merge($bindings, $statement['key']->getBindings());
                 } else {
                     // For wheres
-                    $valuePlaceholder = $this->inferType($value);
-                    $bindings[]       = $value;
+                    // CHECK HERE IF BINDING THEN USE OBJECTS VALS
+                    // If we have a binding, either get the type and value
+                    if ($value instanceof Binding) {
+                        // If returns a raw, treat as a raw and skip.
+                        if ($value->getValue() instanceof Raw) {
+                            $criteria .= "{$statement['joiner']} {$key} {$statement['operator']} {$value->getValue()} ";
+                            continue;
+                        }
+                        $valuePlaceholder = $value->getType();
+                        $bindings[]       = $value->getValue();
+                    } else {
+                        $valuePlaceholder = $this->inferType($value);
+                        $bindings[]       = $value;
+                    }
+
                     $criteria .= $statement['joiner'] . ' ' . $key . ' ' . $statement['operator'] . ' '
-                        . $valuePlaceholder . ' ';
+                    . $valuePlaceholder . ' ';
                 }
             }
         }
@@ -598,19 +649,19 @@ class WPDBAdapter
                 $table      = $mainTable . ' AS ' . $aliasTable;
             } else {
                 $table = $joinArr['table'] instanceof Raw ?
-                    (string) $joinArr['table'] :
-                    $this->wrapSanitizer($joinArr['table']);
+                (string) $joinArr['table'] :
+                $this->wrapSanitizer($joinArr['table']);
             }
             $joinBuilder = $joinArr['joinBuilder'];
 
             /** @var string[] */
             $sqlArr = [
-                $sql,
-                strtoupper($joinArr['type']),
-                'JOIN',
-                $table,
-                'ON',
-                $joinBuilder->getQuery('criteriaOnly', false)->getSql(),
+            $sql,
+            strtoupper($joinArr['type']),
+            'JOIN',
+            $table,
+            'ON',
+            $joinBuilder->getQuery('criteriaOnly', false)->getSql(),
             ];
 
             $sql = $this->concatenateQuery($sqlArr);

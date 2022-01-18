@@ -36,6 +36,10 @@ class Binding
      */
     protected $isRaw = false;
 
+    /**
+     * @param mixed $value
+     * @param string|null $type
+     */
     public function __construct($value, ?string $type = null)
     {
         $this->verifyType($type);
@@ -152,10 +156,20 @@ class Binding
     /**
      * Gets the types format Conversion Specifier
      *
-     * @return string
+     * @return string|null
      */
-    public function getType(): string
+    public function getType(): ?string
     {
         return $this->type;
+    }
+
+    /**
+     * Get denotes if the field is a RAW value
+     *
+     * @return bool
+     */
+    public function isRaw(): bool
+    {
+        return $this->isRaw;
     }
 }
