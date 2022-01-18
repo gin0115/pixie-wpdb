@@ -5,17 +5,18 @@ namespace Pixie\QueryBuilder;
 use wpdb;
 use Closure;
 use Throwable;
+use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use Pixie\QueryBuilder\Raw;
+use function mb_strlen;
 
+use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-use function mb_strlen;
 
 class QueryBuilderHandler
 {
@@ -165,6 +166,18 @@ class QueryBuilderHandler
     }
 
     /**
+     * Interpolates a query
+     *
+     * @param string $query
+     * @param array<mixed> $bindings
+     * @return string
+     */
+    public function interpolateQuery(string $query, array $bindings = []): string
+    {
+        return $this->adapterInstance->interpolateQuery($query, $bindings);
+    }
+
+    /**
      * @param string           $sql
      * @param array<int,mixed> $bindings
      *
@@ -186,7 +199,7 @@ class QueryBuilderHandler
     public function statement(string $sql, $bindings = []): array
     {
         $start        = microtime(true);
-        $sqlStatement = empty($bindings) ? $sql : $this->dbInstance->prepare($sql, $bindings);
+        $sqlStatement = empty($bindings) ? $sql : $this->interpolateQuery($sql, $bindings);
 
         if (!is_string($sqlStatement)) {
             throw new Exception('Could not interpolate query', 1);

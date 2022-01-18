@@ -6,14 +6,14 @@ use Closure;
 use Pixie\Binding;
 use Pixie\Exception;
 
+use function is_bool;
+
 use Pixie\Connection;
 
-use Pixie\QueryBuilder\Raw;
-
-use Pixie\QueryBuilder\NestedCriteria;
-
-use function is_bool;
 use function is_float;
+
+use Pixie\QueryBuilder\Raw;
+use Pixie\QueryBuilder\NestedCriteria;
 
 class WPDBAdapter
 {
@@ -171,7 +171,7 @@ class WPDBAdapter
             }
 
             if ($value instanceof Raw) {
-                $values[] = (string) $value;
+                $values[] = $this->parseRaw($value);
             } elseif ($isBindings) {
                 $values[]   =  $value->getType();
                 $bindings[] = $value->getValue();
@@ -437,17 +437,59 @@ class WPDBAdapter
     }
 
     /**
-     * Gets the type of a value
+     * Gets the type of a value, either from a binding or infered
      *
      * @param mixed $value
      * @return string
      */
     public function getType($value): string
     {
-        if ($value instanceof Binding) {
-            return '%G';
+        return $value instanceof Binding && $value->getType() !== null
+            ? $value->getType() : $this->inferType($value) ;
+    }
+
+    /**
+     * Get the value from a possible Bindings object.
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    public function getValue($value)
+    {
+        return $value instanceof Binding ? $value->getValue() : $value;
+    }
+
+    /**
+     * Attempts to parse a raw query, if bindings are defined then they will be bound first.
+     *
+     * @param Raw $raw
+     * @requires string
+     */
+    public function parseRaw(Raw $raw): string
+    {
+        $bindings = $raw->getBindings();
+        return 0 === count($bindings)
+            ? (string) $raw
+            : $this->interpolateQuery($raw->getValue(), $bindings);
+    }
+
+    /**
+     * Interpolates a query
+     *
+     * @param string $query
+     * @param array<mixed> $bindings
+     * @return string
+     */
+    public function interpolateQuery(string $query, array $bindings = []): string
+    {
+        if (0 === count($bindings)) {
+            return $query;
         }
-        return $this->inferType($value);
+
+
+        $bindings = array_map([$this, 'getValue'], $bindings);
+        $query = $this->connection->getDbInstance()->prepare($query, $bindings) ;
+        return is_string($query) ? $query : '';
     }
 
     /**
@@ -465,6 +507,13 @@ class WPDBAdapter
         foreach ($statements as $statement) {
             $key   = $statement['key'];
             $value = $statement['value'];
+
+            // If the value is a Raw Binding, cast to raw
+            if ($value instanceof Binding && Binding::RAW === $value->getType()) {
+                /** @var Raw */
+                $value = $value->getValue();
+            }
+
             if (is_null($value) && $key instanceof Closure) {
                 // We have a closure, a nested criteria
 
@@ -490,9 +539,13 @@ class WPDBAdapter
                         $bindings = array_merge($bindings, $statement['value']);
                         $criteria .= sprintf(
                             ' %s AND %s ',
-                            $this->getType($statement['value'][0]),
-                            $this->getType($statement['value'][1])
+                            $this->getType($value[0]),
+                            $this->getType($value[1])
                         );
+
+                        // Maybe cast the values bindings.
+                        $value[0] = $this->getValue($value[0]);
+                        $value[1] = $this->getValue($value[1]);
                         break;
                     default:
                         $valuePlaceholder = '';
@@ -507,6 +560,7 @@ class WPDBAdapter
                         break;
                 }
             } elseif ($value instanceof Raw) {
+                $value = $this->parseRaw($value);
                 $criteria .= "{$statement['joiner']} {$key} {$statement['operator']} $value ";
             } else {
                 // Usual where like criteria

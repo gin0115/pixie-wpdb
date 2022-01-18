@@ -202,7 +202,7 @@ class TestBinding extends WP_UnitTestCase
     }
 
     /** @testdox It should be possible to create an insert query with the use of binding objects for the value to define the format, regardless of value type. */
-    public function testInertBindingOnUpdate(): void
+    public function testUsingBindingOnInsert(): void
     {
         $this->queryBuilderProvider()
             ->table('foo')
@@ -212,9 +212,23 @@ class TestBinding extends WP_UnitTestCase
                 'float' => Binding::asFloat((1 / 3)),
                 'bool' => Binding::asBool('1'),
                 'raw' => Binding::asRaw("'WILD STRING'"),
+                'rawNative' => new Raw('[%d]', 5),
             ]);
 
-            $queryWithPlaceholders = $this->wpdb->usage_log['prepare'][0]['query'];
-            $this->assertEquals("INSERT INTO foo (string,int,float,bool,raw) VALUES (%s,%d,%f,%d,'WILD STRING')", $queryWithPlaceholders);
+            $queryWithPlaceholders = $this->wpdb->usage_log['prepare'][1]['query'];
+            $this->assertEquals("INSERT INTO foo (string,int,float,bool,raw,rawNative) VALUES (%s,%d,%f,%d,'WILD STRING',[5])", $queryWithPlaceholders);
     }
+
+    /** @testdox It should be possible to use binding values on a BETWEEN query */
+    public function testUsingBindingsOnBetweenCondition(): void
+    {
+        $this->queryBuilderProvider()
+            ->table('foo')
+            ->whereBetween('bar', Binding::asInt('7'), Binding::asFloat((1 / 3)))
+            ->get();
+
+        $queryWithPlaceholders = $this->wpdb->usage_log['prepare'][0]['query'];
+        $this->assertEquals("SELECT * FROM foo WHERE bar BETWEEN %d AND %f", $queryWithPlaceholders);
+    }
+
 }
