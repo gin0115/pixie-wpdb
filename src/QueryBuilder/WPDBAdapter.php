@@ -6,14 +6,14 @@ use Closure;
 use Pixie\Binding;
 use Pixie\Exception;
 
-use function is_bool;
-
 use Pixie\Connection;
 
-use function is_float;
-
 use Pixie\QueryBuilder\Raw;
+
 use Pixie\QueryBuilder\NestedCriteria;
+
+use function is_bool;
+use function is_float;
 
 class WPDBAdapter
 {
@@ -165,7 +165,7 @@ class WPDBAdapter
 
             // Handle value as bindings
             $isBindings = $value instanceof Binding;
-                // If this is a raw binding, extract the Raw and replace value.
+            // If this is a raw binding, extract the Raw and replace value.
             if ($isBindings && $value->isRaw()) {
                 $value = $value->getValue();
             }

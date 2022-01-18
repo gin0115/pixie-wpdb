@@ -7,7 +7,6 @@ use Pixie\QueryBuilder\Raw;
 
 class Binding
 {
-
     public const STRING = '%s';
     public const BOOL = '%d';
     public const INT = '%d';
