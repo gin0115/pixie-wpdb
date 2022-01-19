@@ -111,15 +111,20 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
     - [Where In](#where-in)
     - [Where Between](#where-between)
     - [Where Null](#where-null)
-    - [Grouped Where](#grouped-where)
+    - [Where Date](#where-date)
+       - [Where Day](#where-day)
+       - [Where Month](#where-month)
+       - [Where Year](#where-year)
+    - [Grouped Where](#grouped-where)    
  - [Group By and Order By](#group-by-and-order-by)
  - [Having](#having)
  - [Limit and Offset](#limit-and-offset)
  - [Join](#join)
+    - [Join Using](#join-using)
     - [Multiple Join Criteria](#multiple-join-criteria)
  - [Raw Query](#raw-query)
     - [Raw Expressions](#raw-expressions)
- - [Value Binding](#bindings)
+ - [Value Binding](#value-binding)
  - [**Insert**](#insert)
     - [Batch Insert](#batch-insert)
     - [Insert with ON DUPLICATE KEY statement](#insert-with-on-duplicate-key-statement)
@@ -285,6 +290,30 @@ QB::table('my_table')
     ->orWhereNotNull('field4');
 ```
 
+### Where Date
+```PHP
+QB::table('my_table')
+    ->whereDate('column', '<', '2020-12-29'); // All where date after 29 Dec 2020
+```
+
+### Where Day
+```PHP
+QB::table('my_table')
+    ->whereDay('date_column', '=', '29'); // All where day is 29 in any date formats
+```
+
+### Where Month
+```PHP
+QB::table('my_table')
+    ->whereMonth('date_column', '=', '12'); // All where month is december in any date formats
+```
+
+### Where Year
+```PHP
+QB::table('my_table')
+    ->whereYear('date_column', '=', '2015'); // All where year is 2015 in any date formats
+```
+
 #### Grouped Where
 Sometimes queries get complex, where you need grouped criteria, for example `WHERE age = 10 and (name like '%usman%' or description LIKE '%usman%')`.
 
@@ -344,7 +373,7 @@ Available methods,
 
 ### Join Using
 
-It is possible to create a simple join statment between 2 tables, where they are matched on the same key names.
+It is possible to create a simple join statement between 2 tables, where they are matched on the same key names.
 
 ```php
 ->table('foo')->join('bar', 'bar.id', '=', 'foo.id');
@@ -412,14 +441,14 @@ QB::table('my_table')
 Neither of the above string would be automatically wrapped in `'single quotes'`.
 
 **Types**
-
-`Binding::asString($value)`  
-`Binding::asInt($value)`  
-`Binding::asFloat($value)`  
-`Binding::asBool($value)`  
-`Binding::asJson($value)`  
-`Binding::asRaw($value)`  
-
+```php
+Binding::asString($value);
+Binding::asInt($value);
+Binding::asFloat($value);
+Binding::asBool($value);
+Binding::asJson($value);
+Binding::asRaw($value);
+```
 
 ### Insert
 ```PHP
