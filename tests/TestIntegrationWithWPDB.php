@@ -61,9 +61,31 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
          )
          COLLATE {$this->wpdb->collate}";
 
+        $sqlJson =
+         "CREATE TABLE mock_json (
+         id mediumint(8) unsigned NOT NULL auto_increment ,
+         string varchar(255) NULL,
+         json json NULL,
+         PRIMARY KEY  (id)
+         )
+         COLLATE {$this->wpdb->collate}";
+
+        $sqlDates =
+         "CREATE TABLE mock_dates (
+         id mediumint(8) unsigned NOT NULL auto_increment ,
+         date DATE NULL,
+         datetime DATETIME NULL,
+         unix TIMESTAMP NULL,
+         time TIME NULL,
+         PRIMARY KEY  (id)
+         )
+         COLLATE {$this->wpdb->collate}";
+
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sqlFoo);
         dbDelta($sqlBar);
+        dbDelta($sqlJson);
+        dbDelta($sqlDates);
 
         static::$createdTables = true;
     }
