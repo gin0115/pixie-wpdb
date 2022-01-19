@@ -9,14 +9,14 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use Pixie\QueryBuilder\Raw;
+use function mb_strlen;
 
+use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-use function mb_strlen;
 
 class QueryBuilderHandler
 {
@@ -1068,6 +1068,45 @@ class QueryBuilderHandler
         return $this->{$operator . 'Where'}($this->raw("{$key} IS{$prefix} NULL"));
     }
 
+     /**
+     * @param string|Raw $key The database column which holds the JSON value
+     * @param string|Raw|string[] $jsonKey The json key/index to search
+     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
+     * @return static
+     */
+    public function whereJson($key, $jsonKey, $operator = null, $value = null): self
+    {
+         // If two params are given then assume operator is =
+        if (2 == func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+
+        // Handle potential raw values.
+        if ($key instanceof Raw) {
+            $key = $this->adapterInstance->parseRaw($key);
+        }
+        if ($jsonKey instanceof Raw) {
+            $jsonKey = $this->adapterInstance->parseRaw($jsonKey);
+        }
+
+        // If deeply nested jsonKey.
+        if (is_array($jsonKey)) {
+            $jsonKey = \implode('.', $jsonKey);
+        }
+
+        // Add any possible prefixes to the key
+        $key = $this->addTablePrefix($key, true);
+
+        // return $this->where(new Raw('JSON_EXTRACT(jsonCol,"$.thing")'), '=', 'foo')
+        return  $this->where(
+            new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\"))"),
+            $operator,
+            $value
+        );
+    }
+
     /**
      * @param string|Raw $table
      * @param string|Raw|Closure $key
@@ -1298,6 +1337,9 @@ class QueryBuilderHandler
      */
     protected function whereHandler($key, $operator = null, $value = null, $joiner = 'AND')
     {
+        if ($key instanceof Raw) {
+            $key = $this->adapterInstance->parseRaw($key);
+        }
         $key                          = $this->addTablePrefix($key);
         $this->statements['wheres'][] = compact('key', 'operator', 'value', 'joiner');
         return $this;
@@ -1343,7 +1385,15 @@ class QueryBuilderHandler
                 $target = &$key;
             }
 
-            if (!$tableFieldMix || (is_string($target) && false !== strpos($target, '.'))) {
+            // Do prefix if the target is an expression or function.
+            if (
+                !$tableFieldMix
+                || (
+                    is_string($target) // Must be a string
+                    && (bool) preg_match('/^[A-Za-z0-9_.]+$/', $target) // Can only contain letters, numbers, underscore and full stops
+                    && 1 === \substr_count($target, '.') // Contains a single full stop ONLY.
+                )
+            ) {
                 $target = $this->tablePrefix . $target;
             }
 

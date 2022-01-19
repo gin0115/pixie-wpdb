@@ -769,4 +769,25 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals('a', $pluckArrayValue->string);
         $this->assertEquals('2', $pluckArrayValue->jsonVALUE);
     }
+
+    /** @testdox It should be possible to do a where query that checks a value inside a json value. Tests only 1 level deep */
+    public function testJsonWhere1GenDeep()
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'a', 'jsonCol' => \json_encode((object)['id' => 24748, 'thing' => 'foo'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'b', 'jsonCol' => \json_encode((object)['id' => 78945, 'thing' => 'foo'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'b', 'jsonCol' => \json_encode((object)['id' => 78941, 'thing' => 'bar'])], ['%s', '%s']);
+
+        $whereThingFooRaw = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->where(new Raw('JSON_EXTRACT(jsonCol,"$.thing")'), '=', 'foo')
+            ->get();
+
+        $whereThingFoo = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->whereJson('jsonCol', 'thing', '=', 'foo')
+            ->get();
+
+        $this->assertEquals($whereThingFooRaw[0]->string, $whereThingFoo[0]->string);
+        $this->assertEquals($whereThingFooRaw[0]->jsonCol, $whereThingFoo[0]->jsonCol);
+    }
 }
