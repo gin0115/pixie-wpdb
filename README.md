@@ -115,8 +115,7 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
        - [Where Day](#where-day)
        - [Where Month](#where-month)
        - [Where Year](#where-year)
-    - [Grouped Where](#grouped-where)
-    
+    - [Grouped Where](#grouped-where)    
  - [Group By and Order By](#group-by-and-order-by)
  - [Having](#having)
  - [Limit and Offset](#limit-and-offset)
