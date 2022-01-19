@@ -927,6 +927,85 @@ class QueryBuilderHandler
     }
 
     /**
+     * Handles all function call based where conditions
+     *
+     * @param string|Raw $key
+     * @param string $function
+     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
+     * @return static
+     */
+    protected function whereFunctionCallHandler($key, $function, $operator, $value): self
+    {
+        $key = \sprintf('%s(%s)', $function, $this->addTablePrefix($key));
+        return $this->where($key, $operator, $value);
+    }
+
+    /**
+     * @param string|Raw $key
+     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
+     * @return self
+     */
+    public function whereMonth($key, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (2 == func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallHandler($key, 'MONTH', $operator, $value);
+    }
+
+    /**
+     * @param string|Raw $key
+     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
+     * @return self
+     */
+    public function whereDay($key, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (2 == func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallHandler($key, 'DAY', $operator, $value);
+    }
+
+    /**
+     * @param string|Raw $key
+     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
+     * @return self
+     */
+    public function whereYear($key, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (2 == func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallHandler($key, 'YEAR', $operator, $value);
+    }
+
+    /**
+     * @param string|Raw $key
+     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
+     * @return self
+     */
+    public function whereDate($key, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (2 == func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallHandler($key, 'DATE', $operator, $value);
+    }
+
+    /**
      * @param string|Raw $key
      *
      * @return static
