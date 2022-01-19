@@ -961,6 +961,10 @@ class QueryBuilderHandler
     {
         $prefix = 0 === mb_strlen($prefix) ? '' : " {$prefix}";
 
+        if ($key instanceof Raw) {
+            $key = $this->adapterInstance->parseRaw($key);
+        }
+
         $key = $this->adapterInstance->wrapSanitizer($this->addTablePrefix($key));
         if ($key instanceof Closure) {
             throw new Exception('Key used for whereNull condition must be a string or raw exrpession.', 1);

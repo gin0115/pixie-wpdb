@@ -96,17 +96,17 @@ class WPDBAdapter
 
         /** @var string[] */
         $sqlArray = [
-        'SELECT' . (isset($statements['distinct']) ? ' DISTINCT' : ''),
-        $selects,
-        'FROM',
-        $tables,
-        $joinString,
-        $whereCriteria,
-        $groupBys,
-        $havingCriteria,
-        $orderBys,
-        $limit,
-        $offset,
+            'SELECT' . (isset($statements['distinct']) ? ' DISTINCT' : ''),
+            $selects,
+            'FROM',
+            $tables,
+            $joinString,
+            $whereCriteria,
+            $groupBys,
+            $havingCriteria,
+            $orderBys,
+            $limit,
+            $offset,
         ];
 
         $sql = $this->concatenateQuery($sqlArray);
@@ -231,7 +231,7 @@ class WPDBAdapter
         }
 
         if ($value instanceof Raw) {
-            return (string) $value;
+            return $this->parseRaw($value);
         }
 
         return $value;
@@ -346,12 +346,12 @@ class WPDBAdapter
         // Limit
         $limit = isset($statements['limit']) ? 'LIMIT ' . $statements['limit'] : '';
 
-        $sqlArray = [
-        'UPDATE',
-        $this->wrapSanitizer($table),
-        'SET ' . $updateStatement,
-        $whereCriteria,
-        $limit,
+            $sqlArray = [
+            'UPDATE',
+            $this->wrapSanitizer($table),
+            'SET ' . $updateStatement,
+            $whereCriteria,
+            $limit,
         ];
 
         $sql = $this->concatenateQuery($this->stringifyValues($sqlArray));
@@ -550,9 +550,18 @@ class WPDBAdapter
                     default:
                         $valuePlaceholder = '';
                         foreach ($statement['value'] as $subValue) {
+                            // Get its value.
+                            if ($this->getValue($subValue) instanceof Raw) {
+                                /** @var Raw $subValue */
+                                $subValue = $this->getValue($subValue);
+                                $valuePlaceholder .= sprintf('%s, ', $this->parseRaw($subValue));
+                                continue;
+                            }
+
+
                             // Add in format placeholders.
-                            $valuePlaceholder .= sprintf('%s, ', $this->inferType($subValue)); // glynn
-                            $bindings[] = $subValue;
+                            $valuePlaceholder .= sprintf('%s, ', $this->getType($subValue)); // glynn
+                            $bindings[] = $this->getValue($subValue);
                         }
 
                         $valuePlaceholder = trim($valuePlaceholder, ', ');
@@ -564,10 +573,8 @@ class WPDBAdapter
                 $criteria .= "{$statement['joiner']} {$key} {$statement['operator']} $value ";
             } else {
                 // Usual where like criteria
-
                 if (!$bindValues) {
                     // Specially for joins
-
                     // We are not binding values, lets sanitize then
                     $value = $this->stringifyValue($this->wrapSanitizer($value)) ?? '';
                     $criteria .= $statement['joiner'] . ' ' . $key . ' ' . $statement['operator'] . ' ' . $value . ' ';
@@ -576,23 +583,10 @@ class WPDBAdapter
                     $bindings = array_merge($bindings, $statement['key']->getBindings());
                 } else {
                     // For wheres
-                    // CHECK HERE IF BINDING THEN USE OBJECTS VALS
-                    // If we have a binding, either get the type and value
-                    if ($value instanceof Binding) {
-                        // If returns a raw, treat as a raw and skip.
-                        if ($value->getValue() instanceof Raw) {
-                            $criteria .= "{$statement['joiner']} {$key} {$statement['operator']} {$value->getValue()} ";
-                            continue;
-                        }
-                        $valuePlaceholder = $value->getType();
-                        $bindings[]       = $value->getValue();
-                    } else {
-                        $valuePlaceholder = $this->inferType($value);
-                        $bindings[]       = $value;
-                    }
+                    $bindings[] = $this->getValue($value);
 
                     $criteria .= $statement['joiner'] . ' ' . $key . ' ' . $statement['operator'] . ' '
-                    . $valuePlaceholder . ' ';
+                    . $this->getType($value) . ' ';
                 }
             }
         }
@@ -636,7 +630,7 @@ class WPDBAdapter
     {
         // Its a raw query, just cast as string, object has __toString()
         if ($value instanceof Raw) {
-            return (string)$value;
+            return $this->parseRaw($value);
         } elseif ($value instanceof Closure) {
             return $value;
         }
@@ -702,20 +696,20 @@ class WPDBAdapter
                 $aliasTable = $this->stringifyValue($this->wrapSanitizer($joinArr['table'][1]));
                 $table      = $mainTable . ' AS ' . $aliasTable;
             } else {
-                $table = $joinArr['table'] instanceof Raw ?
-                (string) $joinArr['table'] :
-                $this->wrapSanitizer($joinArr['table']);
+                $table = $joinArr['table'] instanceof Raw
+                    ? $this->parseRaw($joinArr['table'])
+                    : $this->wrapSanitizer($joinArr['table']);
             }
             $joinBuilder = $joinArr['joinBuilder'];
 
             /** @var string[] */
             $sqlArr = [
-            $sql,
-            strtoupper($joinArr['type']),
-            'JOIN',
-            $table,
-            'ON',
-            $joinBuilder->getQuery('criteriaOnly', false)->getSql(),
+                $sql,
+                strtoupper($joinArr['type']),
+                'JOIN',
+                $table,
+                'ON',
+                $joinBuilder->getQuery('criteriaOnly', false)->getSql(),
             ];
 
             $sql = $this->concatenateQuery($sqlArr);

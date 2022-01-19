@@ -806,5 +806,36 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         );
     }
 
+    /** @testdox It should be possible to use a Binding value in a delete where query */
+    public function testDeleteUsingBindings(): void
+    {
+        $this->queryBuilderProvider()
+            ->table('foo')
+            ->where('id', '>', Binding::asInt(5.112131564))
+            ->delete();
 
+        $prepared = $this->wpdb->usage_log['prepare'][0];
+        $query = $this->wpdb->usage_log['get_results'][0];
+
+        $this->assertEquals('DELETE FROM foo WHERE id > %d', $prepared['query']);
+        $this->assertEquals('DELETE FROM foo WHERE id > 5', $query['query']);
+    }
+
+    public function testWhereInUsingBindingsAndRawExpressions(): void
+    {
+        $builderWhere = $this->queryBuilderProvider()
+            ->table('foo')
+            ->whereIn('key', [Binding::asString('v1'), Binding::asRaw("'v2'")])
+            ->whereIn('key2', [Binding::asInt(10 / 4), new Raw('%d', 12)]);
+        $this->assertEquals("SELECT * FROM foo WHERE key IN ('v1', 'v2') AND key2 IN (2, 12)", $builderWhere->getQuery()->getRawSql());
+    }
+
+    public function testWhereIsNullUsingRawForColumn(): void
+    {
+        $builderNot = $this->queryBuilderProvider()
+            ->table('foo')
+            ->whereNotNull(new Raw('key'))
+            ->whereNotNull('key2');
+        $this->assertEquals("SELECT * FROM foo WHERE key IS NOT NULL AND key2 IS NOT NULL", $builderNot->getQuery()->getRawSql());
+    }
 }
