@@ -687,13 +687,13 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
     /**************************************/
 
     /** @testdox It should be possible to select values from inside a JSON object, held in a JSON column type. */
-    public function testCanSelectFromWithingJSONColumn()
+    public function testCanSelectFromWithinJSONColumn1GenDeep()
     {
          $this->wpdb->insert('mock_json', ['string' => 'a', 'jsonCol' => \json_encode((object)['id' => 24748, 'name' => 'Sam'])], ['%s', '%s']);
 
         $asRaw = $this->queryBuilderProvider('mock_')
             ->table('json')
-            ->select('string', new Raw('JSON_EXTRACT(jsonCol, "$.id") as jsonID'))
+            ->select('string', new Raw('JSON_UNQUOTE(JSON_EXTRACT(jsonCol, "$.id")) as jsonID'))
             ->get();
 
         $asSelectJson = $this->queryBuilderProvider('mock_')
@@ -701,7 +701,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
             ->select('string')
             ->selectJson('jsonCol', "id", 'jsonID')
             ->get();
-dump($asSelectJson, $asRaw);
+
         $this->assertEquals($asRaw[0]->string, $asSelectJson[0]->string);
         $this->assertEquals($asRaw[0]->jsonID, $asSelectJson[0]->jsonID);
 
@@ -714,6 +714,53 @@ dump($asSelectJson, $asRaw);
 
         $this->assertEquals('a', $jsonWoutAlias[0]->string);
         $this->assertEquals('24748', $jsonWoutAlias[0]->json_id);
+    }
+
+    /** @testdox It should be possible  */
+    public function testCanSelectFromWithinJSONColumn3GenDeep(): void
+    {
+        $jsonData = (object)[
+            'key' => 'apple',
+            'data' => (object) [
+                'array' => [1,2,3,4],
+                'object' => (object) [
+                    'obj1' => 'val1',
+                    'obj2' => 'val2',
+                ]
+            ]
+        ];
+        $this->wpdb->insert('mock_json', ['string' => 'a', 'jsonCol' => \json_encode($jsonData)], ['%s', '%s']);
+        $objectVal = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string')
+            ->selectJson('jsonCol', ['data', 'object', 'obj1'], 'jsonVALUE')
+            ->first();
+
+        $this->assertNotNull($objectVal);
+        $this->assertEquals('a', $objectVal->string);
+        $this->assertEquals('val1', $objectVal->jsonVALUE);
+
+
+        $arrayValues = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string')
+            ->selectJson('jsonCol', ['data', 'array'], 'jsonVALUE')
+            ->first();
+
+        $this->assertNotNull($arrayValues);
+        $this->assertEquals('a', $arrayValues->string);
+        $this->assertEquals('[1, 2, 3, 4]', $arrayValues->jsonVALUE);
+
+        $pluckArrayValue = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string')
+            ->selectJson('json.jsonCol', ['data', 'array[1]'], 'jsonVALUE')
+            ->first();
+
+        $this->assertNotNull($pluckArrayValue);
+        $this->assertEquals('a', $pluckArrayValue->string);
+        $this->assertEquals('2', $pluckArrayValue->jsonVALUE);
+        // dump(\json_decode($r->jsonVALUE));
     }
 }
 

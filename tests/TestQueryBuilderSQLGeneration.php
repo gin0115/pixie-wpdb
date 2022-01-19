@@ -849,7 +849,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->selectJson(new Raw('column'), new Raw('foo'));
 
         $this->assertEquals(
-            'SELECT JSON_EXTRACT(column, "$.foo") as json_foo FROM jsonSelects',
+            'SELECT JSON_UNQUOTE(JSON_EXTRACT(column, "$.foo")) as json_foo FROM jsonSelects',
             $builder->getQuery()->getRawSql()
         );
     }

@@ -9,14 +9,14 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use Pixie\QueryBuilder\Raw;
+use function mb_strlen;
 
+use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-use function mb_strlen;
 
 class QueryBuilderHandler
 {
@@ -1452,7 +1452,7 @@ class QueryBuilderHandler
 
     /**
      * @param string|Raw $key The database column which holds the JSON value
-     * @param string|Raw $jsonKey The json key/index to search
+     * @param string|Raw|string[] $jsonKey The json key/index to search
      * @param string|null $alias The alias used to define the value in results, if not defined will use json_{$jsonKey}
      * @return static
      */
@@ -1466,11 +1466,16 @@ class QueryBuilderHandler
             $jsonKey = $this->adapterInstance->parseRaw($jsonKey);
         }
 
+        // If deeply nested jsonKey.
+        if (is_array($jsonKey)) {
+            $jsonKey = \implode('.', $jsonKey);
+        }
+
         // Add any possible prefixes to the key
         $key = $this->addTablePrefix($key, true);
 
         $alias = null === $alias ? "json_{$jsonKey}" : $alias;
-        return  $this->select(new Raw("JSON_EXTRACT({$key}, \"$.{$jsonKey}\") as {$alias}"));
+        return  $this->select(new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\")) as {$alias}"));
     }
 }
 // 'JSON_EXTRACT(json, "$.id") as jsonID'
