@@ -561,7 +561,6 @@ This will produce a query like this:
 
     SELECT * FROM (SELECT `cb_my_table`.*, (SELECT `details` FROM `cb_person_details` WHERE `person_id` = 3) as table_alias1 FROM `cb_my_table`) as table_alias2
 
-**NOTE:** Pixie doesn't use bindings for sub queries and nested queries. It quotes values with PDO's `quote()` method.
 
 ### Get wpdb Instance
 If you need to get the wpdb instance you can do so.
