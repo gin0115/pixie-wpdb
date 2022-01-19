@@ -821,6 +821,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals('DELETE FROM foo WHERE id > 5', $query['query']);
     }
 
+    /** @testdox It should be possible to use both RAW expressions and Bindings values for doing where in queries. */
     public function testWhereInUsingBindingsAndRawExpressions(): void
     {
         $builderWhere = $this->queryBuilderProvider()
@@ -830,6 +831,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM foo WHERE key IN ('v1', 'v2') AND key2 IN (2, 12)", $builderWhere->getQuery()->getRawSql());
     }
 
+    /** @testdox It should be possible to use RAW expressions for the key in whereNull conditions. */
     public function testWhereIsNullUsingRawForColumn(): void
     {
         $builderNot = $this->queryBuilderProvider()

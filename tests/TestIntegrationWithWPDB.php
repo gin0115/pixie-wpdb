@@ -541,4 +541,22 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
             $this->assertEquals('defined', $model->constructorProp); // Is set from constructor args passed, is DEFAULT if not defined.
         }
     }
+
+    /** @testdox It should be possible to do a find or fail query. An excetpion should be thrown if no result is found. */
+    public function testFindOrFail(): void
+    {
+        $this->wpdb->insert('mock_foo', ['string' => 'First', 'number' => 1], ['%s', '%d']);
+        $this->wpdb->insert('mock_foo', ['string' => 'Second', 'number' => 2], ['%s', '%d']);
+        $this->wpdb->insert('mock_foo', ['string' => 'Third', 'number' => 1], ['%s', '%d']);
+
+        $builder = $this->queryBuilderProvider()->table('mock_foo');
+
+        $row = $builder->findOrFail('First', 'string');
+        $this->assertEquals(1, $row->number);
+
+        $this->expectExceptionMessage('Failed to find string=Forth');
+        $this->expectException(Exception::class);
+
+        $row = $builder->findOrFail('Forth', 'string');
+    }
 }
