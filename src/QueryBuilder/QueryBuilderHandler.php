@@ -5,9 +5,12 @@ namespace Pixie\QueryBuilder;
 use wpdb;
 use Closure;
 use Throwable;
+use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
+
 use Pixie\QueryBuilder\Raw;
+
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
@@ -163,6 +166,18 @@ class QueryBuilderHandler
     }
 
     /**
+     * Interpolates a query
+     *
+     * @param string $query
+     * @param array<mixed> $bindings
+     * @return string
+     */
+    public function interpolateQuery(string $query, array $bindings = []): string
+    {
+        return $this->adapterInstance->interpolateQuery($query, $bindings);
+    }
+
+    /**
      * @param string           $sql
      * @param array<int,mixed> $bindings
      *
@@ -184,7 +199,7 @@ class QueryBuilderHandler
     public function statement(string $sql, $bindings = []): array
     {
         $start        = microtime(true);
-        $sqlStatement = empty($bindings) ? $sql : $this->dbInstance->prepare($sql, $bindings);
+        $sqlStatement = empty($bindings) ? $sql : $this->interpolateQuery($sql, $bindings);
 
         if (!is_string($sqlStatement)) {
             throw new Exception('Could not interpolate query', 1);
@@ -546,7 +561,6 @@ class QueryBuilderHandler
         if (!is_null($eventResult)) {
             return $eventResult;
         }
-
         $queryObject                         = $this->getQuery('update', $data);
         list($preparedQuery, $executionTime) = $this->statement($queryObject->getSql(), $queryObject->getBindings());
 
@@ -947,6 +961,10 @@ class QueryBuilderHandler
     {
         $prefix = 0 === mb_strlen($prefix) ? '' : " {$prefix}";
 
+        if ($key instanceof Raw) {
+            $key = $this->adapterInstance->parseRaw($key);
+        }
+
         $key = $this->adapterInstance->wrapSanitizer($this->addTablePrefix($key));
         if ($key instanceof Closure) {
             throw new Exception('Key used for whereNull condition must be a string or raw exrpession.', 1);
@@ -1187,7 +1205,6 @@ class QueryBuilderHandler
     {
         $key                          = $this->addTablePrefix($key);
         $this->statements['wheres'][] = compact('key', 'operator', 'value', 'joiner');
-
         return $this;
     }
 

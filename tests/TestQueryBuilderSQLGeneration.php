@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Pixie\Tests;
 
+use Pixie\Binding;
 use WP_UnitTestCase;
 use Pixie\Connection;
 use Pixie\QueryBuilder\Raw;
@@ -23,7 +24,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
     /** Mocked WPDB instance.
      * @var Logable_WPDB
-    */
+     */
     private $wpdb;
 
     public function setUp(): void
@@ -159,9 +160,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT COUNT(*) AS field FROM (SELECT * FROM foo WHERE key = 'value') as count LIMIT 1", $log['query']);
     }
 
-                                        ################################################
-                                        ##              WHERE CONDITIONS              ##
-                                        ################################################
+    ################################################
+    ##              WHERE CONDITIONS              ##
+    ################################################
 
 
     /** @testdox It should be possible to create a query which uses Where and Where not (using AND condition) */
@@ -344,9 +345,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM foo WHERE key = 'value' OR NOT key2 = 'value2'", $orWhereNot->getQuery()->getRawSql());
     }
 
-                                        ################################################
-                                        ##   GROUP, ORDER BY, LIMIT/OFFSET & HAVING   ##
-                                        ################################################
+    ################################################
+    ##   GROUP, ORDER BY, LIMIT/OFFSET & HAVING   ##
+    ################################################
 
     /** @testdox It should be possible to create a grouped where condition */
     public function testGroupedWhere(): void
@@ -449,9 +450,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM foo OFFSET 12", $builderOffset->getQuery()->getRawSql());
     }
 
-                                        #################################################
-                                        ##    JOIN {INNER, LEFT, RIGHT, FULL OUTER}    ##
-                                        #################################################
+    #################################################
+    ##    JOIN {INNER, LEFT, RIGHT, FULL OUTER}    ##
+    #################################################
 
     /** @testdox It should be possible to create a query using (INNER) join for a relationship */
     public function testJoin(): void
@@ -543,9 +544,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM prefix_foo INNER JOIN prefix_bar ON prefix_bar.id != prefix_foo.id OR prefix_bar.baz != prefix_foo.baz", $builder->getQuery()->getRawSql());
     }
 
-                                        #################################################
-                                        ##             SUB AND RAW QUERIES             ##
-                                        #################################################
+    #################################################
+    ##             SUB AND RAW QUERIES             ##
+    #################################################
 
     /** @testdox It should be possible to create a raw query which can be executed with or without binding values. */
     public function testRawQuery(): void
@@ -609,9 +610,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     }
 
 
-                                        #################################################
-                                        ##               INSERT & UPDATE               ##
-                                        #################################################
+    #################################################
+    ##               INSERT & UPDATE               ##
+    #################################################
 
     /** @testdox It should be possible to insert a single row of data and get the row id/key returned. */
     public function testInsertSingle(): void
@@ -647,7 +648,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->table('foo')
             ->insert($data);
 
-        $this->assertEquals([7,7,7], $newIDs); // Will always return 7 as mocked.
+        $this->assertEquals([7, 7, 7], $newIDs); // Will always return 7 as mocked.
 
         // Check the actual queries.
         $this->assertEquals("INSERT INTO foo (name,description) VALUES ('Sana','Blah')", $this->wpdb->usage_log['get_results'][0]['query']);
@@ -672,7 +673,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->table('foo')
             ->insertIgnore($data);
 
-        $this->assertEquals([89,89,89], $newIDs);
+        $this->assertEquals([89, 89, 89], $newIDs);
 
         // Check the actual queries.
         $this->assertEquals("INSERT IGNORE INTO foo (name,description) VALUES ('Sana','Blah')", $this->wpdb->usage_log['get_results'][0]['query']);
@@ -797,11 +798,44 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("UPDATE foo SET bar=TIMESTAMP", $this->wpdb->usage_log['get_results'][0]['query']);
 
         $this->queryBuilderProvider()->table('orders')
-            ->select(['Order_ID', 'Product_Name', new Raw("DATE_FORMAT(Order_Date,'%d--%m--%y') as new_date_formate") ])
+            ->select(['Order_ID', 'Product_Name', new Raw("DATE_FORMAT(Order_Date,'%d--%m--%y') as new_date_formate")])
             ->get();
         $this->assertEquals(
             "SELECT Order_ID, Product_Name, DATE_FORMAT(Order_Date,'%d--%m--%y') as new_date_formate FROM orders",
             $this->wpdb->usage_log['get_results'][1]['query']
         );
+    }
+
+    /** @testdox It should be possible to use a Binding value in a delete where query */
+    public function testDeleteUsingBindings(): void
+    {
+        $this->queryBuilderProvider()
+            ->table('foo')
+            ->where('id', '>', Binding::asInt(5.112131564))
+            ->delete();
+
+        $prepared = $this->wpdb->usage_log['prepare'][0];
+        $query = $this->wpdb->usage_log['get_results'][0];
+
+        $this->assertEquals('DELETE FROM foo WHERE id > %d', $prepared['query']);
+        $this->assertEquals('DELETE FROM foo WHERE id > 5', $query['query']);
+    }
+
+    public function testWhereInUsingBindingsAndRawExpressions(): void
+    {
+        $builderWhere = $this->queryBuilderProvider()
+            ->table('foo')
+            ->whereIn('key', [Binding::asString('v1'), Binding::asRaw("'v2'")])
+            ->whereIn('key2', [Binding::asInt(10 / 4), new Raw('%d', 12)]);
+        $this->assertEquals("SELECT * FROM foo WHERE key IN ('v1', 'v2') AND key2 IN (2, 12)", $builderWhere->getQuery()->getRawSql());
+    }
+
+    public function testWhereIsNullUsingRawForColumn(): void
+    {
+        $builderNot = $this->queryBuilderProvider()
+            ->table('foo')
+            ->whereNotNull(new Raw('key'))
+            ->whereNotNull('key2');
+        $this->assertEquals("SELECT * FROM foo WHERE key IS NOT NULL AND key2 IS NOT NULL", $builderNot->getQuery()->getRawSql());
     }
 }

@@ -15,7 +15,7 @@ class Raw
     protected $bindings;
 
     /**
-     * @param string|Raw $value
+     * @param string $value
      * @param mixed|mixed[] $bindings
      */
     public function __construct($value, $bindings = [])
@@ -32,6 +32,16 @@ class Raw
     public function getBindings(): array
     {
         return $this->bindings;
+    }
+
+    /**
+     * Returns the current value held.
+     *
+     * @return string
+     */
+    public function getValue(): string
+    {
+        return (string) $this->value;
     }
 
     /**
