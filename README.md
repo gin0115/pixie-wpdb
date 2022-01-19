@@ -120,6 +120,7 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
  - [Having](#having)
  - [Limit and Offset](#limit-and-offset)
  - [Join](#join)
+    - [Join Using](#join-using)
     - [Multiple Join Criteria](#multiple-join-criteria)
  - [Raw Query](#raw-query)
     - [Raw Expressions](#raw-expressions)
@@ -372,7 +373,7 @@ Available methods,
 
 ### Join Using
 
-It is possible to create a simple join statment between 2 tables, where they are matched on the same key names.
+It is possible to create a simple join statement between 2 tables, where they are matched on the same key names.
 
 ```php
 ->table('foo')->join('bar', 'bar.id', '=', 'foo.id');
