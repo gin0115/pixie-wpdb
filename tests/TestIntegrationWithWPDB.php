@@ -784,7 +784,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         $whereThingFoo = $this->queryBuilderProvider('mock_')
             ->table('json')
-            ->whereJson('jsonCol', 'thing', '=', 'foo')
+            ->whereJson('jsonCol', 'thing', 'foo') // Assume its '='
             ->get();
 
         $this->assertEquals($whereThingFooRaw[0]->string, $whereThingFoo[0]->string);
@@ -793,7 +793,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         // Check with prefix
         $whereThingFooPrefixed = $this->queryBuilderProvider('mock_')
             ->table('json')
-            ->whereJson('json.jsonCol', 'thing', '=', 'foo')
+            ->whereJson('json.jsonCol', 'thing', '<>', 'bar') // NOT BAR
             ->get();
 
         $this->assertEquals($whereThingFooPrefixed[0]->string, $whereThingFoo[0]->string);

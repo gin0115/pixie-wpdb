@@ -9,14 +9,14 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use Pixie\QueryBuilder\Raw;
+use function mb_strlen;
 
+use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-use function mb_strlen;
 
 class QueryBuilderHandler
 {
@@ -796,7 +796,7 @@ class QueryBuilderHandler
     public function where($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -814,7 +814,7 @@ class QueryBuilderHandler
     public function orWhere($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -832,7 +832,7 @@ class QueryBuilderHandler
     public function whereNot($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -850,7 +850,7 @@ class QueryBuilderHandler
     public function orWhereNot($key, $operator = null, $value = null)
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -950,7 +950,7 @@ class QueryBuilderHandler
     public function whereMonth($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -966,7 +966,7 @@ class QueryBuilderHandler
     public function whereDay($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -982,7 +982,7 @@ class QueryBuilderHandler
     public function whereYear($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -998,7 +998,7 @@ class QueryBuilderHandler
     public function whereDate($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -1078,7 +1078,7 @@ class QueryBuilderHandler
     public function whereJson($key, $jsonKey, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (3 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
