@@ -9,14 +9,14 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use Pixie\QueryBuilder\Raw;
+use function mb_strlen;
 
+use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-use function mb_strlen;
 
 class QueryBuilderHandler
 {
@@ -322,6 +322,22 @@ class QueryBuilderHandler
         $this->where($fieldName, '=', $value);
 
         return $this->first();
+    }
+
+    /**
+     * @param string $fieldName
+     * @param mixed $value
+     *
+     * @return \stdClass\array<mixed,mixed>|object Can return any object using hydrator
+     * @throws Exception If fails to find
+     */
+    public function findOrFail($value, $fieldName = 'id')
+    {
+        $result = $this->find($value, $fieldName);
+        if (null === $result) {
+            throw new Exception("Failed to find {$fieldName}={$value}", 1);
+        }
+        return $result;
     }
 
     /**

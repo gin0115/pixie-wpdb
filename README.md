@@ -119,6 +119,7 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
     - [Multiple Join Criteria](#multiple-join-criteria)
  - [Raw Query](#raw-query)
     - [Raw Expressions](#raw-expressions)
+ - [Value Binding](#bindings)
  - [**Insert**](#insert)
     - [Batch Insert](#batch-insert)
     - [Insert with ON DUPLICATE KEY statement](#insert-with-on-duplicate-key-statement)
@@ -191,7 +192,10 @@ The query below returns the all rows where name = 'Sana', null if no rows.
 ```PHP
 $result = QB::table('my_table')->findAll('name', 'Sana');
 ```
-
+The query below will either return the row or throw a `Pixie\Exception` if no result found.
+```PHP
+$result = QB::table('my_table')->findOrFail('name', 'Sana');
+```
 
 ### Select
 ```PHP
