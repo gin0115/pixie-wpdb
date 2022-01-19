@@ -194,7 +194,7 @@ $result = QB::table('my_table')->findAll('name', 'Sana');
 ```
 The query below will either return the row or throw a `Pixie\Exception` if no result found.
 ```PHP
-$result = QB::table('my_table')->findOrFail('name', 'Sana');
+$result = QB::table('my_table')->findOrFail('name', 'Mark');
 ```
 
 ### Select
@@ -386,14 +386,40 @@ QB::query('select * from cb_my_table where age = ? and name = ?', array(10, 'usm
 When you wrap an expression with `raw()` method, Pixie doesn't try to sanitize these.
 ```PHP
 QB::table('my_table')
-            ->select(QB::raw('count(cb_my_table.id) as tot'))
-            ->where('value', '=', 'Ifrah')
-            ->where(QB::raw('DATE(?)', 'now'))
+    ->select(QB::raw('count(cb_my_table.id) as tot'))
+    ->where('value', '=', 'Ifrah')
+    ->where(QB::raw('DATE(?)', 'now'))
 ```
 
 
 ___
 **NOTE:** Queries that run through `query()` method are not sanitized until you pass all values through bindings. Queries that run through `raw()` method are not sanitized either, you have to do it yourself. And of course these don't add table prefix too, but you can use the `addTablePrefix()` method.
+
+### Value Binding
+As this uses WPDB under the hood, the use of `wpdb::prepare()` is required. To make it easier to define the expected type, you can use Bindings for all values used in most queries. 
+```php
+QB::table('my_table')
+    ->where('id', = Binding::asInt($valueFromSomewhere))
+    ->get()
+```
+This will ensure the underlying statement for prepare will be passed as `WHERE id=%d`. Just passing a value, without a binding will see the values type used as the placeholder. If you wish to use values which are passed through `prepare()` please use a `Raw` value.
+```php
+QB::table('my_table')
+    ->where('col1', = Binding::asRaw('im a string, dont wrap me with quotes'))
+    ->where('col2', = new Raw('value'))
+    ->get()
+```
+Neither of the above string would be automatically wrapped in `'single quotes'`.
+
+**Types**
+
+`Binding::asString($value)`  
+`Binding::asInt($value)`  
+`Binding::asFloat($value)`  
+`Binding::asBool($value)`  
+`Binding::asJson($value)`  
+`Binding::asRaw($value)`  
+
 
 ### Insert
 ```PHP
