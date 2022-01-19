@@ -730,6 +730,8 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
             ]
         ];
         $this->wpdb->insert('mock_json', ['string' => 'a', 'jsonCol' => \json_encode($jsonData)], ['%s', '%s']);
+
+        // Extract a value from an object
         $objectVal = $this->queryBuilderProvider('mock_')
             ->table('json')
             ->select('string')
@@ -740,7 +742,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals('a', $objectVal->string);
         $this->assertEquals('val1', $objectVal->jsonVALUE);
 
-
+        // Extract an entire array.
         $arrayValues = $this->queryBuilderProvider('mock_')
             ->table('json')
             ->select('string')
@@ -750,7 +752,13 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertNotNull($arrayValues);
         $this->assertEquals('a', $arrayValues->string);
         $this->assertEquals('[1, 2, 3, 4]', $arrayValues->jsonVALUE);
+        $this->assertCount(4, \json_decode($arrayValues->jsonVALUE));
+        $this->assertContains('1', \json_decode($arrayValues->jsonVALUE));
+        $this->assertContains('2', \json_decode($arrayValues->jsonVALUE));
+        $this->assertContains('3', \json_decode($arrayValues->jsonVALUE));
+        $this->assertContains('4', \json_decode($arrayValues->jsonVALUE));
 
+        // Pluck a single item from an array using its key.
         $pluckArrayValue = $this->queryBuilderProvider('mock_')
             ->table('json')
             ->select('string')
@@ -760,7 +768,6 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertNotNull($pluckArrayValue);
         $this->assertEquals('a', $pluckArrayValue->string);
         $this->assertEquals('2', $pluckArrayValue->jsonVALUE);
-        // dump(\json_decode($r->jsonVALUE));
     }
 }
 
