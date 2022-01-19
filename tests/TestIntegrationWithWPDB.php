@@ -67,7 +67,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
          "CREATE TABLE mock_json (
          id mediumint(8) unsigned NOT NULL auto_increment ,
          string varchar(255) NULL,
-         json json NULL,
+         jsonCol json NULL,
          PRIMARY KEY  (id)
          )
          COLLATE {$this->wpdb->collate}";
@@ -679,4 +679,44 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertCount(1, $resultC);
         $this->assertEquals('2022-10-10', $resultC[0]->date);
     }
+
+
+
+    /**************************************/
+    /*         JSON FUNCTIONALITY         */
+    /**************************************/
+
+    /** @testdox It should be possible to select values from inside a JSON object, held in a JSON column type. */
+    public function testCanSelectFromWithingJSONColumn()
+    {
+         $this->wpdb->insert('mock_json', ['string' => 'a', 'jsonCol' => \json_encode((object)['id' => 24748, 'name' => 'Sam'])], ['%s', '%s']);
+
+        $asRaw = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string', new Raw('JSON_EXTRACT(jsonCol, "$.id") as jsonID'))
+            ->get();
+
+        $asSelectJson = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string')
+            ->selectJson('jsonCol', "id", 'jsonID')
+            ->get();
+dump($asSelectJson, $asRaw);
+        $this->assertEquals($asRaw[0]->string, $asSelectJson[0]->string);
+        $this->assertEquals($asRaw[0]->jsonID, $asSelectJson[0]->jsonID);
+
+        // Without Alias
+        $jsonWoutAlias = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string')
+            ->selectJson('jsonCol', "id")
+            ->get();
+
+        $this->assertEquals('a', $jsonWoutAlias[0]->string);
+        $this->assertEquals('24748', $jsonWoutAlias[0]->json_id);
+    }
 }
+
+
+/*          string varchar(255) NULL,
+         json json NULL, */

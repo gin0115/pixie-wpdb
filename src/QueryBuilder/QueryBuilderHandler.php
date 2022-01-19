@@ -9,14 +9,14 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use Pixie\QueryBuilder\Raw;
+use function mb_strlen;
 
+use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-use function mb_strlen;
 
 class QueryBuilderHandler
 {
@@ -1447,4 +1447,30 @@ class QueryBuilderHandler
             ? $this->fetchMode
             : \OBJECT;
     }
+
+    // JSON
+
+    /**
+     * @param string|Raw $key The database column which holds the JSON value
+     * @param string|Raw $jsonKey The json key/index to search
+     * @param string|null $alias The alias used to define the value in results, if not defined will use json_{$jsonKey}
+     * @return static
+     */
+    public function selectJson($key, $jsonKey, ?string $alias = null): self
+    {
+        // Handle potential raw values.
+        if ($key instanceof Raw) {
+            $key = $this->adapterInstance->parseRaw($key);
+        }
+        if ($jsonKey instanceof Raw) {
+            $jsonKey = $this->adapterInstance->parseRaw($jsonKey);
+        }
+
+        // Add any possible prefixes to the key
+        $key = $this->addTablePrefix($key, true);
+
+        $alias = null === $alias ? "json_{$jsonKey}" : $alias;
+        return  $this->select(new Raw("JSON_EXTRACT({$key}, \"$.{$jsonKey}\") as {$alias}"));
+    }
 }
+// 'JSON_EXTRACT(json, "$.id") as jsonID'

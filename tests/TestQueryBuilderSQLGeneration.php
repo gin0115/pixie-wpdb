@@ -840,4 +840,17 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->whereNotNull('key2');
         $this->assertEquals("SELECT * FROM foo WHERE key IS NOT NULL AND key2 IS NOT NULL", $builderNot->getQuery()->getRawSql());
     }
+
+    /** @testdox It should be possible to create a query which gets values form a JSON column, while using RAW object for both the MYSQL col key and JSON object key (1st generation) */
+    public function testJsonSelectUsingRawValues(): void
+    {
+        $builder = $this->queryBuilderProvider()
+            ->table('jsonSelects')
+            ->selectJson(new Raw('column'), new Raw('foo'));
+
+        $this->assertEquals(
+            'SELECT JSON_EXTRACT(column, "$.foo") as json_foo FROM jsonSelects',
+            $builder->getQuery()->getRawSql()
+        );
+    }
 }
