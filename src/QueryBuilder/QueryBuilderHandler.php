@@ -9,14 +9,14 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use Pixie\QueryBuilder\Raw;
+use function mb_strlen;
 
+use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-use function mb_strlen;
 
 class QueryBuilderHandler
 {
@@ -924,6 +924,85 @@ class QueryBuilderHandler
     public function orWhereBetween($key, $valueFrom, $valueTo): self
     {
         return $this->whereHandler($key, 'BETWEEN', [$valueFrom, $valueTo], 'OR');
+    }
+
+    /**
+     * Handles all function call based where conditions
+     *
+     * @param string|Raw $key
+     * @param string $function
+     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
+     * @return static
+     */
+    protected function whereFunctionCallHandler($key, $function, $operator, $value): self
+    {
+        $key = \sprintf('%s(%s)', $function, $this->addTablePrefix($key));
+        return $this->where($key, $operator, $value);
+    }
+
+    /**
+     * @param string|Raw $key
+     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
+     * @return self
+     */
+    public function whereMonth($key, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (2 == func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallHandler($key, 'MONTH', $operator, $value);
+    }
+
+    /**
+     * @param string|Raw $key
+     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
+     * @return self
+     */
+    public function whereDay($key, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (2 == func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallHandler($key, 'DAY', $operator, $value);
+    }
+
+    /**
+     * @param string|Raw $key
+     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
+     * @return self
+     */
+    public function whereYear($key, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (2 == func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallHandler($key, 'YEAR', $operator, $value);
+    }
+
+    /**
+     * @param string|Raw $key
+     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
+     * @return self
+     */
+    public function whereDate($key, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (2 == func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallHandler($key, 'DATE', $operator, $value);
     }
 
     /**

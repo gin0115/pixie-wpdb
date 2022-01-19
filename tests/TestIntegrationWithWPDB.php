@@ -13,8 +13,10 @@ namespace Pixie\Tests;
 
 use stdClass;
 use Exception;
+use Pixie\Binding;
 use WP_UnitTestCase;
 use Pixie\Connection;
+use Pixie\QueryBuilder\Raw;
 use Pixie\Tests\Logable_WPDB;
 use Pixie\Tests\Fixtures\ModelForMockFoo;
 use Pixie\QueryBuilder\QueryBuilderHandler;
@@ -558,5 +560,123 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->expectException(Exception::class);
 
         $row = $builder->findOrFail('Forth', 'string');
+    }
+
+    /** @testdox It should be possible to query a date column by month */
+    public function testWhereMonth(): void
+    {
+        $this->wpdb->insert('mock_dates', ['date' => '2020-10-10', 'unix' => '2020-10-10 18:19:03', 'datetime' => '2020-10-10 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2002-10-05', 'unix' => '2002-10-10 18:19:03', 'datetime' => '2002-10-10 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2002-3-3', 'unix' => '2002-3-3 18:19:03', 'datetime' => '2002-3-3 18:19:03'], ['%s', '%s']);
+
+        $month3 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereMonth('unix', Binding::asString(3))
+            ->get();
+
+        $this->assertCount(1, $month3);
+        $this->assertEquals('2002-03-03', $month3[0]->date);
+
+        $month10 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereMonth('date', '>', 9)
+            ->get();
+
+        $this->assertCount(2, $month10);
+        $this->assertEquals('2020-10-10', $month10[0]->date);
+        $this->assertEquals('2002-10-05', $month10[1]->date);
+    }
+
+    /** @testdox It should be possible to query a date column by day */
+    public function testWhereDay(): void
+    {
+        $this->wpdb->insert('mock_dates', ['date' => '2020-10-10', 'unix' => '2020-10-10 18:19:03', 'datetime' => '2020-10-10 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2010-10-05', 'unix' => '2010-10-05 18:19:03', 'datetime' => '2010-10-05 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2002-03-12', 'unix' => '2002-03-12 18:19:03', 'datetime' => '2002-03-12 18:19:03'], ['%s', '%s']);
+
+        $day5 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereDay('unix', Binding::asString(5))
+            ->get();
+        $this->assertCount(1, $day5);
+        $this->assertEquals('2010-10-05', $day5[0]->date);
+
+        $dayAbove9 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereDay('date', '>', 9)
+            ->get();
+
+        $this->assertCount(2, $dayAbove9);
+        $this->assertEquals('2020-10-10', $dayAbove9[0]->date);
+        $this->assertEquals('2002-03-12', $dayAbove9[1]->date);
+
+        $day10 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereDay('datetime', Binding::asString(10))
+            ->get();
+        $this->assertCount(1, $day10);
+        $this->assertEquals('2020-10-10', $day10[0]->date);
+    }
+
+    /** @testdox It should be possible to query a date column by year */
+    public function testWhereYear(): void
+    {
+        $this->wpdb->insert('mock_dates', ['date' => '2022-10-10', 'unix' => '2022-10-10 18:19:03', 'datetime' => '2022-10-10 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2010-10-05', 'unix' => '2010-10-05 18:19:03', 'datetime' => '2010-10-05 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2020-03-12', 'unix' => '2020-03-12 18:19:03', 'datetime' => '2020-03-12 18:19:03'], ['%s', '%s']);
+
+        $only2010 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereYear('unix', Binding::asString(2010))
+            ->get();
+        $this->assertCount(1, $only2010);
+        $this->assertEquals('2010-10-05', $only2010[0]->date);
+
+        $after2009 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereYear('date', '>', new Raw('%d', [2019]))
+            ->get();
+
+        $this->assertCount(2, $after2009);
+        $this->assertEquals('2022-10-10', $after2009[0]->date);
+        $this->assertEquals('2020-03-12', $after2009[1]->date);
+
+        $only2022 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereYear('datetime', Binding::asFloat(2022))
+            ->get();
+        $this->assertCount(1, $only2022);
+        $this->assertEquals('2022-10-10', $only2022[0]->date);
+    }
+
+    /** @testdox It should be possible to query a date column by date */
+    public function testWhereDate(): void
+    {
+        $this->wpdb->insert('mock_dates', ['date' => '2022-10-10', 'unix' => '2022-10-10 18:19:03', 'datetime' => '2022-10-10 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2010-10-05', 'unix' => '2010-10-05 18:19:03', 'datetime' => '2010-10-05 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2020-03-12', 'unix' => '2020-03-12 18:19:03', 'datetime' => '2020-03-12 18:19:03'], ['%s', '%s']);
+
+        $resultA = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereDate('unix', Binding::asString('2010-10-05'))
+            ->get();
+        $this->assertCount(1, $resultA);
+        $this->assertEquals('2010-10-05', $resultA[0]->date);
+
+        $resultB = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereDate('date', '!=', new Raw('%s', ['2020-03-12']))
+            ->get();
+
+        $this->assertCount(2, $resultB);
+        $this->assertEquals('2022-10-10', $resultB[0]->date);
+        $this->assertEquals('2010-10-05', $resultB[1]->date);
+
+        $resultC = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereDate('datetime', date("Y-m-d", 1665425943)) // strtotime('2022-10-10 18:19:03')
+            ->get();
+        $this->assertCount(1, $resultC);
+        $this->assertEquals('2022-10-10', $resultC[0]->date);
     }
 }
