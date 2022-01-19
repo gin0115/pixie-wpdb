@@ -770,7 +770,3 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals('2', $pluckArrayValue->jsonVALUE);
     }
 }
-
-
-/*          string varchar(255) NULL,
-         json json NULL, */
