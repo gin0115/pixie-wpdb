@@ -325,6 +325,22 @@ class QueryBuilderHandler
     }
 
     /**
+     * @param string $fieldName
+     * @param mixed $value
+     *
+     * @return \stdClass\array<mixed,mixed>|object Can return any object using hydrator
+     * @throws Exception If fails to find
+     */
+    public function findOrFail($value, $fieldName = 'id')
+    {
+        $result = $this->find($value, $fieldName);
+        if (null === $result) {
+            throw new Exception("Failed to find {$fieldName}={$value}", 1);
+        }
+        return $result;
+    }
+
+    /**
      * Used to handle all aggregation method.
      *
      * @see Taken from the pecee-pixie library - https://github.com/skipperbent/pecee-pixie/
