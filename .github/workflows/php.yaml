@@ -52,7 +52,7 @@ jobs:
       - name: Set environment variables
         run: |
           echo "Hi"
-          if [[ matrix.mysql-versions == 'mysql:8.0' ]]; then
+          if [[ ${{ matrix.mysql-versions }} == 'mysql:8.0' ]]; then
             echo "SLACK_COLOR=good" >> $GITHUB_ENV
             echo "SLACK_MESSAGE=This build has passed!" >> $GITHUB_ENV
           else
