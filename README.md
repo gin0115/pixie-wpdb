@@ -103,7 +103,7 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
  - [**Select**](#select)
     - [Get Easily](#get-easily)
     - [Multiple Selects](#multiple-selects)
-    - [Select JSON]()
+    - [Select JSON](#select-json)
     - [Select Distinct](#select-distinct)
     - [Get All](#get-all)
     - [Get First Row](#get-first-row)
@@ -239,8 +239,11 @@ To access arrays values use `->select(['column->someArray[1]' => 'jsonAlias'])`
 
 #### Using selectJson() helper
 ```php
-->selectJson('column', ['someObj', 'a]'], 'jsonAlias')
+->selectJson('column', ['someObj', 'a'], 'jsonAlias')
 ```
+This would return results with `{jsonAlias => "apple"}`
+
+> If no alias is passed, the column value will be set as `json_a`. The last selector is prepended with `json_`
 
 #### Select Distinct
 ```PHP
