@@ -15,7 +15,7 @@ jobs:
         mysql-versions: ['mysql:5.7', 'mysql:8.0.21', 'mariadb:10.4']
     runs-on: ${{ matrix.operating-system }}
     services:
-      # Setup MYSQL
+      # Setup MYSQL 
       mysql-service:
         image: ${{ matrix.mysql-versions }}
         command: '--default-authentication-plugin=mysql_native_password'
