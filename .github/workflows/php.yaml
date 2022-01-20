@@ -41,10 +41,10 @@ jobs:
           tools: pecl
 
       # Set auth mode for MYSQL 5.8
-      - name: Set MYSQL Auth to password bassed
-        # run: '--default-authentication-plugin=mysql_native_password'
-        # run: 'mysql --host mysql --port 3306 -u root -p crab -e "SHOW DATABASES"'
-        if: matrix.mysql-versions == 'mysql:8.0'
+      # - name: Set MYSQL Auth to password bassed
+      #   # run: '--default-authentication-plugin=mysql_native_password'
+      #   # run: 'mysql --host mysql --port 3306 -u root -p crab -e "SHOW DATABASES"'
+      #   if: matrix.mysql-versions == 'mysql:8.0'
 
       - name: Set environment variables
         run: echo "MYSQL_AUTHENTICATION_PLUGIN = mysql_native_password" >> $GITHUB_ENV
