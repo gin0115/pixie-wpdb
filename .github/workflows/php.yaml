@@ -15,7 +15,7 @@ jobs:
         mysql-versions: ['mysql:5.7', 'mysql:8.0.21', 'mariadb:10.4']
     runs-on: ${{ matrix.operating-system }}
     services:
-      # Setup MYSQL 
+      # Setup MYSQL
       mysql-service:
         image: ${{ matrix.mysql-versions }}
         env:
@@ -38,6 +38,9 @@ jobs:
           extensions: mbstring, intl, pcov
           ini-values: post_max_size=256M, log_errors=1
           tools: pecl
+
+      - name: Set MYSQL Auth to password bassed
+        run: '--default-authentication-plugin=mysql_native_password'
 
       - name: Check PHP Version
         run: php -v
