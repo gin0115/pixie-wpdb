@@ -18,7 +18,6 @@ jobs:
       # Setup MYSQL 
       mysql-service:
         image: ${{ matrix.mysql-versions }}
-        command: '--default-authentication-plugin=mysql_native_password'
         env:
           MYSQL_ROOT_PASSWORD: 'crab'
           MYSQL_DATABASE: pc_core_tests
