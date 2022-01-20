@@ -41,7 +41,7 @@ require 'vendor/autoload.php';
 
 // Create a connection, once only.
 $config = [
-    'prefix' => 'cb_', // Table prefix, optional
+    Connection::PREFIX => 'cb_', // Table prefix, optional
 ];
 
 // Get the current (gloabl) WPDB instance, or create a custom one 
@@ -155,7 +155,7 @@ Pixie supports three database drivers, MySQL, SQLite and PostgreSQL. You can spe
 // Make sure you have Composer's autoload file included
 require 'vendor/autoload.php';
 
-$config = array( 'prefix'    => 'cb_'); // Table prefix, optional
+$config = [Connection::PREFIX => 'cb_']; // Table prefix, optional
 
 new \Pixie\Connection($wpdb, $config, 'QB');
 
