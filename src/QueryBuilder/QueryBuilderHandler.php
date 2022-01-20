@@ -9,14 +9,14 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use Pixie\QueryBuilder\Raw;
+use function mb_strlen;
 
+use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-use function mb_strlen;
 
 class QueryBuilderHandler
 {
@@ -1132,6 +1132,37 @@ class QueryBuilderHandler
             $operator = '=';
         }
 
+        return $this->whereJsonHandler($key, $jsonKey, $operator, $value, 'AND');
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+    * @param mixed|null $value
+    * @return static
+    */
+    public function orWhereJson($key, $jsonKey, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (3 === func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+
+        return $this->whereJsonHandler($key, $jsonKey, $operator, $value, 'OR');
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+    * @param mixed|null $value
+    * @param string $joiner
+    * @return static
+    */
+    protected function whereJsonHandler($key, $jsonKey, $operator = null, $value = null, string $joiner = 'AND'): self
+    {
         // Handle potential raw values.
         if ($key instanceof Raw) {
             $key = $this->adapterInstance->parseRaw($key);
@@ -1148,10 +1179,11 @@ class QueryBuilderHandler
         // Add any possible prefixes to the key
         $key = $this->addTablePrefix($key, true);
 
-        return  $this->where(
+        return  $this->whereHandler(
             new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\"))"),
             $operator,
-            $value
+            $value,
+            $joiner
         );
     }
 

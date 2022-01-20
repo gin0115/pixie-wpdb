@@ -799,4 +799,23 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals($whereThingFooPrefixed[0]->string, $whereThingFoo[0]->string);
         $this->assertEquals($whereThingFooPrefixed[0]->jsonCol, $whereThingFoo[0]->jsonCol);
     }
+
+    /** @testdox It should be possible to create a WHERE clause that allows OR conditions, from traversing the JSON object. */
+    public function testJsonWhereOr()
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'z', 'jsonCol' => \json_encode((object)['id' => 24748, 'thing' => (object) ['handle' => 'foo'] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'y', 'jsonCol' => \json_encode((object)['id' => 78945, 'thing' => (object) ['handle' => 'bar'] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'x', 'jsonCol' => \json_encode((object)['id' => 78941, 'thing' => (object) ['handle' => 'baz'] ])], ['%s', '%s']);
+
+        $rows = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->orWhereJson('jsonCol', ['thing','handle'], '=', 'foo')
+            ->orWhereJson('jsonCol', ['thing','handle'], '=', 'bar')
+            ->orderBy('string')
+            ->get();
+
+        $this->assertCount(2, $rows);
+        $this->assertEquals('y', $rows[0]->string);
+        $this->assertEquals('z', $rows[1]->string);
+    }
 }
