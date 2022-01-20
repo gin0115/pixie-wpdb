@@ -232,7 +232,7 @@ There are 2 ways to express selecting a value from within a stored JSON object.
 ```php
 ->select(['column->someObj->a' => 'jsonAlias'])
 ```
-This would return results with `{jsonAlias => "apple"}`
+This would return results with `{jsonAlias => "apple"}`  
 To access arrays values use `->select(['column->someArray[1]' => 'jsonAlias'])`
 
 > Please note using Laravel style selectors without an alias, will result in an exception being thrown.
@@ -241,9 +241,9 @@ To access arrays values use `->select(['column->someArray[1]' => 'jsonAlias'])`
 ```php
 ->selectJson('column', ['someObj', 'a'], 'jsonAlias')
 ```
-This would return results with `{jsonAlias => "apple"}`
+This would return results with `{jsonAlias => "apple"}`  
 
-> If no alias is passed, the column value will be set as `json_a`. The last selector is prepended with `json_`
+> If no alias is passed, the column value will be set as `json_a`. The last selector is prepended with `json_`  
 
 #### Select Distinct
 ```PHP
