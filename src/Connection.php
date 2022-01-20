@@ -59,7 +59,6 @@ class Connection
         ?string $alias = null,
         ?Container $container = null
     ) {
-
         $this->setAdapterConfig($adapterConfig);
         $this->dbInstance = $this->configureWpdb($wpdb);
 
