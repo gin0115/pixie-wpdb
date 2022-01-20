@@ -62,6 +62,7 @@ class WPDBAdapter
 
         // Wheres
         list($whereCriteria, $whereBindings) = $this->buildCriteriaWithType($statements, 'wheres', 'WHERE');
+
         // Group bys
         $groupBys = '';
         if (isset($statements['groupBys']) && $groupBys = $this->arrayStr($statements['groupBys'], ', ')) {
@@ -671,6 +672,9 @@ class WPDBAdapter
                 $criteria = $type . ' ' . $criteria;
             }
         }
+
+        // Remove any multiple whitespace.
+        $criteria = (string) preg_replace('!\s+!', ' ', $criteria);
 
         return [$criteria, $bindings];
     }

@@ -67,7 +67,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
          "CREATE TABLE mock_json (
          id mediumint(8) unsigned NOT NULL auto_increment ,
          string varchar(255) NULL,
-         json json NULL,
+         jsonCol json NULL,
          PRIMARY KEY  (id)
          )
          COLLATE {$this->wpdb->collate}";
@@ -678,5 +678,125 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
             ->get();
         $this->assertCount(1, $resultC);
         $this->assertEquals('2022-10-10', $resultC[0]->date);
+    }
+
+
+
+    /**************************************/
+    /*         JSON FUNCTIONALITY         */
+    /**************************************/
+
+    /** @testdox It should be possible to select values from inside a JSON object, held in a JSON column type. */
+    public function testCanSelectFromWithinJSONColumn1GenDeep()
+    {
+         $this->wpdb->insert('mock_json', ['string' => 'a', 'jsonCol' => \json_encode((object)['id' => 24748, 'name' => 'Sam'])], ['%s', '%s']);
+
+        $asRaw = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string', new Raw('JSON_UNQUOTE(JSON_EXTRACT(jsonCol, "$.id")) as jsonID'))
+            ->get();
+
+        $asSelectJson = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string')
+            ->selectJson('jsonCol', "id", 'jsonID')
+            ->get();
+
+        $this->assertEquals($asRaw[0]->string, $asSelectJson[0]->string);
+        $this->assertEquals($asRaw[0]->jsonID, $asSelectJson[0]->jsonID);
+
+        // Without Alias
+        $jsonWoutAlias = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string')
+            ->selectJson('jsonCol', "id")
+            ->get();
+
+        $this->assertEquals('a', $jsonWoutAlias[0]->string);
+        $this->assertEquals('24748', $jsonWoutAlias[0]->json_id);
+    }
+
+    /** @testdox It should be possible  */
+    public function testCanSelectFromWithinJSONColumn3GenDeep(): void
+    {
+        $jsonData = (object)[
+            'key' => 'apple',
+            'data' => (object) [
+                'array' => [1,2,3,4],
+                'object' => (object) [
+                    'obj1' => 'val1',
+                    'obj2' => 'val2',
+                ]
+            ]
+        ];
+        $this->wpdb->insert('mock_json', ['string' => 'a', 'jsonCol' => \json_encode($jsonData)], ['%s', '%s']);
+
+        // Extract a value from an object
+        $objectVal = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string')
+            ->selectJson('jsonCol', ['data', 'object', 'obj1'], 'jsonVALUE')
+            ->first();
+
+        $this->assertNotNull($objectVal);
+        $this->assertEquals('a', $objectVal->string);
+        $this->assertEquals('val1', $objectVal->jsonVALUE);
+
+        // Extract an entire array.
+        $arrayValues = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string')
+            ->selectJson('jsonCol', ['data', 'array'], 'jsonVALUE')
+            ->first();
+
+        $this->assertNotNull($arrayValues);
+        $this->assertEquals('a', $arrayValues->string);
+        $this->assertEquals('[1, 2, 3, 4]', $arrayValues->jsonVALUE);
+        $this->assertCount(4, \json_decode($arrayValues->jsonVALUE));
+        $this->assertContains('1', \json_decode($arrayValues->jsonVALUE));
+        $this->assertContains('2', \json_decode($arrayValues->jsonVALUE));
+        $this->assertContains('3', \json_decode($arrayValues->jsonVALUE));
+        $this->assertContains('4', \json_decode($arrayValues->jsonVALUE));
+
+        // Pluck a single item from an array using its key.
+        $pluckArrayValue = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string')
+            ->selectJson('json.jsonCol', ['data', 'array[1]'], 'jsonVALUE')
+            ->first();
+
+        $this->assertNotNull($pluckArrayValue);
+        $this->assertEquals('a', $pluckArrayValue->string);
+        $this->assertEquals('2', $pluckArrayValue->jsonVALUE);
+    }
+
+    /** @testdox It should be possible to do a where query that checks a value inside a json value. Tests only 1 level deep */
+    public function testJsonWhere1GenDeep()
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'a', 'jsonCol' => \json_encode((object)['id' => 24748, 'thing' => 'foo'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'b', 'jsonCol' => \json_encode((object)['id' => 78945, 'thing' => 'foo'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'b', 'jsonCol' => \json_encode((object)['id' => 78941, 'thing' => 'bar'])], ['%s', '%s']);
+
+        $whereThingFooRaw = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->where(new Raw('JSON_EXTRACT(jsonCol,"$.thing")'), '=', 'foo')
+            ->get();
+
+        $whereThingFoo = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->whereJson('jsonCol', 'thing', 'foo') // Assume its '='
+            ->get();
+
+        $this->assertEquals($whereThingFooRaw[0]->string, $whereThingFoo[0]->string);
+        $this->assertEquals($whereThingFooRaw[0]->jsonCol, $whereThingFoo[0]->jsonCol);
+
+        // Check with prefix
+        $whereThingFooPrefixed = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->whereJson('json.jsonCol', 'thing', '<>', 'bar') // NOT BAR
+            ->get();
+
+        $this->assertEquals($whereThingFooPrefixed[0]->string, $whereThingFoo[0]->string);
+        $this->assertEquals($whereThingFooPrefixed[0]->jsonCol, $whereThingFoo[0]->jsonCol);
     }
 }

@@ -840,4 +840,39 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->whereNotNull('key2');
         $this->assertEquals("SELECT * FROM foo WHERE key IS NOT NULL AND key2 IS NOT NULL", $builderNot->getQuery()->getRawSql());
     }
+
+    /** @testdox It should be possible to create a query which gets values form a JSON column, while using RAW object for both the MYSQL col key and JSON object key (1st generation) */
+    public function testJsonSelectUsingRawValues(): void
+    {
+        $builder = $this->queryBuilderProvider()
+            ->table('jsonSelects')
+            ->selectJson(new Raw('column'), new Raw('foo'));
+
+        $this->assertEquals(
+            'SELECT JSON_UNQUOTE(JSON_EXTRACT(column, "$.foo")) as json_foo FROM jsonSelects',
+            $builder->getQuery()->getRawSql()
+        );
+    }
+
+    /** @testdox It should be possible to do a select from a JSON value, using column->jsonKey1->jsonKey2 */
+    public function testSelectWithJSONWithAlias(): void
+    {
+        $builder = $this->queryBuilderProvider()
+            ->table('TableName')
+            ->select(['column->foo->bar' => 'alias']);
+
+        $expected = 'SELECT JSON_UNQUOTE(JSON_EXTRACT(column, "$.foo.bar")) as alias FROM TableName';
+        $this->assertEquals($expected, $builder->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to use table.column and have the prefix added to the table, even if used as JSON Select query */
+    public function testAllColumnsInJSONSelectWithTableDotColumnShouldHavePrefixAdded()
+    {
+        $builder = $this->queryBuilderProvider('pr_')
+            ->table('table')
+            ->select(['table.column->foo->bar' => 'alias']);
+
+        $expected = 'SELECT JSON_UNQUOTE(JSON_EXTRACT(pr_table.column, "$.foo.bar")) as alias FROM pr_table';
+        $this->assertEquals($expected, $builder->getQuery()->getRawSql());
+    }
 }

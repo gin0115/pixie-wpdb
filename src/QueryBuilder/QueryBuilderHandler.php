@@ -674,10 +674,59 @@ class QueryBuilderHandler
             $fields = func_get_args();
         }
 
-        $fields = $this->addTablePrefix($fields);
-        $this->addStatement('selects', $fields);
+        foreach ($fields as $field => $alias) {
+            // If we have a JSON expression
+            if ($this->isJsonExpression($field)) {
+                // Add using JSON select.
+                $this->castToJsonSelect($field, $alias);
+                unset($fields[$field]);
+                continue;
+            }
+
+            // If no alias passed, but field is for JSON. thrown an exception.
+            if (is_numeric($field) && $this->isJsonExpression($alias)) {
+                throw new Exception("An alias must be used if you wish to select from JSON Object", 1);
+            }
+
+            // Treat each array as a single table, to retain order added
+            $field = is_numeric($field)
+                ? $field = $alias // If single colum
+                : $field = [$field => $alias]; // Has alias
+
+            $field = $this->addTablePrefix($field);
+            $this->addStatement('selects', $field);
+        }
+
+
 
         return $this;
+    }
+
+    /**
+     * Checks if the passed expression is for JSON
+     * this->denotes->json
+     *
+     * @param string $expression
+     * @return bool
+     */
+    protected function isJsonExpression(string $expression): bool
+    {
+        return 2 <= count(explode('->', $expression));
+    }
+
+    /**
+     * Casts a select to JSON based on -> in column name.
+     *
+     * @param string $keys
+     * @param string|null $alias
+     * @return self
+     */
+    public function castToJsonSelect(string $keys, ?string $alias): self
+    {
+        $parts = explode('->', $keys);
+        $field = $parts[0];
+        unset($parts[0]);
+        return $this->selectJson($field, $parts, $alias);
     }
 
     /**
@@ -796,7 +845,7 @@ class QueryBuilderHandler
     public function where($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -814,7 +863,7 @@ class QueryBuilderHandler
     public function orWhere($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -832,7 +881,7 @@ class QueryBuilderHandler
     public function whereNot($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -850,7 +899,7 @@ class QueryBuilderHandler
     public function orWhereNot($key, $operator = null, $value = null)
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -950,7 +999,7 @@ class QueryBuilderHandler
     public function whereMonth($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -966,7 +1015,7 @@ class QueryBuilderHandler
     public function whereDay($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -982,7 +1031,7 @@ class QueryBuilderHandler
     public function whereYear($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -998,7 +1047,7 @@ class QueryBuilderHandler
     public function whereDate($key, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
-        if (2 == func_num_args()) {
+        if (2 === func_num_args()) {
             $value    = $operator;
             $operator = '=';
         }
@@ -1066,6 +1115,44 @@ class QueryBuilderHandler
         }
 
         return $this->{$operator . 'Where'}($this->raw("{$key} IS{$prefix} NULL"));
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+    * @param mixed|null $value
+    * @return static
+    */
+    public function whereJson($key, $jsonKey, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (3 === func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+
+        // Handle potential raw values.
+        if ($key instanceof Raw) {
+            $key = $this->adapterInstance->parseRaw($key);
+        }
+        if ($jsonKey instanceof Raw) {
+            $jsonKey = $this->adapterInstance->parseRaw($jsonKey);
+        }
+
+        // If deeply nested jsonKey.
+        if (is_array($jsonKey)) {
+            $jsonKey = \implode('.', $jsonKey);
+        }
+
+        // Add any possible prefixes to the key
+        $key = $this->addTablePrefix($key, true);
+
+        return  $this->where(
+            new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\"))"),
+            $operator,
+            $value
+        );
     }
 
     /**
@@ -1298,6 +1385,9 @@ class QueryBuilderHandler
      */
     protected function whereHandler($key, $operator = null, $value = null, $joiner = 'AND')
     {
+        if ($key instanceof Raw) {
+            $key = $this->adapterInstance->parseRaw($key);
+        }
         $key                          = $this->addTablePrefix($key);
         $this->statements['wheres'][] = compact('key', 'operator', 'value', 'joiner');
         return $this;
@@ -1343,7 +1433,15 @@ class QueryBuilderHandler
                 $target = &$key;
             }
 
-            if (!$tableFieldMix || (is_string($target) && false !== strpos($target, '.'))) {
+            // Do prefix if the target is an expression or function.
+            if (
+                !$tableFieldMix
+                || (
+                    is_string($target) // Must be a string
+                    && (bool) preg_match('/^[A-Za-z0-9_.]+$/', $target) // Can only contain letters, numbers, underscore and full stops
+                    && 1 === \substr_count($target, '.') // Contains a single full stop ONLY.
+                )
+            ) {
                 $target = $this->tablePrefix . $target;
             }
 
@@ -1447,4 +1545,35 @@ class QueryBuilderHandler
             ? $this->fetchMode
             : \OBJECT;
     }
+
+    // JSON
+
+    /**
+     * @param string|Raw $key The database column which holds the JSON value
+     * @param string|Raw|string[] $jsonKey The json key/index to search
+     * @param string|null $alias The alias used to define the value in results, if not defined will use json_{$jsonKey}
+     * @return static
+     */
+    public function selectJson($key, $jsonKey, ?string $alias = null): self
+    {
+        // Handle potential raw values.
+        if ($key instanceof Raw) {
+            $key = $this->adapterInstance->parseRaw($key);
+        }
+        if ($jsonKey instanceof Raw) {
+            $jsonKey = $this->adapterInstance->parseRaw($jsonKey);
+        }
+
+        // If deeply nested jsonKey.
+        if (is_array($jsonKey)) {
+            $jsonKey = \implode('.', $jsonKey);
+        }
+
+        // Add any possible prefixes to the key
+        $key = $this->addTablePrefix($key, true);
+
+        $alias = null === $alias ? "json_{$jsonKey}" : $alias;
+        return  $this->select(new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\")) as {$alias}"));
+    }
 }
+// 'JSON_EXTRACT(json, "$.id") as jsonID'

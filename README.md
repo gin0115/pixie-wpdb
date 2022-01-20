@@ -26,6 +26,12 @@ It has some advanced features like:
  - Nested Queries
  - Multiple Database Connections.
 
+Additional features added to this version of Pixie
+ - JSON Support (Select, Where)
+ - Aggregation methods (Min, Max, Average & Sum)
+ - Custom Model Hydration
+ - Date based Where (Month, Day, Year & Date)
+
 The syntax is quite similar to Laravel's query builder.
 
 ## Example
@@ -81,13 +87,7 @@ There are many advanced options which are documented below. Sold? Let's install.
 
 Pixie uses [Composer](http://getcomposer.org/doc/00-intro.md#installation-nix) to make things easy.
 
-Learn to use composer and add this to require section (in your composer.json):
-
-    "gin0115/pixie-wpdb": "1.*@dev"
-
-And run:
-
-    composer update
+To install run `composer require gin0115/pixie-wpdb`
 
 Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
 
@@ -103,6 +103,8 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
  - [**Select**](#select)
     - [Get Easily](#get-easily)
     - [Multiple Selects](#multiple-selects)
+    - [Select Alias](#select-alias)
+    - [Select JSON](#select-json)
     - [Select Distinct](#select-distinct)
     - [Get All](#get-all)
     - [Get First Row](#get-first-row)
@@ -116,6 +118,9 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
        - [Where Month](#where-month)
        - [Where Year](#where-year)
     - [Grouped Where](#grouped-where)    
+    - [Where JSON]()
+       -[Where IN JSON]() 
+       -[Where BETWEEN JSON]() 
  - [Group By and Order By](#group-by-and-order-by)
  - [Having](#having)
  - [Limit and Offset](#limit-and-offset)
@@ -214,6 +219,34 @@ $query = QB::table('my_table')->select('*');
 
 Using select method multiple times `select('a')->select('b')` will also select `a` and `b`. Can be useful if you want to do conditional selects (within a PHP `if`).
 
+### Select Alias
+```php
+->select(['column'=>'alias'])
+```
+This would result in `SELECT column as alias` as part of the query.
+
+### Select JSON
+There are 2 ways to express selecting a value from within a stored JSON object.  
+`{"someKey": "someValue","someArray":[1,2,3], "someObj":{"a":"apple","b":"banana"}}`
+
+#### Using Larvel style selectors.
+```php
+->select(['column->someObj->a' => 'jsonAlias'])
+```
+This would return results with `{jsonAlias => "apple"}`  
+To access arrays values use `->select(['column->someArray[1]' => 'jsonAlias'])`
+
+> Please note using Laravel style selectors without an alias, will result in an exception being thrown. example `->select('column->someObj->a')`
+
+#### Using selectJson() helper
+```php
+->selectJson('column', ['someObj', 'a'], 'jsonAlias')
+```
+This would return results with `{jsonAlias => "apple"}`  
+
+> If no alias is passed, the column value will be set as `json_a`. The last selector is prepended with `json_`   
+**Example **
+`->selectJson('column', ['someObj', 'a'])` would return `{json_a => "apple"}`
 
 #### Select Distinct
 ```PHP
@@ -590,7 +623,6 @@ This will produce a query like this:
 
     SELECT * FROM (SELECT `cb_my_table`.*, (SELECT `details` FROM `cb_person_details` WHERE `person_id` = 3) as table_alias1 FROM `cb_my_table`) as table_alias2
 
-**NOTE:** Pixie doesn't use bindings for sub queries and nested queries. It quotes values with PDO's `quote()` method.
 
 ### Get wpdb Instance
 If you need to get the wpdb instance you can do so.
