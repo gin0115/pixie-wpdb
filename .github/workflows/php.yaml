@@ -28,9 +28,7 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=3
-          --default-authentication-plugin=mysql_native_password
-        if: matrix.mysql-versions == 'mysql:8.0'
-        
+       
           
 
     steps:
@@ -46,8 +44,8 @@ jobs:
 
       # Set auth mode for MYSQL 5.8
       - name: Set MYSQL Auth to password bassed
-        run: '--default-authentication-plugin=mysql_native_password'
-        # run: mysql -u root -p crab
+        # run: '--default-authentication-plugin=mysql_native_password'
+        run: --host mysql --port 3306 -u root -p crab -e "SHOW DATABASES"
         if: matrix.mysql-versions == 'mysql:8.0'
 
       - name: Check PHP Version
