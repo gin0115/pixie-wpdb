@@ -26,6 +26,12 @@ It has some advanced features like:
  - Nested Queries
  - Multiple Database Connections.
 
+Additional features added to this version of Pixie
+ - JSON Support (Select, Where)
+ - Aggregation methods (Min, Max, Average & Sum)
+ - Custom Model Hydration
+ - Date based Where (Month, Day, Year & Date)
+
 The syntax is quite similar to Laravel's query builder.
 
 ## Example
@@ -81,13 +87,7 @@ There are many advanced options which are documented below. Sold? Let's install.
 
 Pixie uses [Composer](http://getcomposer.org/doc/00-intro.md#installation-nix) to make things easy.
 
-Learn to use composer and add this to require section (in your composer.json):
-
-    "gin0115/pixie-wpdb": "1.*@dev"
-
-And run:
-
-    composer update
+To install run `composer require gin0115/pixie-wpdb`
 
 Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
 
@@ -103,6 +103,7 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
  - [**Select**](#select)
     - [Get Easily](#get-easily)
     - [Multiple Selects](#multiple-selects)
+    - [Select Alias](#select-alias)
     - [Select JSON](#select-json)
     - [Select Distinct](#select-distinct)
     - [Get All](#get-all)
@@ -235,7 +236,7 @@ There are 2 ways to express selecting a value from within a stored JSON object.
 This would return results with `{jsonAlias => "apple"}`  
 To access arrays values use `->select(['column->someArray[1]' => 'jsonAlias'])`
 
-> Please note using Laravel style selectors without an alias, will result in an exception being thrown.
+> Please note using Laravel style selectors without an alias, will result in an exception being thrown. example `->select('column->someObj->a')`
 
 #### Using selectJson() helper
 ```php
@@ -243,7 +244,9 @@ To access arrays values use `->select(['column->someArray[1]' => 'jsonAlias'])`
 ```
 This would return results with `{jsonAlias => "apple"}`  
 
-> If no alias is passed, the column value will be set as `json_a`. The last selector is prepended with `json_`  
+> If no alias is passed, the column value will be set as `json_a`. The last selector is prepended with `json_`   
+**Example **
+`->selectJson('column', ['someObj', 'a'])` would return `{json_a => "apple"}`
 
 #### Select Distinct
 ```PHP

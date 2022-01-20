@@ -9,14 +9,14 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use Pixie\QueryBuilder\Raw;
+use function mb_strlen;
 
+use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-use function mb_strlen;
 
 class QueryBuilderHandler
 {
@@ -675,11 +675,6 @@ class QueryBuilderHandler
         }
 
         foreach ($fields as $field => $alias) {
-            // If we have a numerical string, skip.
-            if (is_numeric($field)) {
-                continue;
-            }
-
             // If we have a JSON expression
             if ($this->isJsonExpression($field)) {
                 // Add using JSON select.
@@ -687,10 +682,22 @@ class QueryBuilderHandler
                 unset($fields[$field]);
                 continue;
             }
+
+            // If no alias passed, but field is for JSON. thrown an exception.
+            if (is_numeric($field) && $this->isJsonExpression($alias)) {
+                throw new Exception("An alias must be used if you wish to select from JSON Object", 1);
+            }
+
+            // Treat each array as a single table, to retain order added
+            $field = is_numeric($field)
+                ? $field = $alias // If single colum
+                : $field = [$field => $alias]; // Has alias
+
+            $field = $this->addTablePrefix($field);
+            $this->addStatement('selects', $field);
         }
 
-        $fields = $this->addTablePrefix($fields);
-        $this->addStatement('selects', $fields);
+
 
         return $this;
     }
