@@ -32,6 +32,7 @@ jobs:
           --health-retries=3
        
     steps:
+
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup PHP
@@ -46,6 +47,10 @@ jobs:
       - name: Set MYSQL Auth to password bassed
         # run: '--default-authentication-plugin=mysql_native_password'
         # run: 'mysql --host mysql --port 3306 -u root -p crab -e "SHOW DATABASES"'
+        if: matrix.mysql-versions == 'mysql:8.0'
+
+      - name: Set environment variables
+        run: echo "MYSQL_AUTHENTICATION_PLUGIN = mysql_native_password" >> $GITHUB_ENV
         if: matrix.mysql-versions == 'mysql:8.0'
 
       - name: Check PHP Version
