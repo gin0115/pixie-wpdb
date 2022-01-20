@@ -256,7 +256,7 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
             ->get();
     }
 
-    /** @testdox When attemptning to use a JSON expression as a select, using select(). An alias must be supplied, or an exception should be thrown. */
+    /** @testdox When attempting to use a JSON expression as a select, using select(). An alias must be supplied, or an exception should be thrown. */
     public function testMustUseAliasWithJsonSelect(): void
     {
         $this->expectExceptionMessage('An alias must be used if you wish to select from JSON Object');

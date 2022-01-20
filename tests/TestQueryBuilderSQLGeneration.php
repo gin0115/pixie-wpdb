@@ -863,6 +863,16 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $expected = 'SELECT JSON_UNQUOTE(JSON_EXTRACT(column, "$.foo.bar")) as alias FROM TableName';
         $this->assertEquals($expected, $builder->getQuery()->getRawSql());
-        dump($builder->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to use table.column and have the prefix added to the table, even if used as JSON Select query */
+    public function testAllColumnsInJSONSelectWithTableDotColumnShouldHavePrefixAdded()
+    {
+        $builder = $this->queryBuilderProvider('pr_')
+            ->table('table')
+            ->select(['table.column->foo->bar' => 'alias']);
+
+        $expected = 'SELECT JSON_UNQUOTE(JSON_EXTRACT(pr_table.column, "$.foo.bar")) as alias FROM pr_table';
+        $this->assertEquals($expected, $builder->getQuery()->getRawSql());
     }
 }
