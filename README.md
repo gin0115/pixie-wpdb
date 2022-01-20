@@ -96,9 +96,9 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
 ### Table of Contents
 
  - [Connection](#connection)
+    - [Connection Config](#config)
     - [Alias](#alias)
     - [Multiple Connection](#alias)
-    - [SQLite and PostgreSQL Config Sample](#sqlite-and-postgresql-config-sample)
  - [Query](#query)
  - [**Select**](#select)
     - [Get Easily](#get-easily)
