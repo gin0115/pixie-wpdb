@@ -46,9 +46,9 @@ jobs:
       #   # run: 'mysql --host mysql --port 3306 -u root -p crab -e "SHOW DATABASES"'
       #   if: matrix.mysql-versions == 'mysql:8.0'
 
-      - name: Set environment variables
-        run: echo "MYSQL_AUTHENTICATION_PLUGIN = mysql_native_password" >> $GITHUB_ENV
-        if: matrix.mysql-versions == 'mysql:8.0'
+      # - name: Set environment variables
+      #   run: echo "MYSQL_AUTHENTICATION_PLUGIN = mysql_native_password" >> $GITHUB_ENV
+      #   if: matrix.mysql-versions == 'mysql:8.0'
 
       - name: Check PHP Version
         run: php -v
