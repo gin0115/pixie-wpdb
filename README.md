@@ -41,7 +41,7 @@ require 'vendor/autoload.php';
 
 // Create a connection, once only.
 $config = [
-    'prefix' => 'cb_', // Table prefix, optional
+    Connection::PREFIX => 'cb_', // Table prefix, optional
 ];
 
 // Get the current (gloabl) WPDB instance, or create a custom one 
@@ -155,13 +155,35 @@ Pixie supports three database drivers, MySQL, SQLite and PostgreSQL. You can spe
 // Make sure you have Composer's autoload file included
 require 'vendor/autoload.php';
 
-$config = array( 'prefix'    => 'cb_'); // Table prefix, optional
+$config = [Connection::PREFIX => 'cb_']; // Table prefix, optional
 
 new \Pixie\Connection($wpdb, $config, 'QB');
 
 // Run query
 $query = QB::table('my_table')->where('name', '=', 'Sana');
 ```
+
+### Config
+
+It is possible to conigure the connection used by your instance of the query builder.
+
+Values
+
+| Key      | Constant | Value | Description |  
+| ----------- | ----------- |----------- |----------- |
+| prefix      | Connection::PREFIX       | STRING | Custom table prefix (will ignore WPDB prefix)|
+| use_wpdb_prefix   | Connection::USE_WPDB_PREFIX        | BOOL | If true will use WPDB prefix and ignore custom prefix
+| clone_wpdb      | Connection::CLONE_WPDB       | BOOL | If true, will clone WPDB to not use GLOBAL instance|
+| show_errors | Connection::SHOW_ERRORS | BOOL | If set to true will configure WPDB to show/hide errors |
+ 
+```php
+$config = [
+    Connection::USE_WPDB_PREFIX => true,
+    Connection::CLONE_WPDB => true,
+    Connection::SHOW_ERRORS => false,
+];
+```
+> It is advise to use the class constants over string keys, to avoid BC breakages later on
 
 ### Alias
 When you create a connection:

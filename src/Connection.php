@@ -2,15 +2,21 @@
 
 namespace Pixie;
 
+use wpdb;
 use Exception;
+use Viocon\Container;
 use Pixie\AliasFacade;
 use Pixie\EventHandler;
 use Pixie\QueryBuilder\QueryBuilderHandler;
-use Viocon\Container;
-use wpdb;
 
 class Connection
 {
+    /** Config keys */
+    public const CLONE_WPDB        = 'clone_wpdb';
+    public const PREFIX            = 'prefix';
+    public const SHOW_ERRORS       = 'show_errors';
+    public const USE_WPDB_PREFIX   = 'use_wpdb_prefix';
+
     /**
      * @var Container
      */
@@ -53,8 +59,8 @@ class Connection
         ?string $alias = null,
         ?Container $container = null
     ) {
-        $this->dbInstance = $wpdb;
         $this->setAdapterConfig($adapterConfig);
+        $this->dbInstance = $this->configureWpdb($wpdb);
 
         $this->container    = $container ?? new Container();
         $this->eventHandler = $this->container->build(EventHandler::class);
@@ -67,6 +73,45 @@ class Connection
         if (!static::$storedConnection) {
             static::$storedConnection = $this;
         }
+    }
+
+    /**
+     * Configures the instance of WPDB based on adaptor config values.
+     *
+     * @param \wpdb $wpdb
+     * @return \wpdb
+     */
+    protected function configureWpdb(wpdb $wpdb): wpdb
+    {
+        // Maybe clone instance.
+        if (
+            array_key_exists(self::CLONE_WPDB, $this->adapterConfig)
+            && true === $this->adapterConfig[self::CLONE_WPDB]
+        ) {
+            $wpdb = clone $wpdb;
+        }
+
+        // Maybe set the prefix to WPDB's.
+        if (
+            array_key_exists(self::USE_WPDB_PREFIX, $this->adapterConfig)
+            && 0 < \mb_strlen($this->adapterConfig[self::USE_WPDB_PREFIX])
+        ) {
+            $this->adapterConfig[self::PREFIX] = $wpdb->prefix;
+        }
+
+        // Maybe configure errors
+        if (array_key_exists(self::SHOW_ERRORS, $this->adapterConfig)) {
+            // Based in its value.
+            if (true === (bool) $this->adapterConfig[self::SHOW_ERRORS]) {
+                $wpdb->show_errors(true);
+                $wpdb->suppress_errors(false);
+            } else {
+                $wpdb->show_errors(false);
+                $wpdb->suppress_errors(true);
+            }
+        }
+
+        return $wpdb;
     }
 
     /**
