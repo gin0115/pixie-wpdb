@@ -150,18 +150,8 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
 ___
 
 ## Connection
-Pixie supports three database drivers, MySQL, SQLite and PostgreSQL. You can specify the driver during connection and the associated configuration when creating a new connection. You can also create multiple connections, but you can use alias for only one connection at a time.;
-```PHP
-// Make sure you have Composer's autoload file included
-require 'vendor/autoload.php';
+Pixie WPDB supports only WPDB (WordPress DataBase). You can also create multiple connections, but you can use alias for only one connection at a time.;
 
-$config = [Connection::PREFIX => 'cb_']; // Table prefix, optional
-
-new \Pixie\Connection($wpdb, $config, 'QB');
-
-// Run query
-$query = QB::table('my_table')->where('name', '=', 'Sana');
-```
 
 ### Config
 
@@ -182,6 +172,16 @@ $config = [
     Connection::CLONE_WPDB => true,
     Connection::SHOW_ERRORS => false,
 ];
+```
+
+```PHP
+// Make sure you have Composer's autoload file included
+require 'vendor/autoload.php';
+
+new \Pixie\Connection($wpdb, $config, 'QB');
+
+// Run query
+$query = QB::table('my_table')->where('name', '=', 'Sana');
 ```
 > It is advise to use the class constants over string keys, to avoid BC breakages later on
 
