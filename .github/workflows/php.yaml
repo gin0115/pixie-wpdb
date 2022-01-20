@@ -12,7 +12,7 @@ jobs:
       matrix:
         operating-system: [ubuntu-latest]
         php-versions: ['7.1', '7.2', '7.3', '7.4']
-        mysql-versions: ['mysql:5.7', 'mysql:8.0.21']
+        mysql-versions: ['mysql:5.7', 'mysql:8.0.21', 'mariadb:10.4']
     runs-on: ${{ matrix.operating-system }}
     services:
       # Setup MYSQL
@@ -39,8 +39,10 @@ jobs:
           ini-values: post_max_size=256M, log_errors=1
           tools: pecl
 
+      # Set auth mode for MYSQL 5.8
       - name: Set MYSQL Auth to password bassed
         run: '--default-authentication-plugin=mysql_native_password'
+        if: matrix.mysql-versions == 'mysql:8.0.21'
 
       - name: Check PHP Version
         run: php -v
