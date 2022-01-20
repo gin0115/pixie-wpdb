@@ -21,6 +21,8 @@ jobs:
         env:
           MYSQL_ROOT_PASSWORD: 'crab'
           MYSQL_DATABASE: pc_core_tests
+          MYSQL_AUTHENTICATION_PLUGIN: mysql_native_password
+          if: matrix.mysql-versions == 'mysql:8.0'
         ports:
           - 3306:3306
         options: >-
@@ -43,7 +45,7 @@ jobs:
       # Set auth mode for MYSQL 5.8
       - name: Set MYSQL Auth to password bassed
         # run: '--default-authentication-plugin=mysql_native_password'
-        run: 'mysql --host mysql --port 3306 -u root -p crab -e "SHOW DATABASES"'
+        # run: 'mysql --host mysql --port 3306 -u root -p crab -e "SHOW DATABASES"'
         if: matrix.mysql-versions == 'mysql:8.0'
 
       - name: Check PHP Version
