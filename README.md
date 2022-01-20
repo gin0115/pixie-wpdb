@@ -218,6 +218,29 @@ $query = QB::table('my_table')->select('*');
 
 Using select method multiple times `select('a')->select('b')` will also select `a` and `b`. Can be useful if you want to do conditional selects (within a PHP `if`).
 
+### Select Alias
+```php
+->select(['column'=>'alias'])
+```
+This would result in `SELECT column as alias` as part of the query.
+
+### Select JSON
+There are 2 ways to express selecting a value from within a stored JSON object.  
+`{"someKey": "someValue","someArray":[1,2,3], "someObj":{"a":"apple","b":"banana"}}`
+
+#### Using Larvel style selectors.
+```php
+->select(['column->someObj->a' => 'jsonAlias'])
+```
+This would return results with `{jsonAlias => "apple"}`
+To access arrays values use `->select(['column->someArray[1]' => 'jsonAlias'])`
+
+> Please note using Laravel style selectors without an alias, will result in an exception being thrown.
+
+#### Using selectJson() helper
+```php
+->selectJson('column', ['someObj', 'a]'], 'jsonAlias')
+```
 
 #### Select Distinct
 ```PHP
