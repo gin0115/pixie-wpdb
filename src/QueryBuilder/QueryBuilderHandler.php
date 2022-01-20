@@ -674,10 +674,52 @@ class QueryBuilderHandler
             $fields = func_get_args();
         }
 
+        foreach ($fields as $field => $alias) {
+            // If we have a numerical string, skip.
+            if (is_numeric($field)) {
+                continue;
+            }
+
+            // If we have a JSON expression
+            if ($this->isJsonExpression($field)) {
+                // Add using JSON select.
+                $this->castToJsonSelect($field, $alias);
+                unset($fields[$field]);
+                continue;
+            }
+        }
+
         $fields = $this->addTablePrefix($fields);
         $this->addStatement('selects', $fields);
 
         return $this;
+    }
+
+    /**
+     * Checks if the passed expression is for JSON
+     * this->denotes->json
+     *
+     * @param string $expression
+     * @return bool
+     */
+    protected function isJsonExpression(string $expression): bool
+    {
+        return 2 <= count(explode('->', $expression));
+    }
+
+    /**
+     * Casts a select to JSON based on -> in column name.
+     *
+     * @param string $keys
+     * @param string|null $alias
+     * @return self
+     */
+    public function castToJsonSelect(string $keys, ?string $alias): self
+    {
+        $parts = explode('->', $keys);
+        $field = $parts[0];
+        unset($parts[0]);
+        return $this->selectJson($field, $parts, $alias);
     }
 
     /**
@@ -1099,7 +1141,6 @@ class QueryBuilderHandler
         // Add any possible prefixes to the key
         $key = $this->addTablePrefix($key, true);
 
-        // return $this->where(new Raw('JSON_EXTRACT(jsonCol,"$.thing")'), '=', 'foo')
         return  $this->where(
             new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\"))"),
             $operator,

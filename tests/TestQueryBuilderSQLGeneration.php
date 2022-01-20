@@ -853,4 +853,16 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             $builder->getQuery()->getRawSql()
         );
     }
+
+    /** @testdox It should be possible to do a select from a JSON value, using column->jsonKey1->jsonKey2 */
+    public function testSelectWithJSONWithAlias(): void
+    {
+        $builder = $this->queryBuilderProvider()
+            ->table('TableName')
+            ->select(['column->foo->bar' => 'alias']);
+
+        $expected = 'SELECT JSON_UNQUOTE(JSON_EXTRACT(column, "$.foo.bar")) as alias FROM TableName';
+        $this->assertEquals($expected, $builder->getQuery()->getRawSql());
+        dump($builder->getQuery()->getRawSql());
+    }
 }
