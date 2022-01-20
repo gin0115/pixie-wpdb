@@ -2,19 +2,17 @@
 
 ## WIP!
 
-
 **This project is Not Actively Maintained but most of the features are fully working and there are no major security issues, I'm just not giving it much time.**
-
 
 # Pixie Query Builder 
 
+![alt text](https://img.shields.io/badge/Current_Version-0.1.0-yellow.svg?style=flat " ")
 
-![alt text](https://img.shields.io/badge/Current_Version-0.1.0-yellow.svg?style=flat " ") 
+ 
 [![Open Source Love](https://badges.frapsoft.com/os/mit/mit.svg?v=102)]()
 ![](https://github.com/gin0115/pixie-wpdb/workflows/GitHub_CI/badge.svg " ")
 [![codecov](https://codecov.io/gh/gin0115/pixie-wpdb/branch/master/graph/badge.svg?token=4yEceIaSFP)](https://codecov.io/gh/gin0115/pixie-wpdb)
 [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/gin0115/pixie-wpdb/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/gin0115/pixie-wpdb/?branch=master)
-
 
 A lightweight, expressive, framework agnostic query builder for PHP it can also be referred as a Database Abstraction Layer. Pixie supports MySQL, SQLite and PostgreSQL and it takes care of query sanitization, table prefixing and many other things with a unified API.
 
@@ -35,6 +33,7 @@ Additional features added to this version of Pixie
 The syntax is quite similar to Laravel's query builder.
 
 ## Example
+
 ```PHP
 // Make sure you have Composer's autoload file included
 require 'vendor/autoload.php';
@@ -56,6 +55,7 @@ new \Pixie\Connection($wpdb, $config, $alias);
 **Simple Query:**
 
 The query below returns the row where id = 3, null if no rows.
+
 ```PHP
 $row = QB::table('my_table')->find(3);
 ```
@@ -79,7 +79,6 @@ QB::registerEvent('before-select', 'users', function($qb)
     $qb->where('status', '!=', 'banned');
 });
 ```
-
 
 There are many advanced options which are documented below. Sold? Let's install.
 
@@ -117,10 +116,12 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
        - [Where Day](#where-day)
        - [Where Month](#where-month)
        - [Where Year](#where-year)
+
     - [Grouped Where](#grouped-where)    
     - [Where JSON]()    
        - [Where IN JSON]()     
        - [Where BETWEEN JSON]()     
+
  - [Group By and Order By](#group-by-and-order-by)
  - [Having](#having)
  - [Limit and Offset](#limit-and-offset)
@@ -150,8 +151,20 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
 ___
 
 ## Connection
-Pixie WPDB supports only WPDB (WordPress DataBase). You can also create multiple connections, but you can use alias for only one connection at a time.;
 
+Pixie WPDB supports only WPDB (WordPress DataBase). You can also create multiple connections, but you can use alias for only one connection at a time.; 
+
+```PHP
+// Make sure you have Composer's autoload file included
+require 'vendor/autoload.php';
+
+$config = [Connection::PREFIX => 'cb_']; // full config options below.
+
+new \Pixie\Connection($wpdb, $config, 'QB');
+
+// Run query
+$query = QB::table('my_table')->where('name', '=', 'Sana');
+```
 
 ### Config
 
@@ -161,11 +174,12 @@ Values
 
 | Key      | Constant | Value | Description |  
 | ----------- | ----------- |----------- |----------- |
-| prefix      | Connection::PREFIX       | STRING | Custom table prefix (will ignore WPDB prefix)|
-| use_wpdb_prefix   | Connection::USE_WPDB_PREFIX        | BOOL | If true will use WPDB prefix and ignore custom prefix
-| clone_wpdb      | Connection::CLONE_WPDB       | BOOL | If true, will clone WPDB to not use GLOBAL instance|
-| show_errors | Connection::SHOW_ERRORS | BOOL | If set to true will configure WPDB to show/hide errors |
+| prefix      | Connection:: PREFIX       | STRING | Custom table prefix (will ignore WPDB prefix)|
+| use_wpdb_prefix   | Connection:: USE_WPDB_PREFIX        | BOOL | If true will use WPDB prefix and ignore custom prefix
+| clone_wpdb      | Connection:: CLONE_WPDB       | BOOL | If true, will clone WPDB to not use GLOBAL instance|
+| show_errors | Connection:: SHOW_ERRORS | BOOL | If set to true will configure WPDB to show/hide errors |
  
+
 ```php
 $config = [
     Connection::USE_WPDB_PREFIX => true,
@@ -174,23 +188,17 @@ $config = [
 ];
 ```
 
-```PHP
-// Make sure you have Composer's autoload file included
-require 'vendor/autoload.php';
-
-new \Pixie\Connection($wpdb, $config, 'QB');
-
-// Run query
-$query = QB::table('my_table')->where('name', '=', 'Sana');
-```
 > It is advise to use the class constants over string keys, to avoid BC breakages later on
 
 ### Alias
+
 When you create a connection:
+
 ```PHP
 new \Pixie\Connection($wpdb, $config, 'MyAlias');
 ```
-`MyAlias` is the name for the class alias you want to use (like `MyAlias::table(...)`), you can use whatever name (with Namespace also, `MyNamespace\\MyClass`) you like or you may skip it if you don't need an alias. Alias gives you the ability to easily access the QueryBuilder class across your application.
+
+`MyAlias` is the name for the class alias you want to use (like `MyAlias::table(...)` ), you can use whatever name (with Namespace also, `MyNamespace\\MyClass` ) you like or you may skip it if you don't need an alias. Alias gives you the ability to easily access the QueryBuilder class across your application.
 
 When not using an alias you can instantiate the QueryBuilder handler separately, helpful for Dependency Injection and Testing.
 
@@ -206,83 +214,105 @@ var_dump($query->get());
 `$connection` here is optional, if not given it will always associate itself to the first connection, but it can be useful when you have multiple database connections.
 
 ## Query
-You **must** use `table()` method before every query, except raw `query()`.
+
+You **must** use `table()` method before every query, except raw `query()` .
 To select from multiple tables you can use the variadic nature of the method
+
 ```PHP
 QB::table('mytable1', 'mytable2');
 ```
 
-
 ### Get Easily
+
 The query below returns the (first) row where id = 3, null if no rows.
+
 ```PHP
 $row = QB::table('my_table')->find(3);
 ```
-Access your row like, `echo $row->name`. If your field name is not `id` then pass the field name as second parameter `QB::table('my_table')->find(3, 'person_id');`.
+
+Access your row like, `echo $row->name` . If your field name is not `id` then pass the field name as second parameter `QB::table('my_table')->find(3, 'person_id');` .
 
 The query below returns the all rows where name = 'Sana', null if no rows.
+
 ```PHP
 $result = QB::table('my_table')->findAll('name', 'Sana');
 ```
+
 The query below will either return the row or throw a `Pixie\Exception` if no result found.
+
 ```PHP
 $result = QB::table('my_table')->findOrFail('name', 'Mark');
 ```
 
 ### Select
+
 ```PHP
 $query = QB::table('my_table')->select('*');
 ```
 
 #### Multiple Selects
+
 ```PHP
 ->select('mytable.myfield1', 'mytable.myfield2', 'another_table.myfield3');
 ```
 
-Using select method multiple times `select('a')->select('b')` will also select `a` and `b`. Can be useful if you want to do conditional selects (within a PHP `if`).
+Using select method multiple times `select('a')->select('b')` will also select `a` and `b` . Can be useful if you want to do conditional selects (within a PHP `if` ).
 
 ### Select Alias
+
 ```php
 ->select(['column'=>'alias'])
 ```
+
 This would result in `SELECT column as alias` as part of the query.
 
 ### Select JSON
+
 There are 2 ways to express selecting a value from within a stored JSON object.  
-`{"someKey": "someValue","someArray":[1,2,3], "someObj":{"a":"apple","b":"banana"}}`
+ `{"someKey": "someValue","someArray":[1,2,3], "someObj":{"a":"apple","b":"banana"}}`
 
 #### Using Larvel style selectors.
+
 ```php
 ->select(['column->someObj->a' => 'jsonAlias'])
 ```
-This would return results with `{jsonAlias => "apple"}`  
+
+This would return results with `{jsonAlias => "apple"}`
+
 To access arrays values use `->select(['column->someArray[1]' => 'jsonAlias'])`
 
 > Please note using Laravel style selectors without an alias, will result in an exception being thrown. example `->select('column->someObj->a')`
 
 #### Using selectJson() helper
+
 ```php
 ->selectJson('column', ['someObj', 'a'], 'jsonAlias')
 ```
-This would return results with `{jsonAlias => "apple"}`  
 
-> If no alias is passed, the column value will be set as `json_a`. The last selector is prepended with `json_`   
+This would return results with `{jsonAlias => "apple"}`
+
+> If no alias is passed, the column value will be set as `json_a` . The last selector is prepended with `json_`
+
 **Example **
 `->selectJson('column', ['someObj', 'a'])` would return `{json_a => "apple"}`
 
 #### Select Distinct
+
 ```PHP
 ->selectDistinct(array('mytable.myfield1', 'mytable.myfield2'));
 ```
 
-
 #### Get All
+
 Return an array.
+
 ```PHP
 $query = QB::table('my_table')->where('name', '=', 'Sana');
 $result = $query->get();
 ```
+
 You can loop through it like:
+
 ```PHP
 foreach ($result as $row) {
     echo $row->name;
@@ -290,21 +320,24 @@ foreach ($result as $row) {
 ```
 
 #### Get First Row
+
 ```PHP
 $query = QB::table('my_table')->where('name', '=', 'Sana');
 $row = $query->first();
 ```
-Returns the first row, or null if there is no record. Using this method you can also make sure if a record exists. Access these like `echo $row->name`.
 
+Returns the first row, or null if there is no record. Using this method you can also make sure if a record exists. Access these like `echo $row->name` .
 
 #### Get Rows Count
+
 ```PHP
 $query = QB::table('my_table')->where('name', '=', 'Sana');
 $query->count();
 ```
 
 ### Where
-Basic syntax is `(fieldname, operator, value)`, if you give two parameters then `=` operator is assumed. So `where('name', 'usman')` and `where('name', '=', 'usman')` is the same.
+
+Basic syntax is `(fieldname, operator, value)` , if you give two parameters then `=` operator is assumed. So `where('name', 'usman')` and `where('name', '=', 'usman')` is the same.
 
 ```PHP
 QB::table('my_table')
@@ -315,8 +348,8 @@ QB::table('my_table')
     ;
 ```
 
-
 #### Where In
+
 ```PHP
 QB::table('my_table')
     ->whereIn('name', array('usman', 'sana'))
@@ -330,6 +363,7 @@ QB::table('my_table')
 ```
 
 #### Where Between
+
 ```PHP
 QB::table('my_table')
     ->whereBetween('id', 10, 100)
@@ -337,6 +371,7 @@ QB::table('my_table')
 ```
 
 #### Where Null
+
 ```PHP
 QB::table('my_table')
     ->whereNull('modified')
@@ -346,33 +381,39 @@ QB::table('my_table')
 ```
 
 ### Where Date
+
 ```PHP
 QB::table('my_table')
     ->whereDate('column', '<', '2020-12-29'); // All where date after 29 Dec 2020
 ```
 
 ### Where Day
+
 ```PHP
 QB::table('my_table')
     ->whereDay('date_column', '=', '29'); // All where day is 29 in any date formats
 ```
 
 ### Where Month
+
 ```PHP
 QB::table('my_table')
     ->whereMonth('date_column', '=', '12'); // All where month is december in any date formats
 ```
 
 ### Where Year
+
 ```PHP
 QB::table('my_table')
     ->whereYear('date_column', '=', '2015'); // All where year is 2015 in any date formats
 ```
 
 #### Grouped Where
-Sometimes queries get complex, where you need grouped criteria, for example `WHERE age = 10 and (name like '%usman%' or description LIKE '%usman%')`.
+
+Sometimes queries get complex, where you need grouped criteria, for example `WHERE age = 10 and (name like '%usman%' or description LIKE '%usman%')` .
 
 Pixie allows you to do so, you can nest as many closures as you need, like below.
+
 ```PHP
 QB::table('my_table')
             ->where('my_table.age', 10)
@@ -385,26 +426,30 @@ QB::table('my_table')
 ```
 
 ### Group By and Order By
+
 ```PHP
 $query = QB::table('my_table')->groupBy('age')->orderBy('created_at', 'ASC');
 ```
 
 #### Multiple Group By
+
 ```PHP
 ->groupBy(array('mytable.myfield1', 'mytable.myfield2', 'another_table.myfield3'));
 
 ->orderBy(array('mytable.myfield1', 'mytable.myfield2', 'another_table.myfield3'));
 ```
 
-Using `groupBy()` or `orderBy()` methods multiple times `groupBy('a')->groupBy('b')` will also group by first `a` and than `b`. Can be useful if you want to do conditional grouping (within a PHP `if`). Same applies to `orderBy()`.
+Using `groupBy()` or `orderBy()` methods multiple times `groupBy('a')->groupBy('b')` will also group by first `a` and than `b` . Can be useful if you want to do conditional grouping (within a PHP `if` ). Same applies to `orderBy()` .
 
 ### Having
+
 ```PHP
 ->having('total_count', '>', 2)
 ->orHaving('type', '=', 'admin');
 ```
 
 ### Limit and Offset
+
 ```PHP
 ->limit(30);
 
@@ -412,13 +457,14 @@ Using `groupBy()` or `orderBy()` methods multiple times `groupBy('a')->groupBy('
 ```
 
 ### Join
+
 ```PHP
 QB::table('my_table')
     ->join('another_table', 'another_table.person_id', '=', 'my_table.id')
 
 ```
 
-Available methods,
+Available methods, 
 
  - join() or innerJoin
  - leftJoin()
@@ -436,9 +482,11 @@ It is possible to create a simple join statement between 2 tables, where they ar
 // Would become
 ->table('foo')->joinUsing('bar', 'id');
 ```
+
 > Please note this only works with a single base table defined.
 
 #### Multiple Join Criteria
+
 If you need more than one criterion to join a table then pass a closure as second parameter.
 
 ```PHP
@@ -453,7 +501,9 @@ If you need more than one criterion to join a table then pass a closure as secon
 > Closures can be used as for the $key
 
 ### Raw Query
-You can always use raw queries if you need,
+
+You can always use raw queries if you need, 
+
 ```PHP
 $query = QB::query('select * from cb_my_table where age = 12');
 
@@ -461,6 +511,7 @@ var_dump($query->get());
 ```
 
 You can also pass your bindings
+
 ```PHP
 QB::query('select * from cb_my_table where age = ? and name = ?', array(10, 'usman'));
 ```
@@ -468,6 +519,7 @@ QB::query('select * from cb_my_table where age = ? and name = ?', array(10, 'usm
 #### Raw Expressions
 
 When you wrap an expression with `raw()` method, Pixie doesn't try to sanitize these.
+
 ```PHP
 QB::table('my_table')
     ->select(QB::raw('count(cb_my_table.id) as tot'))
@@ -475,27 +527,32 @@ QB::table('my_table')
     ->where(QB::raw('DATE(?)', 'now'))
 ```
 
-
 ___
 **NOTE:** Queries that run through `query()` method are not sanitized until you pass all values through bindings. Queries that run through `raw()` method are not sanitized either, you have to do it yourself. And of course these don't add table prefix too, but you can use the `addTablePrefix()` method.
 
 ### Value Binding
+
 As this uses WPDB under the hood, the use of `wpdb::prepare()` is required. To make it easier to define the expected type, you can use Bindings for all values used in most queries. 
+
 ```php
 QB::table('my_table')
     ->where('id', = Binding::asInt($valueFromSomewhere))
     ->get()
 ```
-This will ensure the underlying statement for prepare will be passed as `WHERE id=%d`. Just passing a value, without a binding will see the values type used as the placeholder. If you wish to use values which are passed through `prepare()` please use a `Raw` value.
+
+This will ensure the underlying statement for prepare will be passed as `WHERE id=%d` . Just passing a value, without a binding will see the values type used as the placeholder. If you wish to use values which are passed through `prepare()` please use a `Raw` value.
+
 ```php
 QB::table('my_table')
     ->where('col1', = Binding::asRaw('im a string, dont wrap me with quotes'))
     ->where('col2', = new Raw('value'))
     ->get()
 ```
-Neither of the above string would be automatically wrapped in `'single quotes'`.
+
+Neither of the above string would be automatically wrapped in `'single quotes'` .
 
 **Types**
+
 ```php
 Binding::asString($value);
 Binding::asInt($value);
@@ -506,6 +563,7 @@ Binding::asRaw($value);
 ```
 
 ### Insert
+
 ```PHP
 $data = array(
     'name' => 'Sana',
@@ -517,6 +575,7 @@ $insertId = QB::table('my_table')->insert($data);
 `insert()` method returns the insert id.
 
 #### Batch Insert
+
 ```PHP
 $data = array(
     array(
@@ -534,6 +593,7 @@ $insertIds = QB::table('my_table')->insert($data);
 In case of batch insert, it will return an array of insert ids.
 
 #### Insert with ON DUPLICATE KEY statement
+
 ```PHP
 $data = array(
     'name'    => 'Sana',
@@ -547,6 +607,7 @@ $insertId = QB::table('my_table')->onDuplicateKeyUpdate($dataUpdate)->insert($da
 ```
 
 ### Update
+
 ```PHP
 $data = array(
     'name'        => 'Sana',
@@ -559,9 +620,11 @@ QB::table('my_table')->where('id', 5)->update($data);
 Will update the name field to Sana and description field to Blah where id = 5.
 
 ### Delete
+
 ```PHP
 QB::table('my_table')->where('id', '>', 5)->delete();
 ```
+
 Will delete all the rows where id is greater than 5.
 
 ### Transactions
@@ -604,18 +667,21 @@ QB::transaction(function ($qb) {
 ```
 
 ### Get Built Query
+
 Sometimes you may need to get the query string, its possible.
+
 ```PHP
 $query = QB::table('my_table')->where('id', '=', 3);
 $queryObj = $query->getQuery();
 ```
-`getQuery()` will return a query object, from this you can get sql, bindings or raw sql.
 
+`getQuery()` will return a query object, from this you can get sql, bindings or raw sql.
 
 ```PHP
 $queryObj->getSql();
 // Returns: SELECT * FROM my_table where `id` = ?
 ```
+
 ```PHP
 $queryObj->getBindings();
 // Returns: array(3)
@@ -627,11 +693,11 @@ $queryObj->getRawSql();
 ```
 
 ### Sub Queries and Nested Queries
+
 Rarely but you may need to do sub queries or nested queries. Pixie is powerful enough to do this for you. You can create different query objects and use the `QB::subQuery()` method.
 
 ```PHP
 $subQuery = QB::table('person_details')->select('details')->where('person_id', '=', 3);
-
 
 $query = QB::table('my_table')
             ->select('my_table.*')
@@ -643,10 +709,10 @@ $nestedQuery->get();
 
 This will produce a query like this:
 
-    SELECT * FROM (SELECT `cb_my_table`.*, (SELECT `details` FROM `cb_person_details` WHERE `person_id` = 3) as table_alias1 FROM `cb_my_table`) as table_alias2
-
+    SELECT * FROM (SELECT `cb_my_table` .*, (SELECT `details` FROM `cb_person_details` WHERE `person_id` = 3) as table_alias1 FROM `cb_my_table` ) as table_alias2
 
 ### Get wpdb Instance
+
 If you need to get the wpdb instance you can do so.
 
 ```PHP
@@ -654,6 +720,7 @@ QB::dbInstance();
 ```
 
 ### Fetch results as objects of specified class
+
 Simply call `asObject` query's method.
 
 ```PHP
@@ -667,6 +734,7 @@ QB::table('my_table')->setFetchMode(PDO::FETCH_COLUMN|PDO::FETCH_UNIQUE)->get();
 ```
 
 ### Query Events
+
 Pixie comes with powerful query events to supercharge your application. These events are like database triggers, you can perform some actions when an event occurs, for example you can hook `after-delete` event of a table and delete related data from another table.
 
 #### Available Events
@@ -688,15 +756,17 @@ QB::registerEvent('before-select', 'users', function($qb)
     $qb->where('status', '!=', 'banned');
 });
 ```
+
 Now every time a select query occurs on `users` table, it will add this where criteria, so banned users don't get access.
 
-The syntax is `registerEvent('event type', 'table name', action in a closure)`.
+The syntax is `registerEvent('event type', 'table name', action in a closure)` .
 
 If you want the event to be performed when **any table is being queried**, provide `':any'` as table name.
 
 **Other examples:**
 
-After inserting data into `my_table`, details will be inserted into another table
+After inserting data into `my_table` , details will be inserted into another table
+
 ```PHP
 QB::registerEvent('after-insert', 'my_table', function($queryBuilder, $insertId)
 {
@@ -705,7 +775,8 @@ QB::registerEvent('after-insert', 'my_table', function($queryBuilder, $insertId)
 });
 ```
 
-Whenever data is inserted into `person_details` table, set the timestamp field `created_at`, so we don't have to specify it everywhere:
+Whenever data is inserted into `person_details` table, set the timestamp field `created_at` , so we don't have to specify it everywhere:
+
 ```PHP
 QB::registerEvent('after-insert', 'person_details', function($queryBuilder, $insertId)
 {
@@ -714,6 +785,7 @@ QB::registerEvent('after-insert', 'person_details', function($queryBuilder, $ins
 ```
 
 After deleting from `my_table` delete the relations:
+
 ```PHP
 QB::registerEvent('after-delete', 'my_table', function($queryBuilder, $queryObject)
 {
@@ -722,20 +794,19 @@ QB::registerEvent('after-delete', 'my_table', function($queryBuilder, $queryObje
 });
 ```
 
-
-
-Pixie passes the current instance of query builder as first parameter of your closure so you can build queries with this object, you can do anything like usual query builder (`QB`).
+Pixie passes the current instance of query builder as first parameter of your closure so you can build queries with this object, you can do anything like usual query builder ( `QB` ).
 
 If something other than `null` is returned from the `before-*` query handler, the value will be result of execution and DB will not be actually queried (and thus, corresponding `after-*` handler will not be called either).
 
 Only on `after-*` events you get three parameters: **first** is the query builder, **third** is the execution time as float and **the second** varies:
 
- - On `after-select` you get the `results` obtained from `select`.
+ - On `after-select` you get the `results` obtained from `select` .
  - On `after-insert` you get the insert id (or array of ids in case of batch insert)
- - On `after-delete` you get the [query object](#get-built-query) (same as what you get from `getQuery()`), from it you can get SQL and Bindings.
- - On `after-update` you get the [query object](#get-built-query) like `after-delete`.
+ - On `after-delete` you get the [query object](#get-built-query) (same as what you get from `getQuery()` ), from it you can get SQL and Bindings.
+ - On `after-update` you get the [query object](#get-built-query) like `after-delete` .
 
 #### Removing Events
+
 ```PHP
 QB::removeEvent('event-name', 'table-name');
 ```
@@ -754,8 +825,9 @@ Here are some cases where Query Events can be extremely helpful:
  - Add/edit created_at and updated _at data after each entry.
 
 #### Notes
+
  - Query Events are set as per connection basis so multiple database connection don't create any problem, and creating new query builder instance preserves your events.
- - Query Events go recursively, for example after inserting into `table_a` your event inserts into `table_b`, now you can have another event registered with `table_b` which inserts into `table_c`.
+ - Query Events go recursively, for example after inserting into `table_a` your event inserts into `table_b` , now you can have another event registered with `table_b` which inserts into `table_c` .
  - Of course Query Events don't work with raw queries.
 
 ___
