@@ -12,7 +12,7 @@ jobs:
       matrix:
         operating-system: [ubuntu-latest]
         php-versions: ['7.1', '7.2', '7.3', '7.4']
-        mysql-versions: ['mysql:5.7', 'mysql:8.0', 'mariadb:10.4']
+        mysql-versions: ['mysql:5.7', 'mariadb:10.4','mariadb:10.5']
     runs-on: ${{ matrix.operating-system }}
     services:
       # Setup MYSQL
@@ -39,28 +39,6 @@ jobs:
           extensions: mbstring, intl, pcov
           ini-values: post_max_size=256M, log_errors=1
           tools: pecl
-
-      # Set auth mode for MYSQL 5.8
-      # - name: Set MYSQL Auth to password bassed
-      #   # run: '--default-authentication-plugin=mysql_native_password'
-      #   # run: 'mysql --host mysql --port 3306 -u root -p crab -e "SHOW DATABASES"'
-      #   if: matrix.mysql-versions == 'mysql:8.0'
-
-      # - name: Set environment variables
-      #   run: echo "MYSQL_AUTHENTICATION_PLUGIN = mysql_native_password" >> $GITHUB_ENV
-      #   if: matrix.mysql-versions == 'mysql:8.0'
-      - name: Set environment variables
-        run: |
-          echo "Hi"
-          if [[ ${{ matrix.mysql-versions }} == 'mysql:8.0' ]]; then
-            echo "8.0"
-            echo "MYSQL_AUTHENTICATION_PLUGIN=mysql_native_password" >> $GITHUB_ENV
-            echo "SLACK_MESSAGE=This build has passed!" >> $GITHUB_ENV
-          else
-            echo "NOT 8.0"
-            echo "SLACK_COLOR=danger" >> $GITHUB_ENV
-            echo "SLACK_MESSAGE=This build has failed." >> $GITHUB_ENV
-          fi
 
       - name: Check PHP Version
         run: php -v
