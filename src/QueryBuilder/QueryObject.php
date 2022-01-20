@@ -2,9 +2,10 @@
 
 namespace Pixie\QueryBuilder;
 
+use wpdb;
+
 class QueryObject
 {
-
     /**
      * @var string
      */
@@ -13,17 +14,22 @@ class QueryObject
     /**
      * @var mixed[]
      */
-    protected $bindings = array();
+    protected $bindings = [];
 
     /**
-     * @var \wpdb
+     * @var wpdb
      */
     protected $dbInstance;
 
-    public function __construct($sql, array $bindings, $dbInstance)
+    /**
+     * @param string $sql
+     * @param mixed[] $bindings
+     * @param wpdb $dbInstance
+     */
+    public function __construct(string $sql, array $bindings, wpdb $dbInstance)
     {
-        $this->sql = (string)$sql;
-        $this->bindings = $bindings;
+        $this->sql        = (string)$sql;
+        $this->bindings   = $bindings;
         $this->dbInstance = $dbInstance;
     }
 
@@ -54,20 +60,19 @@ class QueryObject
     }
 
     /**
-     * Replaces any parameter placeholders in a query with the value of that
-     * parameter. Useful for debugging. Assumes anonymous parameters from
-     * $params are are in the same order as specified in $query
-     *
-     * Reference: http://stackoverflow.com/a/1376838/656489
+     * Uses WPDB::prepare() to interpolate the query passed.
+
      *
      * @param string $query  The sql query with parameter placeholders
-     * @param array  $params The array of substitution parameters
+     * @param mixed[]  $params The array of substitution parameters
      *
      * @return string The interpolated query
      */
-    protected function interpolateQuery($query, $params)
+    protected function interpolateQuery($query, $params): string
     {
         // Only call this when we have valid params (avoids wpdb::prepare() incorrectly called error)
-        return empty($params) ? $query : $this->dbInstance->prepare($query, $params);
+        $value = empty($params) ? $query : $this->dbInstance->prepare($query, $params);
+
+        return is_string($value) ? $value : '';
     }
 }

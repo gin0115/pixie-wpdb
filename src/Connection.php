@@ -2,6 +2,7 @@
 
 namespace Pixie;
 
+use wpdb;
 use Exception;
 use Viocon\Container;
 use Pixie\AliasFacade;
@@ -10,6 +11,11 @@ use Pixie\QueryBuilder\QueryBuilderHandler;
 
 class Connection
 {
+    /** Config keys */
+    public const CLONE_WPDB        = 'clone_wpdb';
+    public const PREFIX            = 'prefix';
+    public const SHOW_ERRORS       = 'show_errors';
+    public const USE_WPDB_PREFIX   = 'use_wpdb_prefix';
 
     /**
      * @var Container
@@ -27,7 +33,7 @@ class Connection
     protected $adapterConfig;
 
     /**
-     * @var \wpdb
+     * @var wpdb
      */
     protected $dbInstance;
 
@@ -42,21 +48,21 @@ class Connection
     protected $eventHandler;
 
     /**
-     * @param \wpdb                 $wpdb
+     * @param wpdb                 $wpdb
      * @param array<string, mixed>  $adapterConfig
-     * @param null|string           $alias
-     * @param null|Container        $container
+     * @param string|null           $alias
+     * @param Container|null        $container
      */
     public function __construct(
-        \wpdb $wpdb,
+        wpdb $wpdb,
         array $adapterConfig = [],
         ?string $alias = null,
         ?Container $container = null
     ) {
-        $this->dbInstance = $wpdb;
         $this->setAdapterConfig($adapterConfig);
+        $this->dbInstance = $this->configureWpdb($wpdb);
 
-        $this->container = $container ?? new Container();
+        $this->container    = $container ?? new Container();
         $this->eventHandler = $this->container->build(EventHandler::class);
 
         if ($alias) {
@@ -64,9 +70,48 @@ class Connection
         }
 
         // Preserve the first database connection with a static property
-        if (! static::$storedConnection) {
+        if (!static::$storedConnection) {
             static::$storedConnection = $this;
         }
+    }
+
+    /**
+     * Configures the instance of WPDB based on adaptor config values.
+     *
+     * @param \wpdb $wpdb
+     * @return \wpdb
+     */
+    protected function configureWpdb(wpdb $wpdb): wpdb
+    {
+        // Maybe clone instance.
+        if (
+            array_key_exists(self::CLONE_WPDB, $this->adapterConfig)
+            && true === $this->adapterConfig[self::CLONE_WPDB]
+        ) {
+            $wpdb = clone $wpdb;
+        }
+
+        // Maybe set the prefix to WPDB's.
+        if (
+            array_key_exists(self::USE_WPDB_PREFIX, $this->adapterConfig)
+            && 0 < \mb_strlen($this->adapterConfig[self::USE_WPDB_PREFIX])
+        ) {
+            $this->adapterConfig[self::PREFIX] = $wpdb->prefix;
+        }
+
+        // Maybe configure errors
+        if (array_key_exists(self::SHOW_ERRORS, $this->adapterConfig)) {
+            // Based in its value.
+            if (true === (bool) $this->adapterConfig[self::SHOW_ERRORS]) {
+                $wpdb->show_errors(true);
+                $wpdb->suppress_errors(false);
+            } else {
+                $wpdb->show_errors(false);
+                $wpdb->suppress_errors(true);
+            }
+        }
+
+        return $wpdb;
     }
 
     /**
@@ -77,7 +122,7 @@ class Connection
     public function createAlias(string $alias): void
     {
         class_alias(AliasFacade::class, $alias);
-        $builder = $this->container->build(QueryBuilderHandler::class, array( $this ));
+        $builder = $this->container->build(QueryBuilderHandler::class, [$this]);
         AliasFacade::setQueryBuilderInstance($builder);
     }
 
@@ -86,22 +131,23 @@ class Connection
      */
     public function getQueryBuilder(): QueryBuilderHandler
     {
-        return $this->container->build(QueryBuilderHandler::class, array( $this ));
+        return $this->container->build(QueryBuilderHandler::class, [$this]);
     }
 
     /**
-     * @param \wpdb $wpdb
+     * @param wpdb $wpdb
      *
      * @return $this
      */
-    public function setDbInstance(\wpdb $wpdb)
+    public function setDbInstance(wpdb $wpdb)
     {
         $this->dbInstance = $wpdb;
+
         return $this;
     }
 
     /**
-     * @return \wpdb
+     * @return wpdb
      */
     public function getDbInstance()
     {
@@ -116,6 +162,7 @@ class Connection
     public function setAdapterConfig(array $adapterConfig)
     {
         $this->adapterConfig = $adapterConfig;
+
         return $this;
     }
 
@@ -147,13 +194,15 @@ class Connection
      * Returns the initial instance created.
      *
      * @return Connection
+     *
      * @throws Exception If connection not already established
      */
     public static function getStoredConnection()
     {
         if (null === static::$storedConnection) {
-            throw new Exception("No initial instance of Connection created");
+            throw new Exception('No initial instance of Connection created');
         }
+
         return static::$storedConnection;
     }
 }

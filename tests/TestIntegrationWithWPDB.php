@@ -13,8 +13,10 @@ namespace Pixie\Tests;
 
 use stdClass;
 use Exception;
+use Pixie\Binding;
 use WP_UnitTestCase;
 use Pixie\Connection;
+use Pixie\QueryBuilder\Raw;
 use Pixie\Tests\Logable_WPDB;
 use Pixie\Tests\Fixtures\ModelForMockFoo;
 use Pixie\QueryBuilder\QueryBuilderHandler;
@@ -32,7 +34,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
     public function setUp(): void
     {
         global $wpdb;
-        $this->wpdb = $wpdb;
+        $this->wpdb = clone $wpdb;
         parent::setUp();
 
         if (! static::$createdTables) {
@@ -61,9 +63,31 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
          )
          COLLATE {$this->wpdb->collate}";
 
+        $sqlJson =
+         "CREATE TABLE mock_json (
+         id mediumint(8) unsigned NOT NULL auto_increment ,
+         string varchar(255) NULL,
+         jsonCol json NULL,
+         PRIMARY KEY  (id)
+         )
+         COLLATE {$this->wpdb->collate}";
+
+        $sqlDates =
+         "CREATE TABLE mock_dates (
+         id mediumint(8) unsigned NOT NULL auto_increment ,
+         date DATE NULL,
+         datetime DATETIME NULL,
+         unix TIMESTAMP NULL,
+         time TIME NULL,
+         PRIMARY KEY  (id)
+         )
+         COLLATE {$this->wpdb->collate}";
+
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sqlFoo);
         dbDelta($sqlBar);
+        dbDelta($sqlJson);
+        dbDelta($sqlDates);
 
         static::$createdTables = true;
     }
@@ -245,7 +269,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         // Get all FRUITS (from mock_bar) with the TYPE (from mock_foo)
         $fruitsInner = $this->queryBuilderProvider('mock_')
-            ->select(['bar.string' => 'name', 'foo.string' => 'type'])
+            ->select(['bar.string' => 'name','foo.string' => 'type'])
             ->from('bar')
             ->join('foo', 'bar.number', '=', 'foo.number')
             ->setFetchMode(\ARRAY_A)
@@ -266,7 +290,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         // Left Join
         $fruitsLeft = $this->queryBuilderProvider('mock_')
-            ->select(['bar.string' => 'name', 'foo.string' => 'type'])
+            ->select(['bar.string' => 'name','foo.string' => 'type'])
             ->from('bar')
             ->leftJoin('foo', 'bar.number', '=', 'foo.number')
             ->setFetchMode(\ARRAY_A)
@@ -287,7 +311,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         // Right Join
         $fruitsRight = $this->queryBuilderProvider('mock_')
-            ->select(['bar.string' => 'name', 'foo.string' => 'type'])
+            ->select(['bar.string' => 'name','foo.string' => 'type'])
             ->from('bar')
             ->rightJoin('foo', 'bar.number', '=', 'foo.number')
             ->setFetchMode(\ARRAY_A)
@@ -399,7 +423,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $builder = $this->queryBuilderProvider();
 
         // Remove all with a NUMBER of 2 or more.
-        $builder->table('mock_foo')->where('number', '>=', 2)->delete();
+        $r = $builder->table('mock_foo')->where('number', '>=', 2)->delete();
 
         // Check we only have the first value.
         $rows = $builder->table('mock_foo')->get();
@@ -518,5 +542,261 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
             $this->assertNotEquals(-1, $model->rowId); // Sets from `id` row using magic __set(), defaults to -1 if not set using __set()
             $this->assertEquals('defined', $model->constructorProp); // Is set from constructor args passed, is DEFAULT if not defined.
         }
+    }
+
+    /** @testdox It should be possible to do a find or fail query. An excetpion should be thrown if no result is found. */
+    public function testFindOrFail(): void
+    {
+        $this->wpdb->insert('mock_foo', ['string' => 'First', 'number' => 1], ['%s', '%d']);
+        $this->wpdb->insert('mock_foo', ['string' => 'Second', 'number' => 2], ['%s', '%d']);
+        $this->wpdb->insert('mock_foo', ['string' => 'Third', 'number' => 1], ['%s', '%d']);
+
+        $builder = $this->queryBuilderProvider()->table('mock_foo');
+
+        $row = $builder->findOrFail('First', 'string');
+        $this->assertEquals(1, $row->number);
+
+        $this->expectExceptionMessage('Failed to find string=Forth');
+        $this->expectException(Exception::class);
+
+        $row = $builder->findOrFail('Forth', 'string');
+    }
+
+    /** @testdox It should be possible to query a date column by month */
+    public function testWhereMonth(): void
+    {
+        $this->wpdb->insert('mock_dates', ['date' => '2020-10-10', 'unix' => '2020-10-10 18:19:03', 'datetime' => '2020-10-10 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2002-10-05', 'unix' => '2002-10-10 18:19:03', 'datetime' => '2002-10-10 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2002-3-3', 'unix' => '2002-3-3 18:19:03', 'datetime' => '2002-3-3 18:19:03'], ['%s', '%s']);
+
+        $month3 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereMonth('unix', Binding::asString(3))
+            ->get();
+
+        $this->assertCount(1, $month3);
+        $this->assertEquals('2002-03-03', $month3[0]->date);
+
+        $month10 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereMonth('date', '>', 9)
+            ->get();
+
+        $this->assertCount(2, $month10);
+        $this->assertEquals('2020-10-10', $month10[0]->date);
+        $this->assertEquals('2002-10-05', $month10[1]->date);
+    }
+
+    /** @testdox It should be possible to query a date column by day */
+    public function testWhereDay(): void
+    {
+        $this->wpdb->insert('mock_dates', ['date' => '2020-10-10', 'unix' => '2020-10-10 18:19:03', 'datetime' => '2020-10-10 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2010-10-05', 'unix' => '2010-10-05 18:19:03', 'datetime' => '2010-10-05 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2002-03-12', 'unix' => '2002-03-12 18:19:03', 'datetime' => '2002-03-12 18:19:03'], ['%s', '%s']);
+
+        $day5 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereDay('unix', Binding::asString(5))
+            ->get();
+        $this->assertCount(1, $day5);
+        $this->assertEquals('2010-10-05', $day5[0]->date);
+
+        $dayAbove9 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereDay('date', '>', 9)
+            ->get();
+
+        $this->assertCount(2, $dayAbove9);
+        $this->assertEquals('2020-10-10', $dayAbove9[0]->date);
+        $this->assertEquals('2002-03-12', $dayAbove9[1]->date);
+
+        $day10 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereDay('datetime', Binding::asString(10))
+            ->get();
+        $this->assertCount(1, $day10);
+        $this->assertEquals('2020-10-10', $day10[0]->date);
+    }
+
+    /** @testdox It should be possible to query a date column by year */
+    public function testWhereYear(): void
+    {
+        $this->wpdb->insert('mock_dates', ['date' => '2022-10-10', 'unix' => '2022-10-10 18:19:03', 'datetime' => '2022-10-10 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2010-10-05', 'unix' => '2010-10-05 18:19:03', 'datetime' => '2010-10-05 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2020-03-12', 'unix' => '2020-03-12 18:19:03', 'datetime' => '2020-03-12 18:19:03'], ['%s', '%s']);
+
+        $only2010 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereYear('unix', Binding::asString(2010))
+            ->get();
+        $this->assertCount(1, $only2010);
+        $this->assertEquals('2010-10-05', $only2010[0]->date);
+
+        $after2009 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereYear('date', '>', new Raw('%d', [2019]))
+            ->get();
+
+        $this->assertCount(2, $after2009);
+        $this->assertEquals('2022-10-10', $after2009[0]->date);
+        $this->assertEquals('2020-03-12', $after2009[1]->date);
+
+        $only2022 = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereYear('datetime', Binding::asFloat(2022))
+            ->get();
+        $this->assertCount(1, $only2022);
+        $this->assertEquals('2022-10-10', $only2022[0]->date);
+    }
+
+    /** @testdox It should be possible to query a date column by date */
+    public function testWhereDate(): void
+    {
+        $this->wpdb->insert('mock_dates', ['date' => '2022-10-10', 'unix' => '2022-10-10 18:19:03', 'datetime' => '2022-10-10 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2010-10-05', 'unix' => '2010-10-05 18:19:03', 'datetime' => '2010-10-05 18:19:03'], ['%s', '%s']);
+        $this->wpdb->insert('mock_dates', ['date' => '2020-03-12', 'unix' => '2020-03-12 18:19:03', 'datetime' => '2020-03-12 18:19:03'], ['%s', '%s']);
+
+        $resultA = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereDate('unix', Binding::asString('2010-10-05'))
+            ->get();
+        $this->assertCount(1, $resultA);
+        $this->assertEquals('2010-10-05', $resultA[0]->date);
+
+        $resultB = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereDate('date', '!=', new Raw('%s', ['2020-03-12']))
+            ->get();
+
+        $this->assertCount(2, $resultB);
+        $this->assertEquals('2022-10-10', $resultB[0]->date);
+        $this->assertEquals('2010-10-05', $resultB[1]->date);
+
+        $resultC = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereDate('datetime', date("Y-m-d", 1665425943)) // strtotime('2022-10-10 18:19:03')
+            ->get();
+        $this->assertCount(1, $resultC);
+        $this->assertEquals('2022-10-10', $resultC[0]->date);
+    }
+
+
+
+    /**************************************/
+    /*         JSON FUNCTIONALITY         */
+    /**************************************/
+
+    /** @testdox It should be possible to select values from inside a JSON object, held in a JSON column type. */
+    public function testCanSelectFromWithinJSONColumn1GenDeep()
+    {
+         $this->wpdb->insert('mock_json', ['string' => 'a', 'jsonCol' => \json_encode((object)['id' => 24748, 'name' => 'Sam'])], ['%s', '%s']);
+
+        $asRaw = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string', new Raw('JSON_UNQUOTE(JSON_EXTRACT(jsonCol, "$.id")) as jsonID'))
+            ->get();
+
+        $asSelectJson = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string')
+            ->selectJson('jsonCol', "id", 'jsonID')
+            ->get();
+
+        $this->assertEquals($asRaw[0]->string, $asSelectJson[0]->string);
+        $this->assertEquals($asRaw[0]->jsonID, $asSelectJson[0]->jsonID);
+
+        // Without Alias
+        $jsonWoutAlias = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string')
+            ->selectJson('jsonCol', "id")
+            ->get();
+
+        $this->assertEquals('a', $jsonWoutAlias[0]->string);
+        $this->assertEquals('24748', $jsonWoutAlias[0]->json_id);
+    }
+
+    /** @testdox It should be possible  */
+    public function testCanSelectFromWithinJSONColumn3GenDeep(): void
+    {
+        $jsonData = (object)[
+            'key' => 'apple',
+            'data' => (object) [
+                'array' => [1,2,3,4],
+                'object' => (object) [
+                    'obj1' => 'val1',
+                    'obj2' => 'val2',
+                ]
+            ]
+        ];
+        $this->wpdb->insert('mock_json', ['string' => 'a', 'jsonCol' => \json_encode($jsonData)], ['%s', '%s']);
+
+        // Extract a value from an object
+        $objectVal = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string')
+            ->selectJson('jsonCol', ['data', 'object', 'obj1'], 'jsonVALUE')
+            ->first();
+
+        $this->assertNotNull($objectVal);
+        $this->assertEquals('a', $objectVal->string);
+        $this->assertEquals('val1', $objectVal->jsonVALUE);
+
+        // Extract an entire array.
+        $arrayValues = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string')
+            ->selectJson('jsonCol', ['data', 'array'], 'jsonVALUE')
+            ->first();
+
+        $this->assertNotNull($arrayValues);
+        $this->assertEquals('a', $arrayValues->string);
+        $this->assertEquals('[1, 2, 3, 4]', $arrayValues->jsonVALUE);
+        $this->assertCount(4, \json_decode($arrayValues->jsonVALUE));
+        $this->assertContains('1', \json_decode($arrayValues->jsonVALUE));
+        $this->assertContains('2', \json_decode($arrayValues->jsonVALUE));
+        $this->assertContains('3', \json_decode($arrayValues->jsonVALUE));
+        $this->assertContains('4', \json_decode($arrayValues->jsonVALUE));
+
+        // Pluck a single item from an array using its key.
+        $pluckArrayValue = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->select('string')
+            ->selectJson('json.jsonCol', ['data', 'array[1]'], 'jsonVALUE')
+            ->first();
+
+        $this->assertNotNull($pluckArrayValue);
+        $this->assertEquals('a', $pluckArrayValue->string);
+        $this->assertEquals('2', $pluckArrayValue->jsonVALUE);
+    }
+
+    /** @testdox It should be possible to do a where query that checks a value inside a json value. Tests only 1 level deep */
+    public function testJsonWhere1GenDeep()
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'a', 'jsonCol' => \json_encode((object)['id' => 24748, 'thing' => 'foo'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'b', 'jsonCol' => \json_encode((object)['id' => 78945, 'thing' => 'foo'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'b', 'jsonCol' => \json_encode((object)['id' => 78941, 'thing' => 'bar'])], ['%s', '%s']);
+
+        $whereThingFooRaw = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->where(new Raw('JSON_EXTRACT(jsonCol,"$.thing")'), '=', 'foo')
+            ->get();
+
+        $whereThingFoo = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->whereJson('jsonCol', 'thing', 'foo') // Assume its '='
+            ->get();
+
+        $this->assertEquals($whereThingFooRaw[0]->string, $whereThingFoo[0]->string);
+        $this->assertEquals($whereThingFooRaw[0]->jsonCol, $whereThingFoo[0]->jsonCol);
+
+        // Check with prefix
+        $whereThingFooPrefixed = $this->queryBuilderProvider('mock_')
+            ->table('json')
+            ->whereJson('json.jsonCol', 'thing', '<>', 'bar') // NOT BAR
+            ->get();
+
+        $this->assertEquals($whereThingFooPrefixed[0]->string, $whereThingFoo[0]->string);
+        $this->assertEquals($whereThingFooPrefixed[0]->jsonCol, $whereThingFoo[0]->jsonCol);
     }
 }

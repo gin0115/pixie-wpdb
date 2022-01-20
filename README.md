@@ -1,22 +1,17 @@
-# Modified version of Pixie for use with WordPress and WPDB over PDO.
-
-## WIP!
+# Pixie WPDB Query Builder for WordPress
 
 
-**This project is Not Actively Maintained but most of the features are fully working and there are no major security issues, I'm just not giving it much time.**
-
-
-# Pixie Query Builder 
-
-
-![alt text](https://img.shields.io/badge/Current_Version-0.1.0-yellow.svg?style=flat " ") 
+![alt text](https://img.shields.io/badge/Current_Version-0.0.1-yellow.svg?style=flat " ") 
 [![Open Source Love](https://badges.frapsoft.com/os/mit/mit.svg?v=102)]()
 ![](https://github.com/gin0115/pixie-wpdb/workflows/GitHub_CI/badge.svg " ")
 [![codecov](https://codecov.io/gh/gin0115/pixie-wpdb/branch/master/graph/badge.svg?token=4yEceIaSFP)](https://codecov.io/gh/gin0115/pixie-wpdb)
 [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/gin0115/pixie-wpdb/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/gin0115/pixie-wpdb/?branch=master)
 
 
-A lightweight, expressive, framework agnostic query builder for PHP it can also be referred as a Database Abstraction Layer. Pixie supports MySQL, SQLite and PostgreSQL and it takes care of query sanitization, table prefixing and many other things with a unified API.
+A lightweight, expressive, query builder for WordPRess it can also be referred as a Database Abstraction Layer. Pixie WPDB supports WPDB ONLY and it takes care of query sanitization, table prefixing and many other things with a unified API.
+
+> **Pixie WPDB** is an adaption of `pixie` originally written by [usmanhalalit](https://github.com/usmanhalalit). [Pixie is not longer under active development ](https://github.com/usmanhalalit/pixie)
+
 
 It has some advanced features like:
 
@@ -25,6 +20,12 @@ It has some advanced features like:
  - Sub Queries
  - Nested Queries
  - Multiple Database Connections.
+
+Additional features added to this version of Pixie
+ - JSON Support (Select, Where)
+ - Aggregation methods (Min, Max, Average & Sum)
+ - Custom Model Hydration
+ - Date based Where (Month, Day, Year & Date)
 
 The syntax is quite similar to Laravel's query builder.
 
@@ -35,7 +36,7 @@ require 'vendor/autoload.php';
 
 // Create a connection, once only.
 $config = [
-    'prefix' => 'cb_', // Table prefix, optional
+    Connection::PREFIX => 'cb_', // Table prefix, optional
 ];
 
 // Get the current (gloabl) WPDB instance, or create a custom one 
@@ -81,13 +82,7 @@ There are many advanced options which are documented below. Sold? Let's install.
 
 Pixie uses [Composer](http://getcomposer.org/doc/00-intro.md#installation-nix) to make things easy.
 
-Learn to use composer and add this to require section (in your composer.json):
-
-    "gin0115/pixie-wpdb": "1.*@dev"
-
-And run:
-
-    composer update
+To install run `composer require gin0115/pixie-wpdb`
 
 Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
 
@@ -96,13 +91,15 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
 ### Table of Contents
 
  - [Connection](#connection)
+    - [Connection Config](#config)
     - [Alias](#alias)
     - [Multiple Connection](#alias)
-    - [SQLite and PostgreSQL Config Sample](#sqlite-and-postgresql-config-sample)
  - [Query](#query)
  - [**Select**](#select)
     - [Get Easily](#get-easily)
     - [Multiple Selects](#multiple-selects)
+    - [Select Alias](#select-alias)
+    - [Select JSON](#select-json)
     - [Select Distinct](#select-distinct)
     - [Get All](#get-all)
     - [Get First Row](#get-first-row)
@@ -111,14 +108,23 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
     - [Where In](#where-in)
     - [Where Between](#where-between)
     - [Where Null](#where-null)
-    - [Grouped Where](#grouped-where)
+    - [Where Date](#where-date)
+       - [Where Day](#where-day)
+       - [Where Month](#where-month)
+       - [Where Year](#where-year)
+    - [Grouped Where](#grouped-where)    
+    - [Where JSON]()    
+       - [Where IN JSON]()     
+       - [Where BETWEEN JSON]()     
  - [Group By and Order By](#group-by-and-order-by)
  - [Having](#having)
  - [Limit and Offset](#limit-and-offset)
  - [Join](#join)
-    - [Multiple Join Criteria](#multiple-join-criteria)
+    - [Join Using](#join-using)    
+    - [Multiple Join Criteria](#multiple-join-criteria)    
  - [Raw Query](#raw-query)
     - [Raw Expressions](#raw-expressions)
+ - [Value Binding](#value-binding)
  - [**Insert**](#insert)
     - [Batch Insert](#batch-insert)
     - [Insert with ON DUPLICATE KEY statement](#insert-with-on-duplicate-key-statement)
@@ -139,18 +145,43 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
 ___
 
 ## Connection
-Pixie supports three database drivers, MySQL, SQLite and PostgreSQL. You can specify the driver during connection and the associated configuration when creating a new connection. You can also create multiple connections, but you can use alias for only one connection at a time.;
+Pixie WPDB supports only WPDB (WordPress DataBase). You can also create multiple connections, but you can use alias for only one connection at a time.;
+
+
 ```PHP
 // Make sure you have Composer's autoload file included
 require 'vendor/autoload.php';
 
-$config = array( 'prefix'    => 'cb_'); // Table prefix, optional
+$config = [Connection::PREFIX => 'cb_']; // full config options below.
 
 new \Pixie\Connection($wpdb, $config, 'QB');
 
 // Run query
 $query = QB::table('my_table')->where('name', '=', 'Sana');
 ```
+
+### Config
+
+It is possible to conigure the connection used by your instance of the query builder.
+
+Values
+
+| Key      | Constant | Value | Description |  
+| ----------- | ----------- |----------- |----------- |
+| prefix      | Connection::PREFIX       | STRING | Custom table prefix (will ignore WPDB prefix)|
+| use_wpdb_prefix   | Connection::USE_WPDB_PREFIX        | BOOL | If true will use WPDB prefix and ignore custom prefix
+| clone_wpdb      | Connection::CLONE_WPDB       | BOOL | If true, will clone WPDB to not use GLOBAL instance|
+| show_errors | Connection::SHOW_ERRORS | BOOL | If set to true will configure WPDB to show/hide errors |
+ 
+```php
+$config = [
+    Connection::USE_WPDB_PREFIX => true,
+    Connection::CLONE_WPDB => true,
+    Connection::SHOW_ERRORS => false,
+];
+```
+
+> It is advise to use the class constants over string keys, to avoid BC breakages later on
 
 ### Alias
 When you create a connection:
@@ -174,9 +205,9 @@ var_dump($query->get());
 
 ## Query
 You **must** use `table()` method before every query, except raw `query()`.
-To select from multiple tables just pass an array.
+To select from multiple tables you can use the variadic nature of the method
 ```PHP
-QB::table(array('mytable1', 'mytable2'));
+QB::table('mytable1', 'mytable2');
 ```
 
 
@@ -191,7 +222,10 @@ The query below returns the all rows where name = 'Sana', null if no rows.
 ```PHP
 $result = QB::table('my_table')->findAll('name', 'Sana');
 ```
-
+The query below will either return the row or throw a `Pixie\Exception` if no result found.
+```PHP
+$result = QB::table('my_table')->findOrFail('name', 'Mark');
+```
 
 ### Select
 ```PHP
@@ -200,11 +234,39 @@ $query = QB::table('my_table')->select('*');
 
 #### Multiple Selects
 ```PHP
-->select(array('mytable.myfield1', 'mytable.myfield2', 'another_table.myfield3'));
+->select('mytable.myfield1', 'mytable.myfield2', 'another_table.myfield3');
 ```
 
 Using select method multiple times `select('a')->select('b')` will also select `a` and `b`. Can be useful if you want to do conditional selects (within a PHP `if`).
 
+### Select Alias
+```php
+->select(['column'=>'alias'])
+```
+This would result in `SELECT column as alias` as part of the query.
+
+### Select JSON
+There are 2 ways to express selecting a value from within a stored JSON object.  
+`{"someKey": "someValue","someArray":[1,2,3], "someObj":{"a":"apple","b":"banana"}}`
+
+#### Using Larvel style selectors.
+```php
+->select(['column->someObj->a' => 'jsonAlias'])
+```
+This would return results with `{jsonAlias => "apple"}`  
+To access arrays values use `->select(['column->someArray[1]' => 'jsonAlias'])`
+
+> Please note using Laravel style selectors without an alias, will result in an exception being thrown. example `->select('column->someObj->a')`
+
+#### Using selectJson() helper
+```php
+->selectJson('column', ['someObj', 'a'], 'jsonAlias')
+```
+This would return results with `{jsonAlias => "apple"}`  
+
+> If no alias is passed, the column value will be set as `json_a`. The last selector is prepended with `json_`   
+**Example **
+`->selectJson('column', ['someObj', 'a'])` would return `{json_a => "apple"}`
 
 #### Select Distinct
 ```PHP
@@ -281,6 +343,30 @@ QB::table('my_table')
     ->orWhereNotNull('field4');
 ```
 
+### Where Date
+```PHP
+QB::table('my_table')
+    ->whereDate('column', '<', '2020-12-29'); // All where date after 29 Dec 2020
+```
+
+### Where Day
+```PHP
+QB::table('my_table')
+    ->whereDay('date_column', '=', '29'); // All where day is 29 in any date formats
+```
+
+### Where Month
+```PHP
+QB::table('my_table')
+    ->whereMonth('date_column', '=', '12'); // All where month is december in any date formats
+```
+
+### Where Year
+```PHP
+QB::table('my_table')
+    ->whereYear('date_column', '=', '2015'); // All where year is 2015 in any date formats
+```
+
 #### Grouped Where
 Sometimes queries get complex, where you need grouped criteria, for example `WHERE age = 10 and (name like '%usman%' or description LIKE '%usman%')`.
 
@@ -338,6 +424,18 @@ Available methods,
  - outerJoin()
  - crossJoin()
 
+### Join Using
+
+It is possible to create a simple join statement between 2 tables, where they are matched on the same key names.
+
+```php
+->table('foo')->join('bar', 'bar.id', '=', 'foo.id');
+
+// Would become
+->table('foo')->joinUsing('bar', 'id');
+```
+> Please note this only works with a single base table defined.
+
 #### Multiple Join Criteria
 If you need more than one criterion to join a table then pass a closure as second parameter.
 
@@ -351,8 +449,6 @@ If you need more than one criterion to join a table then pass a closure as secon
 ```
 
 > Closures can be used as for the $key
-
-// GLYNN
 
 ### Raw Query
 You can always use raw queries if you need,
@@ -372,14 +468,40 @@ QB::query('select * from cb_my_table where age = ? and name = ?', array(10, 'usm
 When you wrap an expression with `raw()` method, Pixie doesn't try to sanitize these.
 ```PHP
 QB::table('my_table')
-            ->select(QB::raw('count(cb_my_table.id) as tot'))
-            ->where('value', '=', 'Ifrah')
-            ->where(QB::raw('DATE(?)', 'now'))
+    ->select(QB::raw('count(cb_my_table.id) as tot'))
+    ->where('value', '=', 'Ifrah')
+    ->where(QB::raw('DATE(?)', 'now'))
 ```
 
 
 ___
 **NOTE:** Queries that run through `query()` method are not sanitized until you pass all values through bindings. Queries that run through `raw()` method are not sanitized either, you have to do it yourself. And of course these don't add table prefix too, but you can use the `addTablePrefix()` method.
+
+### Value Binding
+As this uses WPDB under the hood, the use of `wpdb::prepare()` is required. To make it easier to define the expected type, you can use Bindings for all values used in most queries. 
+```php
+QB::table('my_table')
+    ->where('id', = Binding::asInt($valueFromSomewhere))
+    ->get()
+```
+This will ensure the underlying statement for prepare will be passed as `WHERE id=%d`. Just passing a value, without a binding will see the values type used as the placeholder. If you wish to use values which are passed through `prepare()` please use a `Raw` value.
+```php
+QB::table('my_table')
+    ->where('col1', = Binding::asRaw('im a string, dont wrap me with quotes'))
+    ->where('col2', = new Raw('value'))
+    ->get()
+```
+Neither of the above string would be automatically wrapped in `'single quotes'`.
+
+**Types**
+```php
+Binding::asString($value);
+Binding::asInt($value);
+Binding::asFloat($value);
+Binding::asBool($value);
+Binding::asJson($value);
+Binding::asRaw($value);
+```
 
 ### Insert
 ```PHP
@@ -521,7 +643,6 @@ This will produce a query like this:
 
     SELECT * FROM (SELECT `cb_my_table`.*, (SELECT `details` FROM `cb_person_details` WHERE `person_id` = 3) as table_alias1 FROM `cb_my_table`) as table_alias2
 
-**NOTE:** Pixie doesn't use bindings for sub queries and nested queries. It quotes values with PDO's `quote()` method.
 
 ### Get wpdb Instance
 If you need to get the wpdb instance you can do so.

@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Pixie\Tests;
 
+use Pixie\Binding;
 use WP_UnitTestCase;
 use Pixie\Connection;
 use Pixie\QueryBuilder\Raw;
@@ -23,7 +24,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
     /** Mocked WPDB instance.
      * @var Logable_WPDB
-    */
+     */
     private $wpdb;
 
     public function setUp(): void
@@ -60,7 +61,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     public function testMultiTableQuery(): void
     {
         $builder = $this->queryBuilderProvider()
-            ->table(['foo', 'bar']);
+            ->table('foo', 'bar');
 
         $this->assertEquals('SELECT * FROM foo, bar', $builder->getQuery()->getSql());
     }
@@ -159,9 +160,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT COUNT(*) AS field FROM (SELECT * FROM foo WHERE key = 'value') as count LIMIT 1", $log['query']);
     }
 
-                                        ################################################
-                                        ##              WHERE CONDITIONS              ##
-                                        ################################################
+    ################################################
+    ##              WHERE CONDITIONS              ##
+    ################################################
 
 
     /** @testdox It should be possible to create a query which uses Where and Where not (using AND condition) */
@@ -344,9 +345,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM foo WHERE key = 'value' OR NOT key2 = 'value2'", $orWhereNot->getQuery()->getRawSql());
     }
 
-                                        ################################################
-                                        ##   GROUP, ORDER BY, LIMIT/OFFSET & HAVING   ##
-                                        ################################################
+    ################################################
+    ##   GROUP, ORDER BY, LIMIT/OFFSET & HAVING   ##
+    ################################################
 
     /** @testdox It should be possible to create a grouped where condition */
     public function testGroupedWhere(): void
@@ -449,9 +450,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM foo OFFSET 12", $builderOffset->getQuery()->getRawSql());
     }
 
-                                        #################################################
-                                        ##    JOIN {INNER, LEFT, RIGHT, FULL OUTER}    ##
-                                        #################################################
+    #################################################
+    ##    JOIN {INNER, LEFT, RIGHT, FULL OUTER}    ##
+    #################################################
 
     /** @testdox It should be possible to create a query using (INNER) join for a relationship */
     public function testJoin(): void
@@ -543,9 +544,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM prefix_foo INNER JOIN prefix_bar ON prefix_bar.id != prefix_foo.id OR prefix_bar.baz != prefix_foo.baz", $builder->getQuery()->getRawSql());
     }
 
-                                        #################################################
-                                        ##             SUB AND RAW QUERIES             ##
-                                        #################################################
+    #################################################
+    ##             SUB AND RAW QUERIES             ##
+    #################################################
 
     /** @testdox It should be possible to create a raw query which can be executed with or without binding values. */
     public function testRawQuery(): void
@@ -609,9 +610,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     }
 
 
-                                        #################################################
-                                        ##               INSERT & UPDATE               ##
-                                        #################################################
+    #################################################
+    ##               INSERT & UPDATE               ##
+    #################################################
 
     /** @testdox It should be possible to insert a single row of data and get the row id/key returned. */
     public function testInsertSingle(): void
@@ -647,7 +648,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->table('foo')
             ->insert($data);
 
-        $this->assertEquals([7,7,7], $newIDs); // Will always return 7 as mocked.
+        $this->assertEquals([7, 7, 7], $newIDs); // Will always return 7 as mocked.
 
         // Check the actual queries.
         $this->assertEquals("INSERT INTO foo (name,description) VALUES ('Sana','Blah')", $this->wpdb->usage_log['get_results'][0]['query']);
@@ -672,7 +673,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->table('foo')
             ->insertIgnore($data);
 
-        $this->assertEquals([89,89,89], $newIDs);
+        $this->assertEquals([89, 89, 89], $newIDs);
 
         // Check the actual queries.
         $this->assertEquals("INSERT IGNORE INTO foo (name,description) VALUES ('Sana','Blah')", $this->wpdb->usage_log['get_results'][0]['query']);
@@ -722,5 +723,156 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $this->assertEquals('DELETE FROM foo WHERE id > %d', $prepared['query']);
         $this->assertEquals('DELETE FROM foo WHERE id > 5', $query['query']);
+    }
+
+    /** @testdox It should be possible to create a nested query using subQueries. (Example from Readme) */
+    public function testSubQueryForTable(): void
+    {
+        $builder = $this->queryBuilderProvider();
+
+        $subQuery = $builder->table('person_details')
+            ->select('details')
+            ->where('person_id', '=', 3);
+
+
+        $query = $builder->table('my_table')
+            ->select('my_table.*')
+            ->select($builder->subQuery($subQuery, 'table_alias1'));
+
+        $builder->table($builder->subQuery($query, 'table_alias2'))
+            ->select('*')
+            ->get();
+
+        $this->assertEquals(
+            'SELECT * FROM (SELECT my_table.*, (SELECT details FROM person_details WHERE person_id = 3) as table_alias1 FROM my_table) as table_alias2',
+            $this->wpdb->usage_log['get_results'][0]['query']
+        );
+    }
+
+    /**
+     * @see https://www.mysqltutorial.org/mysql-subquery/
+     * @testdox ...find customers whose payments are greater than the average payment using a subquery
+     */
+    public function testSubQueryExample()
+    {
+        $builder = $this->queryBuilderProvider();
+
+        $avgSubQuery = $builder->table('payments')->select("AVG(amount)");
+
+        $builder->select(['customerNumber', 'checkNumber', 'amount'])
+            ->from('payments')
+            ->where('amount', '>', $builder->subQuery($avgSubQuery))
+            ->get();
+
+        $this->assertEquals(
+            'SELECT customerNumber, checkNumber, amount FROM payments WHERE amount > (SELECT AVG(amount) FROM payments)',
+            $this->wpdb->usage_log['get_results'][0]['query']
+        );
+    }
+
+    /**
+     * @see https://www.mysqltutorial.org/mysql-subquery/
+     * @testdox ...you can use a subquery with NOT IN operator to find the customers who have not placed any orders
+     */
+    public function testSubQueryInOperatorExample()
+    {
+        $builder = $this->queryBuilderProvider();
+
+        $avgSubQuery = $builder->table('orders')->selectDistinct("customerNumber");
+
+        $builder->table('customers')
+            ->select('customerName')
+            ->whereNotIn('customerNumber', $builder->subQuery($avgSubQuery))
+            ->get();
+
+        $this->assertEquals(
+            'SELECT customerName FROM customers WHERE customerNumber NOT IN (SELECT DISTINCT customerNumber FROM orders)',
+            $this->wpdb->usage_log['get_results'][0]['query']
+        );
+    }
+
+    /** @testdox It should be possible to use partial expressions as strings and not have quotes added automatically by WPDB::prepare() */
+    public function testUseRawValueForUnescapedMysqlConstants(): void
+    {
+        $this->queryBuilderProvider()->table('foo')->update(['bar' => new Raw('TIMESTAMP')]);
+        $this->assertEquals("UPDATE foo SET bar=TIMESTAMP", $this->wpdb->usage_log['get_results'][0]['query']);
+
+        $this->queryBuilderProvider()->table('orders')
+            ->select(['Order_ID', 'Product_Name', new Raw("DATE_FORMAT(Order_Date,'%d--%m--%y') as new_date_formate")])
+            ->get();
+        $this->assertEquals(
+            "SELECT Order_ID, Product_Name, DATE_FORMAT(Order_Date,'%d--%m--%y') as new_date_formate FROM orders",
+            $this->wpdb->usage_log['get_results'][1]['query']
+        );
+    }
+
+    /** @testdox It should be possible to use a Binding value in a delete where query */
+    public function testDeleteUsingBindings(): void
+    {
+        $this->queryBuilderProvider()
+            ->table('foo')
+            ->where('id', '>', Binding::asInt(5.112131564))
+            ->delete();
+
+        $prepared = $this->wpdb->usage_log['prepare'][0];
+        $query = $this->wpdb->usage_log['get_results'][0];
+
+        $this->assertEquals('DELETE FROM foo WHERE id > %d', $prepared['query']);
+        $this->assertEquals('DELETE FROM foo WHERE id > 5', $query['query']);
+    }
+
+    /** @testdox It should be possible to use both RAW expressions and Bindings values for doing where in queries. */
+    public function testWhereInUsingBindingsAndRawExpressions(): void
+    {
+        $builderWhere = $this->queryBuilderProvider()
+            ->table('foo')
+            ->whereIn('key', [Binding::asString('v1'), Binding::asRaw("'v2'")])
+            ->whereIn('key2', [Binding::asInt(10 / 4), new Raw('%d', 12)]);
+        $this->assertEquals("SELECT * FROM foo WHERE key IN ('v1', 'v2') AND key2 IN (2, 12)", $builderWhere->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to use RAW expressions for the key in whereNull conditions. */
+    public function testWhereIsNullUsingRawForColumn(): void
+    {
+        $builderNot = $this->queryBuilderProvider()
+            ->table('foo')
+            ->whereNotNull(new Raw('key'))
+            ->whereNotNull('key2');
+        $this->assertEquals("SELECT * FROM foo WHERE key IS NOT NULL AND key2 IS NOT NULL", $builderNot->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to create a query which gets values form a JSON column, while using RAW object for both the MYSQL col key and JSON object key (1st generation) */
+    public function testJsonSelectUsingRawValues(): void
+    {
+        $builder = $this->queryBuilderProvider()
+            ->table('jsonSelects')
+            ->selectJson(new Raw('column'), new Raw('foo'));
+
+        $this->assertEquals(
+            'SELECT JSON_UNQUOTE(JSON_EXTRACT(column, "$.foo")) as json_foo FROM jsonSelects',
+            $builder->getQuery()->getRawSql()
+        );
+    }
+
+    /** @testdox It should be possible to do a select from a JSON value, using column->jsonKey1->jsonKey2 */
+    public function testSelectWithJSONWithAlias(): void
+    {
+        $builder = $this->queryBuilderProvider()
+            ->table('TableName')
+            ->select(['column->foo->bar' => 'alias']);
+
+        $expected = 'SELECT JSON_UNQUOTE(JSON_EXTRACT(column, "$.foo.bar")) as alias FROM TableName';
+        $this->assertEquals($expected, $builder->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to use table.column and have the prefix added to the table, even if used as JSON Select query */
+    public function testAllColumnsInJSONSelectWithTableDotColumnShouldHavePrefixAdded()
+    {
+        $builder = $this->queryBuilderProvider('pr_')
+            ->table('table')
+            ->select(['table.column->foo->bar' => 'alias']);
+
+        $expected = 'SELECT JSON_UNQUOTE(JSON_EXTRACT(pr_table.column, "$.foo.bar")) as alias FROM pr_table';
+        $this->assertEquals($expected, $builder->getQuery()->getRawSql());
     }
 }

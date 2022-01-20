@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace Pixie\Tests;
 
 use Pixie\Connection;
+use Pixie\QueryBuilder\Raw;
 use Pixie\Tests\Logable_WPDB;
 use PHPUnit\Framework\TestCase;
 use Pixie\QueryBuilder\QueryBuilderHandler;
@@ -130,7 +131,7 @@ class TestQueryBuilderUsesWPDBPrepare extends TestCase
         $this->assertEquals('string', $prepared['args'][2]);
     }
 
-     /** @testdox It should be possible to create a get call with value (BETWEEN) condition and have this generated and run through WPDB::prepare() */
+    /** @testdox It should be possible to create a get call with value (BETWEEN) condition and have this generated and run through WPDB::prepare() */
     public function testGetWithSingleConditionBetweenValue(): void
     {
         $builder = $this->queryBuilderProvider();
@@ -183,7 +184,7 @@ class TestQueryBuilderUsesWPDBPrepare extends TestCase
             ->table('foo')
             ->insert($data);
 
-         // Query and values passed to prepare();
+        // Query and values passed to prepare();
         $prepared = $this->wpdb->usage_log['prepare'][0];
 
         // Check that the query is passed to prepare.
@@ -205,6 +206,39 @@ class TestQueryBuilderUsesWPDBPrepare extends TestCase
         $this->assertEquals(
             "INSERT INTO foo (name,counter) VALUES (%s,%d) ON DUPLICATE KEY UPDATE name=%s,counter=%d",
             $this->wpdb->usage_log['prepare'][0]['query']
+        );
+    }
+
+    /** @testdox It should be possible to use a RAW query and have any places holders replace with prepare, before being added to the main query. */
+    public function testUsingRawWithBindingsAsAValueForInsert(): void
+    {
+        $data = array(
+            'name' => 'Trees',
+            'something' => new Raw('(%s)', 'something')
+        );
+
+        $this->queryBuilderProvider()
+            ->table('foo')
+            ->insert($data);
+
+        // First should be RAW bring resolved.
+        $this->assertEquals(
+            '(%s)',
+            $this->wpdb->usage_log['prepare'][0]['query']
+        );
+        $this->assertContains(
+            'something',
+            $this->wpdb->usage_log['prepare'][0]['args']
+        );
+
+        // Second the actual query.
+        $this->assertEquals(
+            "INSERT INTO foo (name,something) VALUES (%s,('something'))",
+            $this->wpdb->usage_log['prepare'][1]['query']
+        );
+        $this->assertContains(
+            'Trees',
+            $this->wpdb->usage_log['prepare'][1]['args']
         );
     }
 }

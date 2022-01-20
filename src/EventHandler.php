@@ -1,22 +1,25 @@
-<?php namespace Pixie;
+<?php
 
+namespace Pixie;
+
+use Closure;
 use Pixie\QueryBuilder\QueryBuilderHandler;
 use Pixie\QueryBuilder\Raw;
 
 class EventHandler
 {
     /**
-     * @var array
+     * @var array<string, array<string, Closure>>
      */
-    protected $events = array();
+    protected $events = [];
 
     /**
-     * @var array
+     * @var string[]
      */
-    protected $firedEvents = array();
+    protected $firedEvents = [];
 
     /**
-     * @return array
+     * @return array<string, array<string, Closure>>
      */
     public function getEvents()
     {
@@ -24,36 +27,37 @@ class EventHandler
     }
 
     /**
-     * @param $event
-     * @param $table
+     * @param string $event
+     * @param string|Raw $table
      *
-     * @return callable|null
+     * @return Closure|null
      */
-    public function getEvent($event, $table = ':any')
+    public function getEvent(string $event, $table = ':any'): ?Closure
     {
         if ($table instanceof Raw) {
             return null;
         }
-        return isset($this->events[$table][$event]) ? $this->events[$table][$event] : null;
+
+        return $this->events[$table][$event] ?? null;
     }
 
     /**
-     * @param          $event
-     * @param string   $table
-     * @param callable $action
+     * @param string $event
+     * @param string|null $table
+     * @param Closure $action
      *
      * @return void
      */
-    public function registerEvent($event, $table, \Closure $action)
+    public function registerEvent(string $event, ?string $table, Closure $action)
     {
-        $table = $table ?: ':any';
+        $table = $table ?? ':any';
 
         $this->events[$table][$event] = $action;
     }
 
     /**
-     * @param          $event
-     * @param string   $table
+     * @param string $event
+     * @param string  $table
      *
      * @return void
      */
@@ -64,13 +68,14 @@ class EventHandler
 
     /**
      * @param QueryBuilderHandler $queryBuilder
-     * @param                     $event
+     * @param string $event
+     *
      * @return mixed
      */
-    public function fireEvents($queryBuilder, $event)
+    public function fireEvents(QueryBuilderHandler $queryBuilder, string $event)
     {
         $statements = $queryBuilder->getStatements();
-        $tables = isset($statements['tables']) ? $statements['tables'] : array();
+        $tables     = $statements['tables'] ?? [];
 
         // Events added with :any will be fired in case of any table,
         // we are adding :any as a fake table at the beginning.
@@ -88,10 +93,10 @@ class EventHandler
                 unset($handlerParams[1]); // we do not need $event
                 // Add to fired list
                 $this->firedEvents[] = $eventId;
-                $result = call_user_func_array($action, $handlerParams);
+                $result              = call_user_func_array($action, $handlerParams);
                 if (!is_null($result)) {
                     return $result;
-                };
+                }
             }
         }
     }

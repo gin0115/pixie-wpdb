@@ -17,6 +17,7 @@ use Pixie\Connection;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Tests\Logable_WPDB;
 use Pixie\QueryBuilder\Transaction;
+use Pixie\Exception as PixieException;
 use Pixie\QueryBuilder\QueryBuilderHandler;
 use Pixie\QueryBuilder\TransactionHaltException;
 
@@ -25,7 +26,7 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
 
     /** Mocked WPDB instance.
      * @var Logable_WPDB
-    */
+     */
     private $wpdb;
 
     public function setUp(): void
@@ -112,13 +113,13 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
                 $builder->rollback();
             });
         $this->assertSame(["START TRANSACTION", "ROLLBACK"], $this->wpdb->usage_log['query']);
-                $this->assertTrue(true, 'Avoids issues with no assertion in test!');
+        $this->assertTrue(true, 'Avoids issues with no assertion in test!');
     }
 
     /** @testdox It should be possible to use WPDB errors which are printed to the screen as a trigger for auto rollback with a transaction. This mimics PDO */
     public function testTransactionCatchWPDBError(): void
     {
-         $this->queryBuilderProvider()
+        $this->queryBuilderProvider()
             ->transaction(function (Transaction $builder) {
                 $builder->table('foo')->insert(['name' => 'Dave']);
                 print('WPDB ERROR - Insert name=Dave');
@@ -130,7 +131,7 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
     /** @testdox It should be possible to catch an exceptions and trigger for auto rollback with a transaction. This mimics PDO */
     public function testTransactionCatchException(): void
     {
-         $this->queryBuilderProvider()
+        $this->queryBuilderProvider()
             ->transaction(function (Transaction $builder) {
                 $builder->table('foo')->insert(['name' => 'Dave']);
                 throw new Exception("Error Processing Request", 1);
@@ -216,5 +217,53 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
             false
         );
         $this->assertEquals('prefix_someTable', $prefixedSingle);
+    }
+
+    /** @testdox It should be possible to create a simple joinUsing query for simple FROM tableA JOIN tableB ON tableA.key = tableB.key, using only the table and key. */
+    public function testJoinUsing(): void
+    {
+        $this->queryBuilderProvider()
+            ->table('foo')
+            ->joinUsing('bar', 'id')
+            ->get();
+
+        $this->assertEquals(
+            "SELECT * FROM foo INNER JOIN foo.id ON bar.id = foo.id",
+            $this->wpdb->usage_log['get_results'][0]['query']
+        );
+    }
+
+    /** @testdox When attempting to use joinUsing, a base table must be defined or an exception will be thrown */
+    public function testJoinUsingThrowsIfNoTableSelected(): void
+    {
+        $this->expectExceptionMessage('JoinUsing can only be used with a single table set as the base of the query');
+        $this->expectException(PixieException::class);
+
+        $this->queryBuilderProvider()
+            ->joinUsing('bar', 'id')
+            ->get();
+    }
+
+        /** @testdox When attempting to use joinUsing, only a single base table must be defined or an exception will be thrown */
+    public function testJoinUsingThrowsIfMultipleTableSelected(): void
+    {
+        $this->expectExceptionMessage('JoinUsing can only be used with a single table set as the base of the query');
+        $this->expectException(PixieException::class);
+
+        $this->queryBuilderProvider()
+            ->table('a', 'b')
+            ->joinUsing('bar', 'id')
+            ->get();
+    }
+
+    /** @testdox When attempting to use a JSON expression as a select, using select(). An alias must be supplied, or an exception should be thrown. */
+    public function testMustUseAliasWithJsonSelect(): void
+    {
+        $this->expectExceptionMessage('An alias must be used if you wish to select from JSON Object');
+        $this->expectException(Exception::class);
+        $this->queryBuilderProvider()
+            ->table('a')
+            ->select('a->b')
+            ->first();
     }
 }

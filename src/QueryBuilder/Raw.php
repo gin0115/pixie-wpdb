@@ -4,7 +4,6 @@ namespace Pixie\QueryBuilder;
 
 class Raw
 {
-
     /**
      * @var string
      */
@@ -16,12 +15,12 @@ class Raw
     protected $bindings;
 
     /**
-     * @param string|\Stringable|int|float|bool $value
+     * @param string $value
      * @param mixed|mixed[] $bindings
      */
-    public function __construct($value, $bindings = array())
+    public function __construct($value, $bindings = [])
     {
-        $this->value = (string)$value;
+        $this->value    = (string)$value;
         $this->bindings = (array)$bindings;
     }
 
@@ -33,6 +32,16 @@ class Raw
     public function getBindings(): array
     {
         return $this->bindings;
+    }
+
+    /**
+     * Returns the current value held.
+     *
+     * @return string
+     */
+    public function getValue(): string
+    {
+        return (string) $this->value;
     }
 
     /**
