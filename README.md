@@ -367,7 +367,9 @@ QB::table('my_table')
     ->whereYear('date_column', '=', '2015'); // All where year is 2015 in any date formats
 ```
 
-#### Grouped Where
+### Where JSON
+
+### Grouped Where
 Sometimes queries get complex, where you need grouped criteria, for example `WHERE age = 10 and (name like '%usman%' or description LIKE '%usman%')`.
 
 Pixie allows you to do so, you can nest as many closures as you need, like below.
