@@ -53,9 +53,11 @@ jobs:
         run: |
           echo "Hi"
           if [[ ${{ matrix.mysql-versions }} == 'mysql:8.0' ]]; then
-            echo "SLACK_COLOR=good" >> $GITHUB_ENV
+            echo "8.0"
+            echo "MYSQL_AUTHENTICATION_PLUGIN=mysql_native_password" >> $GITHUB_ENV
             echo "SLACK_MESSAGE=This build has passed!" >> $GITHUB_ENV
           else
+            echo "NOT 8.0"
             echo "SLACK_COLOR=danger" >> $GITHUB_ENV
             echo "SLACK_MESSAGE=This build has failed." >> $GITHUB_ENV
           fi
