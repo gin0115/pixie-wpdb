@@ -887,4 +887,18 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $expected = "SELECT * FROM mock_json WHERE NOT JSON_UNQUOTE(JSON_EXTRACT(jsonCol, \"$.string\")) = 'AB' OR NOT JSON_UNQUOTE(JSON_EXTRACT(jsonCol, \"$.thing.handle\")) = 'bar'";
         $this->assertEquals($expected, $builder->getQuery()->getRawSql());
     }
+
+    public function testAllowLaravelStyleInWhereJson(): void
+    {
+        $helperMethod = $this->queryBuilderProvider()
+            ->table('mock_json')->whereJson('column', ['keya', 'keyb'], '=', 'value');
+
+        $usingArrows = $this->queryBuilderProvider()
+            ->table('mock_json')->where('column->keya->keyb', '=', 'value');
+
+        $this->assertSame(
+            $helperMethod->getQuery()->getRawSql(),
+            $usingArrows->getQuery()->getRawSql()
+        );
+    }
 }

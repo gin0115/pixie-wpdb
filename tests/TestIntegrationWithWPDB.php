@@ -836,5 +836,4 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals('Cherry', $rows[1]->string);
     }
 
-    
 }

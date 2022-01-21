@@ -9,14 +9,14 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use Pixie\QueryBuilder\Raw;
+use function mb_strlen;
 
+use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-use function mb_strlen;
 
 class QueryBuilderHandler
 {
@@ -727,6 +727,41 @@ class QueryBuilderHandler
         $field = $parts[0];
         unset($parts[0]);
         return $this->selectJson($field, $parts, $alias);
+    }
+
+    /**
+     * Gets the column name form a potential array
+     *
+     * @param string $expression
+     * @return string
+     */
+    protected function getColumnFromJsonExpression(string $expression): string
+    {
+        if (! $this->isJsonExpression($expression)) {
+            throw new Exception('JSON expression must contain at least 2 values, the table column and JSON key.', 1);
+        }
+
+        /** @var string[] Check done above. */
+        $parts = explode('->', $expression);
+        return $parts[0];
+    }
+
+    /**
+     * Gets all JSON object keys while removing the column name.
+     *
+     * @param string $expression
+     * @return string[]
+     */
+    protected function getJsonKeysFromExpression($expression): array
+    {
+        if (! $this->isJsonExpression($expression)) {
+            throw new Exception('JSON expression must contain at least 2 values, the table column and JSON key.', 1);
+        }
+
+        /** @var string[] Check done above. */
+        $parts = explode('->', $expression);
+        unset($parts[0]);
+        return $parts;
     }
 
     /**
@@ -1456,6 +1491,15 @@ class QueryBuilderHandler
         if ($key instanceof Raw) {
             $key = $this->adapterInstance->parseRaw($key);
         }
+
+        // If JSON send to JSON handler
+        if (is_string($key) && $this->isJsonExpression($key)) {
+            $column = $this->getColumnFromJsonExpression($key);
+            $jsonKeys = $this->getJsonKeysFromExpression($key);
+            $this->whereJsonHandler($column, $jsonKeys, $operator, $value, $joiner);
+            return $this;
+        }
+
         $key                          = $this->addTablePrefix($key);
         $this->statements['wheres'][] = compact('key', 'operator', 'value', 'joiner');
         return $this;
@@ -1644,4 +1688,3 @@ class QueryBuilderHandler
         return  $this->select(new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\")) as {$alias}"));
     }
 }
-// 'JSON_EXTRACT(json, "$.id") as jsonID'
