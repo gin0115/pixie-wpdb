@@ -875,4 +875,16 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $expected = 'SELECT JSON_UNQUOTE(JSON_EXTRACT(pr_table.column, "$.foo.bar")) as alias FROM pr_table';
         $this->assertEquals($expected, $builder->getQuery()->getRawSql());
     }
+
+    /** @testdox It should be possible to create a WHERE clause that allows OR NOT conditions, from traversing the JSON object. */
+    public function testJsonOrWhereNot()
+    {
+        $builder = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->orWhereNotJson('jsonCol', ['string'], '=', 'AB')
+            ->orWhereNotJson('jsonCol', ['thing','handle'], '=', 'bar');
+
+        $expected = "SELECT * FROM mock_json WHERE NOT JSON_UNQUOTE(JSON_EXTRACT(jsonCol, \"$.string\")) = 'AB' OR NOT JSON_UNQUOTE(JSON_EXTRACT(jsonCol, \"$.thing.handle\")) = 'bar'";
+        $this->assertEquals($expected, $builder->getQuery()->getRawSql());
+    }
 }

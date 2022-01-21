@@ -1214,7 +1214,12 @@ class QueryBuilderHandler
 
         // Add any possible prefixes to the key
         $key = $this->addTablePrefix($key, true);
-
+dump(
+            new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\"))"),
+            $operator,
+            $value,
+            $joiner
+        );
         return  $this->whereHandler(
             new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\"))"),
             $operator,
