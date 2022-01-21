@@ -8,14 +8,13 @@ use Throwable;
 use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
-
 use function mb_strlen;
-
 use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
+
 use Pixie\QueryBuilder\WPDBAdapter;
 
 class QueryBuilderHandler
@@ -1222,6 +1221,50 @@ class QueryBuilderHandler
         }
 
         return $this->whereJsonHandler($key, $jsonKey, $operator, $value, 'OR NOT');
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param mixed[] $values
+    * @return static
+    */
+    public function whereInJson($key, $jsonKey, $values): self
+    {
+        return $this->whereJsonHandler($key, $jsonKey, 'IN', $values, 'AND');
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param mixed[] $values
+    * @return static
+    */
+    public function whereNotInJson($key, $jsonKey, $values): self
+    {
+        return $this->whereJsonHandler($key, $jsonKey, 'NOT IN', $values, 'AND');
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param mixed[] $values
+    * @return static
+    */
+    public function orWhereInJson($key, $jsonKey, $values): self
+    {
+        return $this->whereJsonHandler($key, $jsonKey, 'IN', $values, 'OR');
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param mixed[] $values
+    * @return static
+    */
+    public function orWhereNotInJson($key, $jsonKey, $values): self
+    {
+        return $this->whereJsonHandler($key, $jsonKey, 'NOT IN', $values, 'OR');
     }
 
     /**

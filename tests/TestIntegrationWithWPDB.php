@@ -836,4 +836,21 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals('Cherry', $rows[1]->string);
     }
 
+    /** @testdox It should be possible to create a WHERE IN clause t, from traversing the JSON object. */
+    public function testJsonWhereIn()
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'Apple', 'jsonCol' => \json_encode((object)['id' => 24748, 'thing' => (object) ['handle' => 'foo'] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'Banana', 'jsonCol' => \json_encode((object)['id' => 78945, 'thing' => (object) ['handle' => 'bar'] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'Cherry', 'jsonCol' => \json_encode((object)['id' => 78941, 'thing' => (object) ['handle' => 'baz'] ])], ['%s', '%s']);
+
+        $rows = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->whereInJson('jsonCol', ['thing','handle'], ['foo', 'bre', 'baz'])
+            ->get();
+
+        $this->assertCount(2, $rows);
+        $this->assertEquals('Apple', $rows[0]->string);  // Has Foo
+        $this->assertEquals('Cherry', $rows[1]->string); // Has Baz
+    }
+
 }

@@ -888,17 +888,87 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals($expected, $builder->getQuery()->getRawSql());
     }
 
+    /** @testdox It should be possible to use laravel style JSON selectors for whereJson(), whereNotJson(), orWhereJson(), orWhereNotJson() */
     public function testAllowLaravelStyleInWhereJson(): void
     {
-        $helperMethod = $this->queryBuilderProvider()
-            ->table('mock_json')->whereJson('column', ['keya', 'keyb'], '=', 'value');
+        $cases = [
+            'where' => [
+                'helperMethod' => 'whereJson',
+                'withArrows' => 'where'
+            ],
+            'orWhere' => [
+                'helperMethod' => 'orWhereJson',
+                'withArrows' => 'orWhere'
+            ],
+            'whereNot' => [
+                'helperMethod' => 'whereNotJson',
+                'withArrows' => 'whereNot'
+            ],
+            'orWhereNot' => [
+                'helperMethod' => 'orWhereNotJson',
+                'withArrows' => 'orWhereNot'
+            ],
 
-        $usingArrows = $this->queryBuilderProvider()
-            ->table('mock_json')->where('column->keya->keyb', '=', 'value');
+            ];
 
-        $this->assertSame(
-            $helperMethod->getQuery()->getRawSql(),
-            $usingArrows->getQuery()->getRawSql()
-        );
+        // Run tests
+        foreach ($cases as $method => $values) {
+            $helperMethod = $this->queryBuilderProvider()
+                ->table('mock_json')
+                ->{$values['helperMethod']}('column', ['keya', 'keyb'], '=', 'value');
+
+            $usingArrows = $this->queryBuilderProvider()
+                ->table('mock_json')
+                ->{$values['withArrows']}('column->keya->keyb', '=', 'value');
+
+            $this->assertSame(
+                $helperMethod->getQuery()->getRawSql(),
+                $usingArrows->getQuery()->getRawSql(),
+                "Failed asserting a match with method :: \"{$method}\""
+            );
+        }
+    }
+
+    /** @testdox It should be possible to use laravel style JSON selectors for whereInJson(),, whereNotInJson(), orWhereInJson(), orWhereNotInJson() */
+    public function testAllowLaravelStyleInWhereInJson(): void
+    {
+        $cases = [
+            'whereIn' => [
+                'helperMethod' => 'whereInJson',
+                'withArrows' => 'whereIn'
+            ],
+            'orWhereIn' => [
+                'helperMethod' => 'orWhereInJson',
+                'withArrows' => 'orWhereIn'
+            ],
+            'whereNotIn' => [
+                'helperMethod' => 'whereNotInJson',
+                'withArrows' => 'whereNotIn'
+            ],
+            'orWhereNotIn' => [
+                'helperMethod' => 'orWhereNotInJson',
+                'withArrows' => 'orWhereNotIn'
+            ],
+
+            ];
+
+        // Run tests
+        foreach ($cases as $method => $values) {
+            $helperMethod = $this->queryBuilderProvider()
+                ->table('mock_json')
+                ->where('a', 'b')
+                ->{$values['helperMethod']}('column', ['keya', 'keyb'], ['a','b']);
+
+            $usingArrows = $this->queryBuilderProvider()
+                ->table('mock_json')
+                ->where('a', 'b')
+                ->{$values['withArrows']}('column->keya->keyb', ['a','b']);
+
+            $this->assertSame(
+                $helperMethod->getQuery()->getRawSql(),
+                $usingArrows->getQuery()->getRawSql(),
+                "Failed asserting a match with method :: \"{$method}\""
+            );
+        }
     }
 }
