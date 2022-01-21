@@ -9,14 +9,14 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use function mb_strlen;
-
 use Pixie\QueryBuilder\Raw;
+
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
+use function mb_strlen;
 
 class QueryBuilderHandler
 {
@@ -1135,13 +1135,13 @@ class QueryBuilderHandler
         return $this->whereJsonHandler($key, $jsonKey, $operator, $value, 'AND');
     }
 
-   /**
-    * @param string|Raw $key The database column which holds the JSON value
-    * @param string|Raw|string[] $jsonKey The json key/index to search
-    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
-    * @param mixed|null $value
-    * @return static
-    */
+    /**
+     * @param string|Raw $key The database column which holds the JSON value
+     * @param string|Raw|string[] $jsonKey The json key/index to search
+     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
+     * @return static
+     */
     public function whereNotJson($key, $jsonKey, $operator = null, $value = null): self
     {
         // If two params are given then assume operator is =
@@ -1214,12 +1214,7 @@ class QueryBuilderHandler
 
         // Add any possible prefixes to the key
         $key = $this->addTablePrefix($key, true);
-dump(
-            new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\"))"),
-            $operator,
-            $value,
-            $joiner
-        );
+
         return  $this->whereHandler(
             new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\"))"),
             $operator,
