@@ -12,13 +12,18 @@ A lightweight, expressive, query builder for WordPRess it can also be referred a
 
 > **Pixie WPDB** is an adaption of `pixie` originally written by [usmanhalalit](https://github.com/usmanhalalit). [Pixie is not longer under active development ](https://github.com/usmanhalalit/pixie)
 
+## Requirements
+ - PHP 7.1+
+ - MySql 5.7+ or MariaDB 10.2+
+
+> Tested all combinations of PHP 7.1, 7.2, 7.3, 7.4 with MySql 5.7 & MariaBD 10.2, 10.3, 10.4, 10.5, 10.6, 10.7
+
 
 It has some advanced features like:
 
  - Query Events
  - Nested Criteria
  - Sub Queries
- - Nested Queries
  - Multiple Database Connections.
 
 Additional features added to this version of Pixie

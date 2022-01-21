@@ -818,4 +818,39 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals('y', $rows[0]->string);
         $this->assertEquals('z', $rows[1]->string);
     }
+
+    /** @testdox It should be possible to create a WHERE clause that allows NOT conditions, from traversing the JSON object. */
+    public function testJsonWhereNot()
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'Apple', 'jsonCol' => \json_encode((object)['id' => 24748, 'thing' => (object) ['handle' => 'foo'] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'Banana', 'jsonCol' => \json_encode((object)['id' => 78945, 'thing' => (object) ['handle' => 'bar'] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'Cherry', 'jsonCol' => \json_encode((object)['id' => 78941, 'thing' => (object) ['handle' => 'baz'] ])], ['%s', '%s']);
+
+        $rows = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->WhereNotJson('jsonCol', ['thing','handle'], '=', 'foo')
+            ->get();
+
+        $this->assertCount(2, $rows);
+        $this->assertEquals('Banana', $rows[0]->string);
+        $this->assertEquals('Cherry', $rows[1]->string);
+    }
+
+    /** @testdox It should be possible to create a WHERE clause that allows OR NOT conditions, from traversing the JSON object. */
+    public function testJsonOrWhereNot()
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'z', 'jsonCol' => \json_encode((object)['id' => 24748, 'thing' => (object) ['handle' => 'foo'] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'y', 'jsonCol' => \json_encode((object)['id' => 78945, 'thing' => (object) ['handle' => 'bar'] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'x', 'jsonCol' => \json_encode((object)['id' => 78941, 'thing' => (object) ['handle' => 'baz'] ])], ['%s', '%s']);
+
+        $rows = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->orWhereNotJson('jsonCol', ['thing','handle'], '=', 'foo')
+            ->orWhereNotJson('jsonCol', ['thing','handle'], '=', 'bar')
+            ->get();
+
+        $this->assertCount(1, $rows);
+        $this->assertEquals('x', $rows[0]->string);
+
+    }
 }
