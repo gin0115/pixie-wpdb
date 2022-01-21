@@ -372,7 +372,26 @@ QB::table('my_table')
     ->whereYear('date_column', '=', '2015'); // All where year is 2015 in any date formats
 ```
 
-### Where JSON
+### Where with JSON support
+
+These methods allow the querying of JSON objects, held within rows in your database. These methods mostly make use of `JSON_UNQUOTE()` and `JSON_EXTRACT()`. If you need to use other JSON methods, please consider writing your where condition with a Raw instance. See the `tests/TestIntegrationWithWPDB::testCanSelectFromWithinJSONColumn1GenDeep()` test for an example.
+
+### whereJSON
+```php
+// Example of data in Database
+[ "id" => 1, "jsonColumn" => '{ "objlv1":{ "objlv2Array":["a","b","c","d"] } }' ],
+[ "id" => 2, "jsonColumn" => '{ "objlv1":{ "objlv2Array":["e","f","g","h"] } }' ],
+[ "id" => 3, "jsonColumn" => '{ "objlv1":{ "objlv2Array":["r","a","c","i"] } }' ],
+
+QB::table('my_table')
+    ->whereJson('jsonColumn', ['objlv1','objlv2Array[2]'], '=', 'c')
+    ->get();
+```
+This would return IDs 1 & 3, as both have C under index [2] of `objlv1.objlv2Array`, you can traverse as deep as you need.
+
+> Also include `orWhereJson()`, `whereNotJson()` & `orWhereNotJson()`, please see the standard version of these methods above for more details
+
+
 
 ### Grouped Where
 Sometimes queries get complex, where you need grouped criteria, for example `WHERE age = 10 and (name like '%usman%' or description LIKE '%usman%')`.
