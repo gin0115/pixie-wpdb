@@ -118,7 +118,7 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
        - [Where Month](#where-month)
        - [Where Year](#where-year)
     - [Grouped Where](#grouped-where)    
-    - [Where JSON]()    
+    - [Where JSON](#where-with-json-support)    
        - [Where IN JSON]()     
        - [Where BETWEEN JSON]()     
  - [Group By and Order By](#group-by-and-order-by)
@@ -383,15 +383,39 @@ These methods allow the querying of JSON objects, held within rows in your datab
 [ "id" => 2, "jsonColumn" => '{ "objlv1":{ "objlv2Array":["e","f","g","h"] } }' ],
 [ "id" => 3, "jsonColumn" => '{ "objlv1":{ "objlv2Array":["r","a","c","i"] } }' ],
 
+// Using the helper method
 QB::table('my_table')
     ->whereJson('jsonColumn', ['objlv1','objlv2Array[2]'], '=', 'c')
+    ->get();
+
+// Using Laravel style selectors.
+QB::table('my_table')
+    ->where('jsonColumn->objlv1->objlv2Array[2]', '=', 'c')
     ->get();
 ```
 This would return IDs 1 & 3, as both have C under index [2] of `objlv1.objlv2Array`, you can traverse as deep as you need.
 
 > Also include `orWhereJson()`, `whereNotJson()` & `orWhereNotJson()`, please see the standard version of these methods above for more details
 
+### WhereIn
+```php
+// Example of data in Database
+[ "id" => 1, "jsonColumn" => '{ "objlv1":{ "objlv2":"d" } }' ],
+[ "id" => 2, "jsonColumn" => '{ "objlv1":{ "objlv2":"h" } }' ],
+[ "id" => 3, "jsonColumn" => '{ "objlv1":{ "objlv2":"i" } }' ],
 
+// Using the helper method
+QB::table('my_table')
+    ->whereInJson('jsonColumn', ['objlv1','objlv2'], ['d', 'e', 'f','i'])
+    ->get();
+
+// Using Laravel style selectors.
+QB::table('my_table')
+    ->where('jsonColumn->objlv1->objlv2', ['d', 'e', 'f','i'])
+    ->get();
+```
+This would return IDs 1 & 3, as both contain either **d**,e,f,**i** of `objlv1.objlv2`, like with where you can traverse as deep as you need.
+> Also include `orWhereInJson()`, `whereNotInJson()` & `orWhereNotInJson()`, please see the standard version of these methods above for more details
 
 ### Grouped Where
 Sometimes queries get complex, where you need grouped criteria, for example `WHERE age = 10 and (name like '%usman%' or description LIKE '%usman%')`.
