@@ -791,7 +791,7 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param string|array<string|Raw, mixed> $fields
+     * @param string|array<string|int, mixed> $fields
      * @param string          $defaultDirection
      *
      * @return static
