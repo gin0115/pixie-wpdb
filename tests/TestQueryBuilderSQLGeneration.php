@@ -392,9 +392,23 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         // Specified DESC
         $builderDesc = $this->queryBuilderProvider()
+            ->table('foo')->orderBy(['bar' => 'DESC']);
+
+        $this->assertEquals("SELECT * FROM foo ORDER BY bar DESC", $builderDesc->getQuery()->getRawSql());
+
+        // Using the default
+        $builderDesc = $this->queryBuilderProvider()
             ->table('foo')->orderBy('bar', 'DESC');
 
         $this->assertEquals("SELECT * FROM foo ORDER BY bar DESC", $builderDesc->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to use a Raw expression for the order by reference. */
+    public function testOrderByRawExpression(): void
+    {
+        $builder = $this->queryBuilderProvider()
+            ->table('foo')->orderBy(new Raw('column = %s', ['bar']), 'DESC');
+        $this->assertEquals("SELECT * FROM foo ORDER BY column = 'bar' DESC", $builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to order by multiple keys and specify the direction. */
@@ -411,6 +425,11 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->table('foo')->orderBy(['bar', 'baz'], 'DESC');
 
         $this->assertEquals("SELECT * FROM foo ORDER BY bar DESC, baz DESC", $builderDesc->getQuery()->getRawSql());
+
+        // Directions per field.
+        $builderDesc = $this->queryBuilderProvider()
+            ->table('foo')->orderBy(['bar' => 'ASC', 'baz'], 'DESC');
+        $this->assertEquals("SELECT * FROM foo ORDER BY bar ASC, baz DESC", $builderDesc->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to set HAVING in queries. */
