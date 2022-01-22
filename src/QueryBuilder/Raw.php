@@ -25,6 +25,17 @@ class Raw
     }
 
     /**
+     * Create a Raw instance with no bindings
+     *
+     * @param string string $value
+     * @return self
+     */
+    public static function val($value): self
+    {
+        return new self($value, []);
+    }
+
+    /**
      * Returns the current bindings
      *
      * @return mixed[]
