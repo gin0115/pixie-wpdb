@@ -9,14 +9,14 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use function mb_strlen;
-
 use Pixie\QueryBuilder\Raw;
+
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
+use function mb_strlen;
 
 class QueryBuilderHandler
 {
@@ -1269,14 +1269,125 @@ class QueryBuilderHandler
     }
 
     /**
+     * @param string|Raw $key
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+     * @param mixed $valueFrom
+     * @param mixed $valueTo
+     *
+     * @return static
+     */
+    public function whereBetweenJson($key, $jsonKey, $valueFrom, $valueTo): self
+    {
+        return $this->whereJsonHandler($key, $jsonKey, 'BETWEEN', [$valueFrom, $valueTo], 'AND');
+    }
+
+    /**
+     * @param string|Raw $key
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+     * @param mixed $valueFrom
+     * @param mixed $valueTo
+     *
+     * @return static
+     */
+    public function orWhereBetweenJson($key, $jsonKey, $valueFrom, $valueTo): self
+    {
+        return $this->whereJsonHandler($key, $jsonKey, 'BETWEEN', [$valueFrom, $valueTo], 'OR');
+    }
+
+    /**
     * @param string|Raw $key The database column which holds the JSON value
     * @param string|Raw|string[] $jsonKey The json key/index to search
     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
     * @param mixed|null $value
-    * @param string $joiner
     * @return static
     */
-    protected function whereJsonHandler($key, $jsonKey, $operator = null, $value = null, string $joiner = 'AND'): self
+    public function whereDayJson($key, $jsonKey, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (3 === func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallJsonHandler($key, $jsonKey, 'DAY', $operator, $value);
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+    * @param mixed|null $value
+    * @return static
+    */
+    public function whereMonthJson($key, $jsonKey, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (3 === func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallJsonHandler($key, $jsonKey, 'MONTH', $operator, $value);
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+    * @param mixed|null $value
+    * @return static
+    */
+    public function whereYearJson($key, $jsonKey, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (3 === func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallJsonHandler($key, $jsonKey, 'YEAR', $operator, $value);
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+    * @param mixed|null $value
+    * @return static
+    */
+    public function whereDateJson($key, $jsonKey, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (3 === func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallJsonHandler($key, $jsonKey, 'DATE', $operator, $value);
+    }
+
+    /**
+     * Maps a function call for a JSON where condition
+     *
+     * @param string|Raw $key
+     * @param string|Raw|string[] $jsonKey
+     * @param string $function
+     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
+     * @return static
+     */
+    protected function whereFunctionCallJsonHandler($key, $jsonKey, $function, $operator, $value): self
+    {
+        return $this->whereFunctionCallHandler(
+            $this->jsonParseExtractThenUnquote($key, $jsonKey),
+            $function,
+            $operator,
+            $value
+        );
+    }
+
+    /**
+     * @param string|Raw $key The database column which holds the JSON value
+     * @param string|Raw|string[] $jsonKey The json key/index to search
+     * @return \Pixie\QueryBuilder\Raw
+     */
+    protected function jsonParseExtractThenUnquote($key, $jsonKey): Raw
     {
         // Handle potential raw values.
         if ($key instanceof Raw) {
@@ -1294,8 +1405,21 @@ class QueryBuilderHandler
         // Add any possible prefixes to the key
         $key = $this->addTablePrefix($key, true);
 
+        return new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\"))");
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+    * @param mixed|null $value
+    * @param string $joiner
+    * @return static
+    */
+    protected function whereJsonHandler($key, $jsonKey, $operator = null, $value = null, string $joiner = 'AND'): self
+    {
         return  $this->whereHandler(
-            new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\"))"),
+            $this->jsonParseExtractThenUnquote($key, $jsonKey),
             $operator,
             $value,
             $joiner
@@ -1532,6 +1656,7 @@ class QueryBuilderHandler
      */
     protected function whereHandler($key, $operator = null, $value = null, $joiner = 'AND')
     {
+        $key = $this->addTablePrefix($key);
         if ($key instanceof Raw) {
             $key = $this->adapterInstance->parseRaw($key);
         }
@@ -1544,7 +1669,6 @@ class QueryBuilderHandler
             return $this;
         }
 
-        $key                          = $this->addTablePrefix($key);
         $this->statements['wheres'][] = compact('key', 'operator', 'value', 'joiner');
         return $this;
     }

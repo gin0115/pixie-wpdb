@@ -990,4 +990,47 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             );
         }
     }
+
+    /** @testdox It should be possible to use Json Where conditions and have the operation assumed as = to shorten the syntax */
+    public function testJsonWhereAssumesEqualsOperation(): void
+    {
+        $helperMethod = $this->queryBuilderProvider()
+        ->table('foo')
+            ->whereNotJson('col1', ['a1', 'b1'], 'val1')
+            ->orWhereJson('col2', ['a2', 'b2'], 'val2')
+            ->orWhereNotJson('col3', ['a3', 'b3'], 'val3');
+        $whereNotJson = 'WHERE NOT JSON_UNQUOTE(JSON_EXTRACT(col1, "$.a1.b1")) = \'val1\'';
+        $orWhereJson = 'OR JSON_UNQUOTE(JSON_EXTRACT(col2, "$.a2.b2")) = \'val2\'';
+        $orWhereNotJson = 'OR NOT JSON_UNQUOTE(JSON_EXTRACT(col3, "$.a3.b3")) = \'val3\'';
+
+        $sql = $helperMethod->getQuery()->getRawSql();
+        $this->assertStringContainsString($whereNotJson, $sql);
+        $this->assertStringContainsString($orWhereJson, $sql);
+        $this->assertStringContainsString($orWhereNotJson, $sql);
+    }
+
+    /** @testdox It should be possible to use a JSON date query and have the assumption be its '=' operator. */
+    public function testWhereDataJsonAssumesEquals(): void
+    {
+        $builder = function () {
+            return $this->queryBuilderProvider()->table('mock_json');
+        };
+
+        $this->assertSame(
+            $builder()->whereMonthJson('jsonCol', 'date', 10)->getQuery()->getRawSql(),
+            $builder()->whereMonthJson('jsonCol', 'date', '=', 10)->getQuery()->getRawSql()
+        );
+        $this->assertSame(
+            $builder()->whereDayJson('jsonCol', 'date', 21)->getQuery()->getRawSql(),
+            $builder()->whereDayJson('jsonCol', 'date', '=', 21)->getQuery()->getRawSql()
+        );
+        $this->assertSame(
+            $builder()->whereYearJson('jsonCol', 'date', '1978')->getQuery()->getRawSql(),
+            $builder()->whereYearJson('jsonCol', 'date', '=', '1978')->getQuery()->getRawSql()
+        );
+        $this->assertSame(
+            $builder()->whereDateJson('jsonCol', 'date', '1978-12-10')->getQuery()->getRawSql(),
+            $builder()->whereDateJson('jsonCol', 'date', '=', '1978-12-10')->getQuery()->getRawSql()
+        );
+    }
 }

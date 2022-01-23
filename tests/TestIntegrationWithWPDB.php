@@ -853,4 +853,73 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals('Cherry', $rows[1]->string); // Has Baz
     }
 
+    /** @testdox It should be possible to create a WHERE between clause  from traversing the JSON object. */
+    public function testJsonWhereBetween()
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'Apple', 'jsonCol' => \json_encode((object)['id' => 24748, 'thing' => (object) ['value' => 2] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'Banana', 'jsonCol' => \json_encode((object)['id' => 78945, 'thing' => (object) ['value' => 4] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'Cherry', 'jsonCol' => \json_encode((object)['id' => 78941, 'thing' => (object) ['value' => 9] ])], ['%s', '%s']);
+
+        $rows = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->whereBetweenJson('jsonCol', ['thing','value'], 3, 10)
+            ->get();
+
+        $this->assertCount(2, $rows);
+        $this->assertEquals('Banana', $rows[0]->string);
+        $this->assertEquals('Cherry', $rows[1]->string);
+
+        $rows = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->whereBetweenJson('jsonCol', ['thing','value'], 1, 3) // Apple
+            ->orWhereBetweenJson('jsonCol', ['thing','value'], 8, 13) // Cherry
+            ->get();
+
+        $this->assertCount(2, $rows);
+        $this->assertEquals('Apple', $rows[0]->string);
+        $this->assertEquals('Cherry', $rows[1]->string);
+    }
+
+    /** @testdox It should be possible to do the full range of whereDate conditions with JSON values. (whereDayJson(), whereMonthJson(), whereYearJson() & whereDateJson() */
+    public function testJsonWhereDates()
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode((object)['id' => 1, 'date' =>  '2020-10-10 18:19:03' ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'B', 'jsonCol' => \json_encode((object)['id' => 2, 'date' =>  '2000-10-12 18:19:03' ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'C', 'jsonCol' => \json_encode((object)['id' => 3, 'date' =>  '2020-12-12 18:19:03' ])], ['%s', '%s']);
+
+        $day = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->whereDayJson('jsonCol', 'date', 12)
+            ->get();
+
+        $this->assertCount(2, $day);
+        $this->assertEquals('B', $day[0]->string);
+        $this->assertEquals('C', $day[1]->string);
+
+        $month = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->whereMonthJson('jsonCol', 'date', 10)
+            ->get();
+
+        $this->assertCount(2, $month);
+        $this->assertEquals('A', $month[0]->string);
+        $this->assertEquals('B', $month[1]->string);
+
+        $year = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->whereYearJson('jsonCol', 'date', '2020')
+            ->get();
+
+        $this->assertCount(2, $year);
+        $this->assertEquals('A', $year[0]->string);
+        $this->assertEquals('C', $year[1]->string);
+
+        $year = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->whereDateJson('jsonCol', 'date', '2000-10-12')
+            ->get();
+
+        $this->assertCount(1, $year);
+        $this->assertEquals('B', $year[0]->string);
+    }
 }
