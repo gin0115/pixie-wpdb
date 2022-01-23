@@ -898,7 +898,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         $month = $this->queryBuilderProvider()
             ->table('mock_json')
-            ->whereMonthJson('jsonCol', 'date', 10)
+            ->whereMonthJson('jsonCol', new Raw('date'), 10)
             ->get();
 
         $this->assertCount(2, $month);
