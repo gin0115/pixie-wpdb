@@ -958,7 +958,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals('E', $byCol2DesThenCol1As[4]->string); // "{"col1":4,"col2":"a"}"
     }
 
-    /** @testdox [WIKI EXAMPLE] orderByJson https://github.com/gin0115/pixie-wpdb/wiki/Json#order-by-json */
+    /** @testdox [WIKI EXAMPLE] orderByJson https://github.com/gin0115/pixie-wpdb/wiki/Examples---JSON-Operations#order-by-json */
     public function testOrderByJsonWikiExample(): void
     {
         $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode(['stats' => ['likes' => 450, 'dislikes' => 5]])], ['%s', '%s']);
