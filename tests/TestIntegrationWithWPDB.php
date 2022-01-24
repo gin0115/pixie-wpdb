@@ -989,24 +989,26 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         $joinJSONTo = $this->queryBuilderProvider()
             ->table('mock_foo')
-            ->join('mock_json', 'mock_foo.string', '=' , 'mock_json.jsonCol->data->category')
+            ->join('mock_json', 'mock_foo.string', '=', 'mock_json.jsonCol->data->category')
             ->get();
-        $this->assertEquals('{"data":{"category":"Cat A","number":1}}', $joinJSONTo[0]->jsonCol);
+
+        $this->assertStringContainsString('"category":"Cat A"', $joinJSONTo[0]->jsonCol);
         $this->assertEquals('A', $joinJSONTo[0]->string);
-        $this->assertEquals('{"data":{"category":"Cat B","number":2}}', $joinJSONTo[1]->jsonCol);
+        $this->assertStringContainsString('"category":"Cat B"', $joinJSONTo[1]->jsonCol);
         $this->assertEquals('B', $joinJSONTo[1]->string);
 
         $leftJoinJsonFrom = $this->queryBuilderProvider()
             ->table('mock_json')
-            ->leftJoin('mock_foo', 'mock_json.jsonCol->data->number', '=' , 'mock_foo.number')
+            ->leftJoin('mock_foo', 'mock_json.jsonCol->data->number', '=', 'mock_foo.number')
             ->get();
-        $this->assertEquals('{"data":{"category":"Cat A","number":1}}', $leftJoinJsonFrom[0]->jsonCol);
+
+        $this->assertStringContainsString('"category":"Cat A"', $leftJoinJsonFrom[0]->jsonCol);
         $this->assertEquals('Cat A', $leftJoinJsonFrom[0]->string);
-        $this->assertEquals('{"data":{"category":"Cat B","number":2}}', $leftJoinJsonFrom[1]->jsonCol);
+        $this->assertStringContainsString('"category":"Cat B"', $leftJoinJsonFrom[1]->jsonCol);
         $this->assertEquals('Cat B', $leftJoinJsonFrom[1]->string);
-         $this->assertEquals('{"data":{"category":"Cat C","number":3}}', $leftJoinJsonFrom[2]->jsonCol);
+         $this->assertStringContainsString('"category":"Cat C"', $leftJoinJsonFrom[2]->jsonCol);
         $this->assertNull($leftJoinJsonFrom[2]->string);
-        $this->assertEquals('{"data":{"category":"Cat D","number":4}}', $leftJoinJsonFrom[3]->jsonCol);
+        $this->assertStringContainsString('"category":"Cat D"', $leftJoinJsonFrom[3]->jsonCol);
         $this->assertNull($leftJoinJsonFrom[3]->string);
     }
 }
