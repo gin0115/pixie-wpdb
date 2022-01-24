@@ -799,4 +799,181 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals($whereThingFooPrefixed[0]->string, $whereThingFoo[0]->string);
         $this->assertEquals($whereThingFooPrefixed[0]->jsonCol, $whereThingFoo[0]->jsonCol);
     }
+
+    /** @testdox It should be possible to create a WHERE clause that allows OR conditions, from traversing the JSON object. */
+    public function testJsonWhereOr()
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'z', 'jsonCol' => \json_encode((object)['id' => 24748, 'thing' => (object) ['handle' => 'foo'] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'y', 'jsonCol' => \json_encode((object)['id' => 78945, 'thing' => (object) ['handle' => 'bar'] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'x', 'jsonCol' => \json_encode((object)['id' => 78941, 'thing' => (object) ['handle' => 'baz'] ])], ['%s', '%s']);
+
+        $rows = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->orWhereJson('jsonCol', ['thing','handle'], '=', 'foo')
+            ->orWhereJson('jsonCol', ['thing','handle'], '=', 'bar')
+            ->orderBy('string')
+            ->get();
+
+        $this->assertCount(2, $rows);
+        $this->assertEquals('y', $rows[0]->string);
+        $this->assertEquals('z', $rows[1]->string);
+    }
+
+    /** @testdox It should be possible to create a WHERE clause that allows NOT conditions, from traversing the JSON object. */
+    public function testJsonWhereNot()
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'Apple', 'jsonCol' => \json_encode((object)['id' => 24748, 'thing' => (object) ['handle' => 'foo'] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'Banana', 'jsonCol' => \json_encode((object)['id' => 78945, 'thing' => (object) ['handle' => 'bar'] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'Cherry', 'jsonCol' => \json_encode((object)['id' => 78941, 'thing' => (object) ['handle' => 'baz'] ])], ['%s', '%s']);
+
+        $rows = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->WhereNotJson('jsonCol', ['thing','handle'], '=', 'foo')
+            ->get();
+
+        $this->assertCount(2, $rows);
+        $this->assertEquals('Banana', $rows[0]->string);
+        $this->assertEquals('Cherry', $rows[1]->string);
+    }
+
+    /** @testdox It should be possible to create a WHERE IN clause t, from traversing the JSON object. */
+    public function testJsonWhereIn()
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'Apple', 'jsonCol' => \json_encode((object)['id' => 24748, 'thing' => (object) ['handle' => 'foo'] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'Banana', 'jsonCol' => \json_encode((object)['id' => 78945, 'thing' => (object) ['handle' => 'bar'] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'Cherry', 'jsonCol' => \json_encode((object)['id' => 78941, 'thing' => (object) ['handle' => 'baz'] ])], ['%s', '%s']);
+
+        $rows = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->whereInJson('jsonCol', ['thing','handle'], ['foo', 'bre', 'baz'])
+            ->get();
+
+        $this->assertCount(2, $rows);
+        $this->assertEquals('Apple', $rows[0]->string);  // Has Foo
+        $this->assertEquals('Cherry', $rows[1]->string); // Has Baz
+    }
+
+    /** @testdox It should be possible to create a WHERE between clause  from traversing the JSON object. */
+    public function testJsonWhereBetween()
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'Apple', 'jsonCol' => \json_encode((object)['id' => 24748, 'thing' => (object) ['value' => 2] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'Banana', 'jsonCol' => \json_encode((object)['id' => 78945, 'thing' => (object) ['value' => 4] ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'Cherry', 'jsonCol' => \json_encode((object)['id' => 78941, 'thing' => (object) ['value' => 9] ])], ['%s', '%s']);
+
+        $rows = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->whereBetweenJson('jsonCol', ['thing','value'], 3, 10)
+            ->get();
+
+        $this->assertCount(2, $rows);
+        $this->assertEquals('Banana', $rows[0]->string);
+        $this->assertEquals('Cherry', $rows[1]->string);
+
+        $rows = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->whereBetweenJson('jsonCol', ['thing','value'], 1, 3) // Apple
+            ->orWhereBetweenJson('jsonCol', ['thing','value'], 8, 13) // Cherry
+            ->get();
+
+        $this->assertCount(2, $rows);
+        $this->assertEquals('Apple', $rows[0]->string);
+        $this->assertEquals('Cherry', $rows[1]->string);
+    }
+
+    /** @testdox It should be possible to do the full range of whereDate conditions with JSON values. (whereDayJson(), whereMonthJson(), whereYearJson() & whereDateJson() */
+    public function testJsonWhereDates()
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode((object)['id' => 1, 'date' =>  '2020-10-10 18:19:03' ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'B', 'jsonCol' => \json_encode((object)['id' => 2, 'date' =>  '2000-10-12 18:19:03' ])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'C', 'jsonCol' => \json_encode((object)['id' => 3, 'date' =>  '2020-12-12 18:19:03' ])], ['%s', '%s']);
+
+        $day = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->whereDayJson(new Raw('jsonCol'), 'date', 12)
+            ->get();
+
+        $this->assertCount(2, $day);
+        $this->assertEquals('B', $day[0]->string);
+        $this->assertEquals('C', $day[1]->string);
+
+        $month = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->whereMonthJson('jsonCol', new Raw('date'), 10)
+            ->get();
+
+        $this->assertCount(2, $month);
+        $this->assertEquals('A', $month[0]->string);
+        $this->assertEquals('B', $month[1]->string);
+
+        $year = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->whereYearJson('jsonCol', 'date', new Raw('2020'))
+            ->get();
+
+        $this->assertCount(2, $year);
+        $this->assertEquals('A', $year[0]->string);
+        $this->assertEquals('C', $year[1]->string);
+
+        $year = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->whereDateJson('jsonCol', 'date', '2000-10-12')
+            ->get();
+
+        $this->assertCount(1, $year);
+        $this->assertEquals('B', $year[0]->string);
+    }
+
+    /** @testdox It should be possible to sort results by a value held inside a JSON object. Either using arrow selectors or with a custom helper method. */
+    public function testOrderByJson(): void
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode((object)['col1' => 1, 'col2' => 'c'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'B', 'jsonCol' => \json_encode((object)['col1' => 2, 'col2' => 'c'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'C', 'jsonCol' => \json_encode((object)['col1' => 2, 'col2' => 'b'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'D', 'jsonCol' => \json_encode((object)['col1' => 3, 'col2' => 'c'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'E', 'jsonCol' => \json_encode((object)['col1' => 4, 'col2' => 'a'])], ['%s', '%s']);
+
+        $byCol1As = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->orderByJson('jsonCol', 'col1', 'ASC')
+            ->get();
+        $this->assertEquals('A', $byCol1As[0]->string);
+        $this->assertEquals('E', $byCol1As[4]->string);
+
+        $byCol1Des = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->orderByJson('jsonCol', 'col1', 'DESC')
+            ->get();
+        $this->assertEquals('A', $byCol1Des[4]->string);
+        $this->assertEquals('E', $byCol1Des[0]->string);
+
+        $byCol2DesThenCol1As = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->orderByJson('jsonCol', 'col2', 'DESC')
+            ->orderBy('jsonCol->col1', 'ASC')
+            ->get();
+        $this->assertEquals('A', $byCol2DesThenCol1As[0]->string); // "{"col1":1,"col2":"c"}"
+        $this->assertEquals('B', $byCol2DesThenCol1As[1]->string); // "{"col1":2,"col2":"c"}"
+        $this->assertEquals('D', $byCol2DesThenCol1As[2]->string); // "{"col1":3,"col2":"c"}"
+        $this->assertEquals('C', $byCol2DesThenCol1As[3]->string); // "{"col1":2,"col2":"b"}"
+        $this->assertEquals('E', $byCol2DesThenCol1As[4]->string); // "{"col1":4,"col2":"a"}"
+    }
+
+    /** @testdox [WIKI EXAMPLE] orderByJson https://github.com/gin0115/pixie-wpdb/wiki/Json#order-by-json */
+    public function testOrderByJsonWikiExample(): void
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode(['stats' => ['likes' => 450, 'dislikes' => 5]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'B', 'jsonCol' => \json_encode(['stats' => ['likes' => 45, 'dislikes' => 500]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'C', 'jsonCol' => \json_encode(['stats' => ['likes' => 85463, 'dislikes' => 785]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'D', 'jsonCol' => \json_encode(['stats' => ['likes' => 45, 'dislikes' => 14]])], ['%s', '%s']);
+
+        $results = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->orderByJson('jsonCol', ['stats','likes'], 'DESC')
+            ->orderByJson('jsonCol', ['stats','dislikes'], 'ASC')
+            ->get();
+        $this->assertEquals('C', $results[0]->string); // Words
+        $this->assertEquals('A', $results[1]->string); // Some Tile
+        $this->assertEquals('D', $results[2]->string); // Examples
+        $this->assertEquals('B', $results[3]->string); // Foo Ba
+    }
 }

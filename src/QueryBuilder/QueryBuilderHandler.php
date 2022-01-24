@@ -730,6 +730,41 @@ class QueryBuilderHandler
     }
 
     /**
+     * Gets the column name form a potential array
+     *
+     * @param string $expression
+     * @return string
+     */
+    protected function getColumnFromJsonExpression(string $expression): string
+    {
+        if (! $this->isJsonExpression($expression)) {
+            throw new Exception('JSON expression must contain at least 2 values, the table column and JSON key.', 1);
+        }
+
+        /** @var string[] Check done above. */
+        $parts = explode('->', $expression);
+        return $parts[0];
+    }
+
+    /**
+     * Gets all JSON object keys while removing the column name.
+     *
+     * @param string $expression
+     * @return string[]
+     */
+    protected function getJsonKeysFromExpression($expression): array
+    {
+        if (! $this->isJsonExpression($expression)) {
+            throw new Exception('JSON expression must contain at least 2 values, the table column and JSON key.', 1);
+        }
+
+        /** @var string[] Check done above. */
+        $parts = explode('->', $expression);
+        unset($parts[0]);
+        return $parts;
+    }
+
+    /**
      * @param string|string[]|Raw[]|array<string, string> $fields
      *
      * @return static
@@ -756,7 +791,7 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param string|array<string|Raw, mixed> $fields
+     * @param string|array<string|int, mixed> $fields
      * @param string          $defaultDirection
      *
      * @return static
@@ -774,6 +809,14 @@ class QueryBuilderHandler
                 $field = $value;
                 $type  = $defaultDirection;
             }
+
+            if ($this->isJsonExpression($field)) {
+                $field = $this->jsonParseExtractThenUnquote(
+                    $this->getColumnFromJsonExpression($field),
+                    $this->getJsonKeysFromExpression($field)
+                );
+            }
+
             if (!$field instanceof Raw) {
                 $field = $this->addTablePrefix($field);
             }
@@ -781,6 +824,18 @@ class QueryBuilderHandler
         }
 
         return $this;
+    }
+
+    /**
+     * @param string|Raw $key The database column which holds the JSON value
+     * @param string|Raw|string[] $jsonKey The json key/index to search
+     * @param string $defaultDirection
+     * @return static
+     */
+    public function orderByJson($key, $jsonKey, string $defaultDirection = 'ASC'): self
+    {
+        $key = $this->jsonParseExtractThenUnquote($key, $jsonKey);
+        return $this->orderBy($key, $defaultDirection);
     }
 
     /**
@@ -1132,6 +1187,228 @@ class QueryBuilderHandler
             $operator = '=';
         }
 
+        return $this->whereJsonHandler($key, $jsonKey, $operator, $value, 'AND');
+    }
+
+    /**
+     * @param string|Raw $key The database column which holds the JSON value
+     * @param string|Raw|string[] $jsonKey The json key/index to search
+     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
+     * @return static
+     */
+    public function whereNotJson($key, $jsonKey, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (3 === func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+
+        return $this->whereJsonHandler($key, $jsonKey, $operator, $value, 'AND NOT');
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+    * @param mixed|null $value
+    * @return static
+    */
+    public function orWhereJson($key, $jsonKey, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (3 === func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+
+        return $this->whereJsonHandler($key, $jsonKey, $operator, $value, 'OR');
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+    * @param mixed|null $value
+    * @return static
+    */
+    public function orWhereNotJson($key, $jsonKey, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (3 === func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+
+        return $this->whereJsonHandler($key, $jsonKey, $operator, $value, 'OR NOT');
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param mixed[] $values
+    * @return static
+    */
+    public function whereInJson($key, $jsonKey, $values): self
+    {
+        return $this->whereJsonHandler($key, $jsonKey, 'IN', $values, 'AND');
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param mixed[] $values
+    * @return static
+    */
+    public function whereNotInJson($key, $jsonKey, $values): self
+    {
+        return $this->whereJsonHandler($key, $jsonKey, 'NOT IN', $values, 'AND');
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param mixed[] $values
+    * @return static
+    */
+    public function orWhereInJson($key, $jsonKey, $values): self
+    {
+        return $this->whereJsonHandler($key, $jsonKey, 'IN', $values, 'OR');
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param mixed[] $values
+    * @return static
+    */
+    public function orWhereNotInJson($key, $jsonKey, $values): self
+    {
+        return $this->whereJsonHandler($key, $jsonKey, 'NOT IN', $values, 'OR');
+    }
+
+    /**
+     * @param string|Raw $key
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+     * @param mixed $valueFrom
+     * @param mixed $valueTo
+     *
+     * @return static
+     */
+    public function whereBetweenJson($key, $jsonKey, $valueFrom, $valueTo): self
+    {
+        return $this->whereJsonHandler($key, $jsonKey, 'BETWEEN', [$valueFrom, $valueTo], 'AND');
+    }
+
+    /**
+     * @param string|Raw $key
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+     * @param mixed $valueFrom
+     * @param mixed $valueTo
+     *
+     * @return static
+     */
+    public function orWhereBetweenJson($key, $jsonKey, $valueFrom, $valueTo): self
+    {
+        return $this->whereJsonHandler($key, $jsonKey, 'BETWEEN', [$valueFrom, $valueTo], 'OR');
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+    * @param mixed|null $value
+    * @return static
+    */
+    public function whereDayJson($key, $jsonKey, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (3 === func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallJsonHandler($key, $jsonKey, 'DAY', $operator, $value);
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+    * @param mixed|null $value
+    * @return static
+    */
+    public function whereMonthJson($key, $jsonKey, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (3 === func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallJsonHandler($key, $jsonKey, 'MONTH', $operator, $value);
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+    * @param mixed|null $value
+    * @return static
+    */
+    public function whereYearJson($key, $jsonKey, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (3 === func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallJsonHandler($key, $jsonKey, 'YEAR', $operator, $value);
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+    * @param mixed|null $value
+    * @return static
+    */
+    public function whereDateJson($key, $jsonKey, $operator = null, $value = null): self
+    {
+        // If two params are given then assume operator is =
+        if (3 === func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+        return $this->whereFunctionCallJsonHandler($key, $jsonKey, 'DATE', $operator, $value);
+    }
+
+    /**
+     * Maps a function call for a JSON where condition
+     *
+     * @param string|Raw $key
+     * @param string|Raw|string[] $jsonKey
+     * @param string $function
+     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null $value
+     * @return static
+     */
+    protected function whereFunctionCallJsonHandler($key, $jsonKey, $function, $operator, $value): self
+    {
+        return $this->whereFunctionCallHandler(
+            $this->jsonParseExtractThenUnquote($key, $jsonKey),
+            $function,
+            $operator,
+            $value
+        );
+    }
+
+    /**
+     * @param string|Raw $key The database column which holds the JSON value
+     * @param string|Raw|string[] $jsonKey The json key/index to search
+     * @return \Pixie\QueryBuilder\Raw
+     */
+    protected function jsonParseExtractThenUnquote($key, $jsonKey): Raw
+    {
         // Handle potential raw values.
         if ($key instanceof Raw) {
             $key = $this->adapterInstance->parseRaw($key);
@@ -1148,10 +1425,24 @@ class QueryBuilderHandler
         // Add any possible prefixes to the key
         $key = $this->addTablePrefix($key, true);
 
-        return  $this->where(
-            new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\"))"),
+        return new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\"))");
+    }
+
+    /**
+    * @param string|Raw $key The database column which holds the JSON value
+    * @param string|Raw|string[] $jsonKey The json key/index to search
+    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
+    * @param mixed|null $value
+    * @param string $joiner
+    * @return static
+    */
+    protected function whereJsonHandler($key, $jsonKey, $operator = null, $value = null, string $joiner = 'AND'): self
+    {
+        return  $this->whereHandler(
+            $this->jsonParseExtractThenUnquote($key, $jsonKey),
             $operator,
-            $value
+            $value,
+            $joiner
         );
     }
 
@@ -1385,10 +1676,19 @@ class QueryBuilderHandler
      */
     protected function whereHandler($key, $operator = null, $value = null, $joiner = 'AND')
     {
+        $key = $this->addTablePrefix($key);
         if ($key instanceof Raw) {
             $key = $this->adapterInstance->parseRaw($key);
         }
-        $key                          = $this->addTablePrefix($key);
+
+        // If JSON send to JSON handler
+        if (is_string($key) && $this->isJsonExpression($key)) {
+            $column = $this->getColumnFromJsonExpression($key);
+            $jsonKeys = $this->getJsonKeysFromExpression($key);
+            $this->whereJsonHandler($column, $jsonKeys, $operator, $value, $joiner);
+            return $this;
+        }
+
         $this->statements['wheres'][] = compact('key', 'operator', 'value', 'joiner');
         return $this;
     }
@@ -1576,4 +1876,3 @@ class QueryBuilderHandler
         return  $this->select(new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\")) as {$alias}"));
     }
 }
-// 'JSON_EXTRACT(json, "$.id") as jsonID'
