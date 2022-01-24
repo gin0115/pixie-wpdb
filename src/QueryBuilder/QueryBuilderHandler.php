@@ -809,6 +809,14 @@ class QueryBuilderHandler
                 $field = $value;
                 $type  = $defaultDirection;
             }
+
+            if ($this->isJsonExpression($field)) {
+                $field = $this->jsonParseExtractThenUnquote(
+                    $this->getColumnFromJsonExpression($field),
+                    $this->getJsonKeysFromExpression($field)
+                );
+            }
+
             if (!$field instanceof Raw) {
                 $field = $this->addTablePrefix($field);
             }
@@ -816,6 +824,18 @@ class QueryBuilderHandler
         }
 
         return $this;
+    }
+
+    /**
+     * @param string|Raw $key The database column which holds the JSON value
+     * @param string|Raw|string[] $jsonKey The json key/index to search
+     * @param string $defaultDirection
+     * @return static
+     */
+    public function orderByJson($key, $jsonKey, string $defaultDirection = 'ASC'): self
+    {
+        $key = $this->jsonParseExtractThenUnquote($key, $jsonKey);
+        return $this->orderBy($key, $defaultDirection);
     }
 
     /**

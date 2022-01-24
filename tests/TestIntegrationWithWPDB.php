@@ -889,7 +889,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         $day = $this->queryBuilderProvider()
             ->table('mock_json')
-            ->whereDayJson('jsonCol', 'date', 12)
+            ->whereDayJson(new Raw('jsonCol'), 'date', 12)
             ->get();
 
         $this->assertCount(2, $day);
@@ -907,7 +907,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         $year = $this->queryBuilderProvider()
             ->table('mock_json')
-            ->whereYearJson('jsonCol', 'date', '2020')
+            ->whereYearJson('jsonCol', 'date', new Raw('2020'))
             ->get();
 
         $this->assertCount(2, $year);
@@ -921,5 +921,40 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         $this->assertCount(1, $year);
         $this->assertEquals('B', $year[0]->string);
+    }
+
+    /** @testdox It should be possible to sort results by a value held inside a JSON object. Either using arrow selectors or with a custom helper method. */
+    public function testOrderByJson(): void
+    {
+         $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode((object)['col1' => 1, 'col2' => 'c'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'B', 'jsonCol' => \json_encode((object)['col1' => 2, 'col2' => 'c'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'C', 'jsonCol' => \json_encode((object)['col1' => 2, 'col2' => 'b'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'D', 'jsonCol' => \json_encode((object)['col1' => 3, 'col2' => 'c'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'E', 'jsonCol' => \json_encode((object)['col1' => 4, 'col2' => 'a'])], ['%s', '%s']);
+
+        $byCol1As = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->orderByJson('jsonCol', 'col1', 'ASC')
+            ->get();
+        $this->assertEquals('A', $byCol1As[0]->string);
+        $this->assertEquals('E', $byCol1As[4]->string);
+
+        $byCol1Des = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->orderByJson('jsonCol', 'col1', 'DESC')
+            ->get();
+        $this->assertEquals('A', $byCol1Des[4]->string);
+        $this->assertEquals('E', $byCol1Des[0]->string);
+
+        $byCol2DesThenCol1As = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->orderByJson('jsonCol', 'col2', 'DESC')
+            ->orderBy('jsonCol->col1', 'ASC')
+            ->get();
+        $this->assertEquals('A', $byCol2DesThenCol1As[0]->string); // "{"col1":1,"col2":"c"}"
+        $this->assertEquals('B', $byCol2DesThenCol1As[1]->string); // "{"col1":2,"col2":"c"}"
+        $this->assertEquals('D', $byCol2DesThenCol1As[2]->string); // "{"col1":3,"col2":"c"}"
+        $this->assertEquals('C', $byCol2DesThenCol1As[3]->string); // "{"col1":2,"col2":"b"}"
+        $this->assertEquals('E', $byCol2DesThenCol1As[4]->string); // "{"col1":4,"col2":"a"}"
     }
 }

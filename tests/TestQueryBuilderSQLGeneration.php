@@ -1033,4 +1033,19 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             $builder()->whereDateJson('jsonCol', 'date', '=', '1978-12-10')->getQuery()->getRawSql()
         );
     }
+
+    /** @testdox It should be possible to use Laravel style arrow selectors for using JSON in order by. */
+    public function testOrderByJsonExpression(): void
+    {
+        $builder = function (): QueryBuilderHandler {
+            return $this->queryBuilderProvider()->table('mock_json');
+        };
+
+        $query = $builder()->orderBy('single->value->once', 'DESC')->getQuery()->getRawSql();
+        $expected = "SELECT * FROM mock_json ORDER BY JSON_UNQUOTE(JSON_EXTRACT(single, \"$.value.once\")) DESC";
+
+        $query = $builder()->orderBy(['multi->value->three' => 'DESC', 'multi->value' => 'ASC'])->getQuery()->getRawSql();
+        $expected = "SELECT * FROM mock_json ORDER BY JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\")) DESC, JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value\")) ASC";
+        $this->assertEquals($expected, $query);
+    }
 }
