@@ -1457,6 +1457,22 @@ class QueryBuilderHandler
      */
     public function join($table, $key, ?string $operator = null, $value = null, $type = 'inner')
     {
+        // Potentialy cast key from JSON
+        if (is_string($key) && $this->isJsonExpression($key)) {
+            $key = $this->jsonParseExtractThenUnquote(
+                $this->getColumnFromJsonExpression($key),
+                $this->getJsonKeysFromExpression($key)
+            );
+        }
+
+        // Potentially cast value from json
+        if (is_string($value) && $this->isJsonExpression($value)) {
+            $value = $this->jsonParseExtractThenUnquote(
+                $this->getColumnFromJsonExpression($value),
+                $this->getJsonKeysFromExpression($value)
+            );
+        }
+
         if (!$key instanceof Closure) {
             $key = function ($joinBuilder) use ($key, $operator, $value) {
                 $joinBuilder->on($key, $operator, $value);
@@ -1617,6 +1633,14 @@ class QueryBuilderHandler
             throw new Exception("JoinUsing can only be used with a single table set as the base of the query", 1);
         }
         $baseTable = end($this->statements['tables']);
+
+        // Potentialy cast key from JSON
+        if (is_string($key) && $this->isJsonExpression($key)) {
+            $key = $this->jsonParseExtractThenUnquote(
+                $this->getColumnFromJsonExpression($key),
+                $this->getJsonKeysFromExpression($key)
+            );
+        }
 
         $remoteKey = $table = $this->addTablePrefix("{$table}.{$key}", true);
         $localKey = $table = $this->addTablePrefix("{$baseTable}.{$key}", true);
