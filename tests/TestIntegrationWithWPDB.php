@@ -926,7 +926,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
     /** @testdox It should be possible to sort results by a value held inside a JSON object. Either using arrow selectors or with a custom helper method. */
     public function testOrderByJson(): void
     {
-         $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode((object)['col1' => 1, 'col2' => 'c'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode((object)['col1' => 1, 'col2' => 'c'])], ['%s', '%s']);
         $this->wpdb->insert('mock_json', ['string' => 'B', 'jsonCol' => \json_encode((object)['col1' => 2, 'col2' => 'c'])], ['%s', '%s']);
         $this->wpdb->insert('mock_json', ['string' => 'C', 'jsonCol' => \json_encode((object)['col1' => 2, 'col2' => 'b'])], ['%s', '%s']);
         $this->wpdb->insert('mock_json', ['string' => 'D', 'jsonCol' => \json_encode((object)['col1' => 3, 'col2' => 'c'])], ['%s', '%s']);
@@ -956,5 +956,24 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals('D', $byCol2DesThenCol1As[2]->string); // "{"col1":3,"col2":"c"}"
         $this->assertEquals('C', $byCol2DesThenCol1As[3]->string); // "{"col1":2,"col2":"b"}"
         $this->assertEquals('E', $byCol2DesThenCol1As[4]->string); // "{"col1":4,"col2":"a"}"
+    }
+
+    /** @testdox [WIKI EXAMPLE] orderByJson https://github.com/gin0115/pixie-wpdb/wiki/Json#order-by-json */
+    public function testOrderByJsonWikiExample(): void
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode(['stats' => ['likes' => 450, 'dislikes' => 5]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'B', 'jsonCol' => \json_encode(['stats' => ['likes' => 45, 'dislikes' => 500]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'C', 'jsonCol' => \json_encode(['stats' => ['likes' => 85463, 'dislikes' => 785]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'D', 'jsonCol' => \json_encode(['stats' => ['likes' => 45, 'dislikes' => 14]])], ['%s', '%s']);
+
+        $results = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->orderByJson('jsonCol', ['stats','likes'], 'DESC')
+            ->orderByJson('jsonCol', ['stats','dislikes'], 'ASC')
+            ->get();
+        $this->assertEquals('C', $results[0]->string); // Words
+        $this->assertEquals('A', $results[1]->string); // Some Tile
+        $this->assertEquals('D', $results[2]->string); // Examples
+        $this->assertEquals('B', $results[3]->string); // Foo Ba
     }
 }
