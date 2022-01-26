@@ -1011,4 +1011,5 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertStringContainsString('"category":"Cat D"', $leftJoinJsonFrom[3]->jsonCol);
         $this->assertNull($leftJoinJsonFrom[3]->string);
     }
+
 }

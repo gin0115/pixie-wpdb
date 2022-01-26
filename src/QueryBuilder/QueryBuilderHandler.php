@@ -684,7 +684,7 @@ class QueryBuilderHandler
             }
 
             // If no alias passed, but field is for JSON. thrown an exception.
-            if (is_numeric($field) && $this->isJsonExpression($alias)) {
+            if (is_numeric($field) && is_string($alias) && $this->isJsonExpression($alias)) {
                 throw new Exception("An alias must be used if you wish to select from JSON Object", 1);
             }
 
@@ -696,8 +696,6 @@ class QueryBuilderHandler
             $field = $this->addTablePrefix($field);
             $this->addStatement('selects', $field);
         }
-
-
 
         return $this;
     }
@@ -909,7 +907,7 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param string|Raw $key
+     * @param string|Raw|\Closure(QueryBuilderHandler):void $key
      * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
      * @param mixed|null $value
      *

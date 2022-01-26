@@ -482,7 +482,6 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->join('bar', 'foo.id', '=', 'bar.id');
 
         $this->assertEquals("SELECT * FROM prefix_foo INNER JOIN prefix_bar ON prefix_foo.id = prefix_bar.id", $builder->getQuery()->getRawSql());
-
     }
 
     /** @testdox It should be possible to create a query using (OUTER) join for a relationship */
