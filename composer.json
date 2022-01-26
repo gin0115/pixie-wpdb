@@ -1,6 +1,6 @@
 {
     "name": "gin0115/pixie-wpdb",
-    "description": "An adoptation of Pixie (created byusmanhalalit) for WordPress using WPDB over PDO.",
+    "description": "An adaptation of Pixie (created byusmanhalalit) for WordPress using WPDB over PDO.",
     "homepage": "https://github.com/gin0115/pixie-wpdb",
     "keywords": [
         "query builder",
