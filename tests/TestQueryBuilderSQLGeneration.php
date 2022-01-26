@@ -363,6 +363,34 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM foo WHERE key = 'value' AND (key2 <> 'value2' OR key3 = 'value3')", $builder->getQuery()->getRawSql());
     }
 
+     /** @testdox It should be possible to create a grouped OR where condition */
+    public function testGroupedOrWhere(): void
+    {
+        $builder = $this->queryBuilderProvider()
+            ->table('foo')
+            ->where('key', '=', 'value')
+            ->orWhere(function (QueryBuilderHandler $query) {
+                $query->where('key2', '<>', 'value2');
+                $query->orWhere('key3', '=', 'value3');
+            });
+
+        $this->assertEquals("SELECT * FROM foo WHERE key = 'value' OR (key2 <> 'value2' OR key3 = 'value3')", $builder->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to create a grouped OR where NOT condition */
+    public function testGroupedWhereNot(): void
+    {
+        $builder = $this->queryBuilderProvider()
+            ->table('foo')
+            ->where('key', '=', 'value')
+            ->whereNot(function (QueryBuilderHandler $query) {
+                $query->where('key2', '<>', 'value2')
+                ->orWhere('key3', '=', 'value3');
+            });
+
+        $this->assertEquals("SELECT * FROM foo WHERE key = 'value' AND NOT (key2 <> 'value2' OR key3 = 'value3')", $builder->getQuery()->getRawSql());
+    }
+
     /** @testdox It should be possible to create a query which uses group by (SINGLE) */
     public function testSingleGroupBy(): void
     {
