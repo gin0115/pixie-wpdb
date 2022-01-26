@@ -992,9 +992,15 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
             ->join('mock_json', 'mock_foo.string', '=', 'mock_json.jsonCol->data->category')
             ->get();
 
-        $this->assertStringContainsString('"category": "Cat A"', $joinJSONTo[0]->jsonCol);
+        // Easily get the defined cat from the JSON string.
+        $getCategoryFromResult = function ($result) {
+            $decoded = \json_decode($result);
+            return $decoded->data->category;
+        };
+
+        $this->assertEquals("Cat A", $getCategoryFromResult($joinJSONTo[0]->jsonCol));
         $this->assertEquals('A', $joinJSONTo[0]->string);
-        $this->assertStringContainsString('"category": "Cat B"', $joinJSONTo[1]->jsonCol);
+        $this->assertEquals("Cat B", $getCategoryFromResult($joinJSONTo[1]->jsonCol));
         $this->assertEquals('B', $joinJSONTo[1]->string);
 
         $leftJoinJsonFrom = $this->queryBuilderProvider()
@@ -1002,13 +1008,13 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
             ->leftJoin('mock_foo', 'mock_json.jsonCol->data->number', '=', 'mock_foo.number')
             ->get();
 
-        $this->assertStringContainsString('"category": "Cat A"', $leftJoinJsonFrom[0]->jsonCol);
+        $this->assertEquals("Cat A", $getCategoryFromResult($leftJoinJsonFrom[0]->jsonCol));
         $this->assertEquals('Cat A', $leftJoinJsonFrom[0]->string);
-        $this->assertStringContainsString('"category": "Cat B"', $leftJoinJsonFrom[1]->jsonCol);
+        $this->assertEquals("Cat B", $getCategoryFromResult($leftJoinJsonFrom[1]->jsonCol));
         $this->assertEquals('Cat B', $leftJoinJsonFrom[1]->string);
-         $this->assertStringContainsString('"category": "Cat C"', $leftJoinJsonFrom[2]->jsonCol);
+        $this->assertEquals("Cat C", $getCategoryFromResult($leftJoinJsonFrom[2]->jsonCol));
         $this->assertNull($leftJoinJsonFrom[2]->string);
-        $this->assertStringContainsString('"category": "Cat D"', $leftJoinJsonFrom[3]->jsonCol);
+        $this->assertEquals("Cat D", $getCategoryFromResult($leftJoinJsonFrom[3]->jsonCol));
         $this->assertNull($leftJoinJsonFrom[3]->string);
     }
 }
