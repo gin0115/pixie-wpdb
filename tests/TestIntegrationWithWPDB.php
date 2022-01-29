@@ -458,7 +458,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         $rows = $this->queryBuilderProvider()
             ->table('mock_foo')
-            ->setFetchMode(ModelWithMagicSetter::class)
+            ->asObject(ModelWithMagicSetter::class)
             ->get();
 
         $this->assertInstanceOf(ModelWithMagicSetter::class, $rows[0]);
