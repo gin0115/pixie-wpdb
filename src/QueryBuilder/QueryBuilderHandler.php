@@ -8,14 +8,13 @@ use Throwable;
 use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
-
 use Pixie\QueryBuilder\Raw;
-
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
+
 use function mb_strlen;
 
 class QueryBuilderHandler
@@ -116,6 +115,18 @@ class QueryBuilderHandler
         if (isset($adapterConfig['prefix'])) {
             $this->tablePrefix = $adapterConfig['prefix'];
         }
+    }
+
+    /**
+     * Fetch query results as object of specified type
+     *
+     * @param string $className
+     * @param array<int, mixed> $constructorArgs
+     * @return static
+     */
+    public function asObject($className, $constructorArgs = array()): self
+    {
+        return $this->setFetchMode($className, $constructorArgs);
     }
 
     /**
