@@ -591,6 +591,62 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM prefix_foo INNER JOIN prefix_bar ON prefix_bar.id != prefix_foo.id OR prefix_bar.baz != prefix_foo.baz", $builder->getQuery()->getRawSql());
     }
 
+    /** @testdox It should be possible to create a query using (INNER) joinJSON for a relationship [JSON HELPER]*/
+    public function testJoinJson(): void
+    {
+        // Single Condition
+        $builder = $this->queryBuilderProvider('prefix_')
+            ->table('foo')
+            ->joinJson('bar', 'foo.id', ['key1', 'key2'], '=', 'bar.id', 'index[2]');
+
+        $this->assertEquals("SELECT * FROM prefix_foo INNER JOIN prefix_bar ON JSON_UNQUOTE(JSON_EXTRACT(prefix_foo.id, \"$.key1.key2\")) = JSON_UNQUOTE(JSON_EXTRACT(prefix_bar.id, \"$.index[2]\"))", $builder->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to create a query using (OUTER) joinJSON for a relationship [JSON HELPER]*/
+    public function testOuterJoinJson(): void
+    {
+        // Single Condition
+        $builder = $this->queryBuilderProvider('prefix_')
+            ->table('foo')
+            ->outerJoinJson('bar', 'foo.id', ['key1', 'key2'], '=', 'bar.id', 'index[2]');
+
+        $this->assertEquals("SELECT * FROM prefix_foo OUTER JOIN prefix_bar ON JSON_UNQUOTE(JSON_EXTRACT(prefix_foo.id, \"$.key1.key2\")) = JSON_UNQUOTE(JSON_EXTRACT(prefix_bar.id, \"$.index[2]\"))", $builder->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to create a query using (RIGHT) joinJSON for a relationship [JSON HELPER]*/
+    public function testRightJoinJson(): void
+    {
+        // Single Condition
+        $builder = $this->queryBuilderProvider('prefix_')
+            ->table('foo')
+            ->rightJoinJson('bar', 'foo.id', ['key1', 'key2'], '=', 'bar.id', 'index[2]');
+
+        $this->assertEquals("SELECT * FROM prefix_foo RIGHT JOIN prefix_bar ON JSON_UNQUOTE(JSON_EXTRACT(prefix_foo.id, \"$.key1.key2\")) = JSON_UNQUOTE(JSON_EXTRACT(prefix_bar.id, \"$.index[2]\"))", $builder->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to create a query using (LEFT) joinJSON for a relationship [JSON HELPER]*/
+    public function testLeftJoinJson(): void
+    {
+        // Single Condition
+        $builder = $this->queryBuilderProvider('prefix_')
+            ->table('foo')
+            ->leftJoinJson('bar', 'foo.id', ['key1', 'key2'], '=', 'bar.id', 'index[2]');
+
+        $this->assertEquals("SELECT * FROM prefix_foo LEFT JOIN prefix_bar ON JSON_UNQUOTE(JSON_EXTRACT(prefix_foo.id, \"$.key1.key2\")) = JSON_UNQUOTE(JSON_EXTRACT(prefix_bar.id, \"$.index[2]\"))", $builder->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to create a query using (CROSS) joinJSON for a relationship [JSON HELPER]*/
+    public function testCrossJoinJson(): void
+    {
+        // Single Condition
+        $builder = $this->queryBuilderProvider('prefix_')
+            ->table('foo')
+            ->crossJoinJson('bar', 'foo.id', ['key1', 'key2'], '=', 'bar.id', 'index[2]');
+
+        $this->assertEquals("SELECT * FROM prefix_foo CROSS JOIN prefix_bar ON JSON_UNQUOTE(JSON_EXTRACT(prefix_foo.id, \"$.key1.key2\")) = JSON_UNQUOTE(JSON_EXTRACT(prefix_bar.id, \"$.index[2]\"))", $builder->getQuery()->getRawSql());
+    }
+
+
     #################################################
     ##             SUB AND RAW QUERIES             ##
     #################################################

@@ -8,13 +8,14 @@ use Throwable;
 use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
+
 use Pixie\QueryBuilder\Raw;
+
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-
 use function mb_strlen;
 
 class QueryBuilderHandler
@@ -1455,6 +1456,77 @@ class QueryBuilderHandler
         );
     }
 
+
+    /**
+     * Runs a transaction
+     *
+     * @param \Closure(Transaction):void $callback
+     *
+     * @return static
+     */
+    public function transaction(Closure $callback): self
+    {
+        try {
+            // Begin the transaction
+            $this->dbInstance->query('START TRANSACTION');
+
+            // Get the Transaction class
+            $transaction = $this->container->build(Transaction::class, [$this->connection]);
+
+            $this->handleTransactionCall($callback, $transaction);
+
+            // If no errors have been thrown or the transaction wasn't completed within
+            $this->dbInstance->query('COMMIT');
+
+            return $this;
+        } catch (TransactionHaltException $e) {
+            // Commit or rollback behavior has been handled in the closure, so exit
+            return $this;
+        } catch (\Exception $e) {
+            // something happened, rollback changes
+            $this->dbInstance->query('ROLLBACK');
+
+            return $this;
+        }
+    }
+
+    /**
+     * Handles the transaction call.
+     * Catches any WPDB Errors (printed)
+     *
+     * @param Closure    $callback
+     * @param Transaction $transaction
+     *
+     * @return void
+     * @throws Exception
+     */
+    protected function handleTransactionCall(Closure $callback, Transaction $transaction): void
+    {
+        try {
+            ob_start();
+            $callback($transaction);
+            $output = ob_get_clean() ?: '';
+        } catch (Throwable $th) {
+            ob_end_clean();
+            throw $th;
+        }
+
+        // If we caught an error, throw an exception.
+        if (0 !== mb_strlen($output)) {
+            throw new Exception($output);
+        }
+    }
+
+    /*************************************************************************/
+    /*************************************************************************/
+    /*************************************************************************/
+    /**                              JOIN JOIN                              **/
+    /**                                 JOIN                                **/
+    /**                              JOIN JOIN                              **/
+    /*************************************************************************/
+    /*************************************************************************/
+    /*************************************************************************/
+
     /**
      * @param string|Raw $table
      * @param string|Raw|Closure $key
@@ -1500,67 +1572,7 @@ class QueryBuilderHandler
         return $this;
     }
 
-    /**
-     * Runs a transaction
-     *
-     * @param \Closure(Transaction):void $callback
-     *
-     * @return static
-     */
-    public function transaction(Closure $callback): self
-    {
-        try {
-            // Begin the transaction
-            $this->dbInstance->query('START TRANSACTION');
 
-            // Get the Transaction class
-            $transaction = $this->container->build(Transaction::class, [$this->connection]);
-
-            $this->handleTransactionCall($callback, $transaction);
-
-            // If no errors have been thrown or the transaction wasn't completed within
-            $this->dbInstance->query('COMMIT');
-
-            return $this;
-        } catch (TransactionHaltException $e) {
-            // Commit or rollback behavior has been handled in the closure, so exit
-            return $this;
-        } catch (\Exception $e) {
-            // something happened, rollback changes
-            $this->dbInstance->query('ROLLBACK');
-
-            return $this;
-        }
-    }
-
-    /**
-     * Handles the transaction call.
-     *
-     * Catches any WP Errors (printed)
-     *
-     * @param Closure    $callback
-     * @param Transaction $transaction
-     *
-     * @return void
-     *
-     * @throws Exception
-     */
-    protected function handleTransactionCall(Closure $callback, Transaction $transaction): void
-    {
-        try {
-            ob_start();
-            $callback($transaction);
-            $output = ob_get_clean() ?: '';
-        } catch (Throwable $th) {
-            ob_end_clean();
-            throw $th;
-        }
-
-        // If we caught an error, throw an exception.
-        if (0 !== mb_strlen($output)) {
-            throw new Exception($output);
-        }
-    }
 
     /**
      * @param string|Raw $table
@@ -1654,6 +1666,155 @@ class QueryBuilderHandler
         $remoteKey = $table = $this->addTablePrefix("{$table}.{$key}", true);
         $localKey = $table = $this->addTablePrefix("{$baseTable}.{$key}", true);
         return $this->join($table, $remoteKey, '=', $localKey, $type);
+    }
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw $remoteColumn
+     * @param string|Raw|string[]|null $remoteJsonKeys The json key/index to search
+     * @param string $operator
+     * @param string|Raw $localColumn
+     * @param string|Raw|string[]|null $localJsonKeys
+     * @param string $type
+     *
+     * @return static
+     */
+    public function joinJson(
+        $table,
+        $remoteColumn,
+        $remoteJsonKeys,
+        string $operator,
+        $localColumn,
+        $localJsonKeys,
+        $type = 'inner'
+    ): self {
+        // Convert key if json
+        if (null !== $localJsonKeys) {
+            $localColumn = $this->jsonParseExtractThenUnquote($localColumn, $localJsonKeys);
+        }
+
+        // Convert key if json
+        if (null !== $remoteJsonKeys) {
+            $remoteColumn = $this->jsonParseExtractThenUnquote($remoteColumn, $remoteJsonKeys);
+        }
+
+        return $this->join($table, $remoteColumn, $operator, $localColumn, $type);
+    }
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw $remoteColumn
+     * @param string|Raw|string[]|null $remoteJsonKeys The json key/index to search
+     * @param string $operator
+     * @param string|Raw $localColumn
+     * @param string|Raw|string[]|null $localJsonKeys
+     *
+     * @return static
+     */
+    public function leftJoinJson(
+        $table,
+        $remoteColumn,
+        $remoteJsonKeys,
+        string $operator,
+        $localColumn,
+        $localJsonKeys
+    ): self {
+        return $this->joinJson(
+            $table,
+            $remoteColumn,
+            $remoteJsonKeys,
+            $operator,
+            $localColumn,
+            $localJsonKeys,
+            'left'
+        );
+    }
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw $remoteColumn
+     * @param string|Raw|string[]|null $remoteJsonKeys The json key/index to search
+     * @param string $operator
+     * @param string|Raw $localColumn
+     * @param string|Raw|string[]|null $localJsonKeys
+     *
+     * @return static
+     */
+    public function rightJoinJson(
+        $table,
+        $remoteColumn,
+        $remoteJsonKeys,
+        string $operator,
+        $localColumn,
+        $localJsonKeys
+    ): self {
+        return $this->joinJson(
+            $table,
+            $remoteColumn,
+            $remoteJsonKeys,
+            $operator,
+            $localColumn,
+            $localJsonKeys,
+            'right'
+        );
+    }
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw $remoteColumn
+     * @param string|Raw|string[]|null $remoteJsonKeys The json key/index to search
+     * @param string $operator
+     * @param string|Raw $localColumn
+     * @param string|Raw|string[]|null $localJsonKeys
+     *
+     * @return static
+     */
+    public function outerJoinJson(
+        $table,
+        $remoteColumn,
+        $remoteJsonKeys,
+        string $operator,
+        $localColumn,
+        $localJsonKeys
+    ): self {
+        return $this->joinJson(
+            $table,
+            $remoteColumn,
+            $remoteJsonKeys,
+            $operator,
+            $localColumn,
+            $localJsonKeys,
+            'outer'
+        );
+    }
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw $remoteColumn
+     * @param string|Raw|string[]|null $remoteJsonKeys The json key/index to search
+     * @param string $operator
+     * @param string|Raw $localColumn
+     * @param string|Raw|string[]|null $localJsonKeys
+     *
+     * @return static
+     */
+    public function crossJoinJson(
+        $table,
+        $remoteColumn,
+        $remoteJsonKeys,
+        string $operator,
+        $localColumn,
+        $localJsonKeys
+    ): self {
+        return $this->joinJson(
+            $table,
+            $remoteColumn,
+            $remoteJsonKeys,
+            $operator,
+            $localColumn,
+            $localJsonKeys,
+            'cross'
+        );
     }
 
     /**

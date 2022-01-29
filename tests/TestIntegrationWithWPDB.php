@@ -998,8 +998,8 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals('B', $results[3]->string); // Foo Ba
     }
 
-    /** @testdox It should be possible to do joins from and to JSON object values. */
-    public function testJoinOnJson(): void
+    /** @testdox It should be possible to do joins from and to JSON object values. [USING ARROW SELECTORS] */
+    public function testJoinOnJsonWithSelectors(): void
     {
         $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat A', 'number' => 1]])], ['%s', '%s']);
         $this->wpdb->insert('mock_json', ['string' => 'B', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat B', 'number' => 2]])], ['%s', '%s']);
@@ -1027,6 +1027,47 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $leftJoinJsonFrom = $this->queryBuilderProvider()
             ->table('mock_json')
             ->leftJoin('mock_foo', 'mock_json.jsonCol->data->number', '=', 'mock_foo.number')
+            ->get();
+
+        $this->assertEquals("Cat A", $getCategoryFromResult($leftJoinJsonFrom[0]->jsonCol));
+        $this->assertEquals('Cat A', $leftJoinJsonFrom[0]->string);
+        $this->assertEquals("Cat B", $getCategoryFromResult($leftJoinJsonFrom[1]->jsonCol));
+        $this->assertEquals('Cat B', $leftJoinJsonFrom[1]->string);
+        $this->assertEquals("Cat C", $getCategoryFromResult($leftJoinJsonFrom[2]->jsonCol));
+        $this->assertNull($leftJoinJsonFrom[2]->string);
+        $this->assertEquals("Cat D", $getCategoryFromResult($leftJoinJsonFrom[3]->jsonCol));
+        $this->assertNull($leftJoinJsonFrom[3]->string);
+    }
+
+    /** @testdox It should be possible to do joins from and to JSON object values. [USING JSON HELPER METHOD] */
+    public function testJoinOnJsonHelper(): void
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat A', 'number' => 1]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'B', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat B', 'number' => 2]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'C', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat C', 'number' => 3]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'D', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat D', 'number' => 4]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_foo', ['string' => 'Cat A', 'number' => 1], ['%s', '%d']);
+        $this->wpdb->insert('mock_foo', ['string' => 'Cat B', 'number' => 2], ['%s', '%d']);
+
+        $joinJSONTo = $this->queryBuilderProvider()
+            ->table('mock_foo')
+            ->joinJson('mock_json', 'mock_foo.string', null, '=', 'mock_json.jsonCol', ['data','category'])
+            ->get();
+
+        // Easily get the defined cat from the JSON string.
+        $getCategoryFromResult = function ($result) {
+            $decoded = \json_decode($result);
+            return $decoded->data->category;
+        };
+
+        $this->assertEquals("Cat A", $getCategoryFromResult($joinJSONTo[0]->jsonCol));
+        $this->assertEquals('A', $joinJSONTo[0]->string);
+        $this->assertEquals("Cat B", $getCategoryFromResult($joinJSONTo[1]->jsonCol));
+        $this->assertEquals('B', $joinJSONTo[1]->string);
+
+        $leftJoinJsonFrom = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->leftJoinJson('mock_foo', 'mock_json.jsonCol', ['data','number'], '=', 'mock_foo.number', null)
             ->get();
 
         $this->assertEquals("Cat A", $getCategoryFromResult($leftJoinJsonFrom[0]->jsonCol));
