@@ -1325,7 +1325,7 @@ class QueryBuilderHandler implements HasConnection
         $baseTable = end($this->statements['tables']);
 
         // Potentialy cast key from JSON
-        if (is_string($key) && $this->jsonHandler->isJsonSelector($key)) {
+        if ($this->jsonHandler->isJsonSelector($key)) {
             $key = $this->jsonHandler->extractAndUnquoteFromJsonSelector($key);
         }
 
