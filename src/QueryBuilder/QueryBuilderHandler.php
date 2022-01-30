@@ -9,17 +9,26 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use Pixie\QueryBuilder\Raw;
+use Pixie\HasConnection;
 
+use Pixie\JSON\JsonHandler;
+use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
+use Pixie\JSON\JsonSelectorHandler;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
+use Pixie\QueryBuilder\TablePrefixer;
 use function mb_strlen;
 
-class QueryBuilderHandler
+class QueryBuilderHandler implements HasConnection
 {
+    /**
+     * @method add
+     */
+    use TablePrefixer;
+
     /**
      * @var \Viocon\Container
      */
@@ -71,6 +80,13 @@ class QueryBuilderHandler
     protected $hydratorConstructorArgs;
 
     /**
+     * Handler for Json Selectors
+     *
+     * @var JsonHandler
+     */
+    protected $jsonHandler;
+
+    /**
      * @param \Pixie\Connection|null $connection
      * @param string $fetchMode
      * @param mixed[] $hydratorConstructorArgs
@@ -102,6 +118,9 @@ class QueryBuilderHandler
             WPDBAdapter::class,
             [$this->connection]
         );
+
+        // Setup JSON Selector handler.
+        $this->jsonHandler = new JsonHandler($connection);
     }
 
     /**
@@ -113,8 +132,8 @@ class QueryBuilderHandler
      */
     protected function setAdapterConfig(array $adapterConfig): void
     {
-        if (isset($adapterConfig['prefix'])) {
-            $this->tablePrefix = $adapterConfig['prefix'];
+        if (isset($adapterConfig[Connection::PREFIX])) {
+            $this->tablePrefix = $adapterConfig[Connection::PREFIX];
         }
     }
 
@@ -688,15 +707,12 @@ class QueryBuilderHandler
 
         foreach ($fields as $field => $alias) {
             // If we have a JSON expression
-            if ($this->isJsonExpression($field)) {
-                // Add using JSON select.
-                $this->castToJsonSelect($field, $alias);
-                unset($fields[$field]);
-                continue;
+            if ($this->jsonHandler->isJsonSelector($field)) {
+                $field = $this->jsonHandler->extractAndUnquoteFromJsonSelector($field);
             }
 
             // If no alias passed, but field is for JSON. thrown an exception.
-            if (is_numeric($field) && is_string($alias) && $this->isJsonExpression($alias)) {
+            if (is_numeric($field) && is_string($alias) && $this->jsonHandler->isJsonSelector($alias)) {
                 throw new Exception("An alias must be used if you wish to select from JSON Object", 1);
             }
 
@@ -710,18 +726,6 @@ class QueryBuilderHandler
         }
 
         return $this;
-    }
-
-    /**
-     * Checks if the passed expression is for JSON
-     * this->denotes->json
-     *
-     * @param string $expression
-     * @return bool
-     */
-    protected function isJsonExpression(string $expression): bool
-    {
-        return 2 <= count(explode('->', $expression));
     }
 
     /**
@@ -747,7 +751,7 @@ class QueryBuilderHandler
      */
     protected function getColumnFromJsonExpression(string $expression): string
     {
-        if (! $this->isJsonExpression($expression)) {
+        if (! $this->jsonHandler->isJsonSelector($expression)) {
             throw new Exception('JSON expression must contain at least 2 values, the table column and JSON key.', 1);
         }
 
@@ -764,7 +768,7 @@ class QueryBuilderHandler
      */
     protected function getJsonKeysFromExpression($expression): array
     {
-        if (! $this->isJsonExpression($expression)) {
+        if (! $this->jsonHandler->isJsonSelector($expression)) {
             throw new Exception('JSON expression must contain at least 2 values, the table column and JSON key.', 1);
         }
 
@@ -820,11 +824,8 @@ class QueryBuilderHandler
                 $type  = $defaultDirection;
             }
 
-            if ($this->isJsonExpression($field)) {
-                $field = $this->jsonParseExtractThenUnquote(
-                    $this->getColumnFromJsonExpression($field),
-                    $this->getJsonKeysFromExpression($field)
-                );
+            if ($this->jsonHandler->isJsonSelector($field)) {
+                $field = $this->jsonHandler->extractAndUnquoteFromJsonSelector($field);
             }
 
             if (!$field instanceof Raw) {
@@ -844,7 +845,7 @@ class QueryBuilderHandler
      */
     public function orderByJson($key, $jsonKey, string $defaultDirection = 'ASC'): self
     {
-        $key = $this->jsonParseExtractThenUnquote($key, $jsonKey);
+        $key = $this->jsonHandler->jsonExpressionFactory()->extractAndUnquote($key, $jsonKey);
         return $this->orderBy($key, $defaultDirection);
     }
 
@@ -1182,6 +1183,387 @@ class QueryBuilderHandler
         return $this->{$operator . 'Where'}($this->raw("{$key} IS{$prefix} NULL"));
     }
 
+
+    /**
+     * Runs a transaction
+     *
+     * @param \Closure(Transaction):void $callback
+     *
+     * @return static
+     */
+    public function transaction(Closure $callback): self
+    {
+        try {
+            // Begin the transaction
+            $this->dbInstance->query('START TRANSACTION');
+
+            // Get the Transaction class
+            $transaction = $this->container->build(Transaction::class, [$this->connection]);
+
+            $this->handleTransactionCall($callback, $transaction);
+
+            // If no errors have been thrown or the transaction wasn't completed within
+            $this->dbInstance->query('COMMIT');
+
+            return $this;
+        } catch (TransactionHaltException $e) {
+            // Commit or rollback behavior has been handled in the closure, so exit
+            return $this;
+        } catch (\Exception $e) {
+            // something happened, rollback changes
+            $this->dbInstance->query('ROLLBACK');
+
+            return $this;
+        }
+    }
+
+    /**
+     * Handles the transaction call.
+     * Catches any WPDB Errors (printed)
+     *
+     * @param Closure    $callback
+     * @param Transaction $transaction
+     *
+     * @return void
+     * @throws Exception
+     */
+    protected function handleTransactionCall(Closure $callback, Transaction $transaction): void
+    {
+        try {
+            ob_start();
+            $callback($transaction);
+            $output = ob_get_clean() ?: '';
+        } catch (Throwable $th) {
+            ob_end_clean();
+            throw $th;
+        }
+
+        // If we caught an error, throw an exception.
+        if (0 !== mb_strlen($output)) {
+            throw new Exception($output);
+        }
+    }
+
+    /*************************************************************************/
+    /*************************************************************************/
+    /*************************************************************************/
+    /**                              JOIN JOIN                              **/
+    /**                                 JOIN                                **/
+    /**                              JOIN JOIN                              **/
+    /*************************************************************************/
+    /*************************************************************************/
+    /*************************************************************************/
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw|Closure $key
+     * @param string|null $operator
+     * @param mixed $value
+     * @param string $type
+     *
+     * @return static
+     */
+    public function join($table, $key, ?string $operator = null, $value = null, $type = 'inner')
+    {
+        // Potentialy cast key from JSON
+        if (is_string($key) && $this->jsonHandler->isJsonSelector($key)) {
+            $key = $this->jsonHandler->extractAndUnquoteFromJsonSelector($key);
+        }
+
+        // Potentially cast value from json
+        if (is_string($value) && $this->jsonHandler->isJsonSelector($value)) {
+            $value = $this->jsonHandler->extractAndUnquoteFromJsonSelector($value);
+        }
+
+        if (!$key instanceof Closure) {
+            $key = function ($joinBuilder) use ($key, $operator, $value) {
+                $joinBuilder->on($key, $operator, $value);
+            };
+        }
+
+        // Build a new JoinBuilder class, keep it by reference so any changes made
+        // in the closure should reflect here
+        $joinBuilder = $this->container->build(JoinBuilder::class, [$this->connection]);
+        $joinBuilder = &$joinBuilder;
+        // Call the closure with our new joinBuilder object
+        $key($joinBuilder);
+        $table = $this->addTablePrefix($table, false);
+        // Get the criteria only query from the joinBuilder object
+        $this->statements['joins'][] = compact('type', 'table', 'joinBuilder');
+        return $this;
+    }
+
+
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw|Closure $key
+     * @param string|null $operator
+     * @param mixed $value
+     *
+     * @return static
+     */
+    public function leftJoin($table, $key, $operator = null, $value = null)
+    {
+        return $this->join($table, $key, $operator, $value, 'left');
+    }
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw|Closure $key
+     * @param string|null $operator
+     * @param mixed $value
+     *
+     * @return static
+     */
+    public function rightJoin($table, $key, $operator = null, $value = null)
+    {
+        return $this->join($table, $key, $operator, $value, 'right');
+    }
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw|Closure $key
+     * @param string|null $operator
+     * @param mixed $value
+     *
+     * @return static
+     */
+    public function innerJoin($table, $key, $operator = null, $value = null)
+    {
+        return $this->join($table, $key, $operator, $value, 'inner');
+    }
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw|Closure $key
+     * @param string|null $operator
+     * @param mixed $value
+     *
+     * @return static
+     */
+    public function crossJoin($table, $key, $operator = null, $value = null)
+    {
+        return $this->join($table, $key, $operator, $value, 'cross');
+    }
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw|Closure $key
+     * @param string|null $operator
+     * @param mixed $value
+     *
+     * @return static
+     */
+    public function outerJoin($table, $key, $operator = null, $value = null)
+    {
+        return $this->join($table, $key, $operator, $value, 'outer');
+    }
+
+    /**
+     * Shortcut to join 2 tables on the same key name with equals
+     *
+     * @param string $table
+     * @param string $key
+     * @param string $type
+     * @return self
+     * @throws Exception If base table is set as more than 1 or 0
+     */
+    public function joinUsing(string $table, string $key, string $type = 'INNER'): self
+    {
+        if (!array_key_exists('tables', $this->statements) || count($this->statements['tables']) !== 1) {
+            throw new Exception("JoinUsing can only be used with a single table set as the base of the query", 1);
+        }
+        $baseTable = end($this->statements['tables']);
+
+        // Potentialy cast key from JSON
+        if (is_string($key) && $this->jsonHandler->isJsonSelector($key)) {
+            $key = $this->jsonHandler->extractAndUnquoteFromJsonSelector($key);
+        }
+
+        $remoteKey = $table = $this->addTablePrefix("{$table}.{$key}", true);
+        $localKey = $table = $this->addTablePrefix("{$baseTable}.{$key}", true);
+        return $this->join($table, $remoteKey, '=', $localKey, $type);
+    }
+
+    /**
+     * Add a raw query
+     *
+     * @param string|Raw $value
+     * @param mixed|mixed[] $bindings
+     *
+     * @return Raw
+     */
+    public function raw($value, $bindings = []): Raw
+    {
+        return new Raw($value, $bindings);
+    }
+
+    /**
+     * Return wpdb instance
+     *
+     * @return wpdb
+     */
+    public function dbInstance(): wpdb
+    {
+        return $this->dbInstance;
+    }
+
+    /**
+     * @param Connection $connection
+     *
+     * @return static
+     */
+    public function setConnection(Connection $connection): self
+    {
+        $this->connection = $connection;
+
+        return $this;
+    }
+
+    /**
+     * @return Connection
+     */
+    public function getConnection()
+    {
+        return $this->connection;
+    }
+
+    /**
+     * @param string|Raw|Closure $key
+     * @param string|null      $operator
+     * @param mixed|null       $value
+     * @param string $joiner
+     *
+     * @return static
+     */
+    protected function whereHandler($key, $operator = null, $value = null, $joiner = 'AND')
+    {
+        $key = $this->addTablePrefix($key);
+        if ($key instanceof Raw) {
+            $key = $this->adapterInstance->parseRaw($key);
+        }
+
+        if ($this->jsonHandler->isJsonSelector($key)) {
+            $key = $this->jsonHandler->extractAndUnquoteFromJsonSelector($key);
+        }
+
+        $this->statements['wheres'][] = compact('key', 'operator', 'value', 'joiner');
+        return $this;
+    }
+
+
+
+    /**
+     * @param string $key
+     * @param mixed|mixed[]|bool $value
+     *
+     * @return void
+     */
+    protected function addStatement($key, $value)
+    {
+        if (!is_array($value)) {
+            $value = [$value];
+        }
+
+        if (!array_key_exists($key, $this->statements)) {
+            $this->statements[$key] = $value;
+        } else {
+            $this->statements[$key] = array_merge($this->statements[$key], $value);
+        }
+    }
+
+    /**
+     * @param string $event
+     * @param string|Raw $table
+     *
+     * @return callable|null
+     */
+    public function getEvent(string $event, $table = ':any'): ?callable
+    {
+        return $this->connection->getEventHandler()->getEvent($event, $table);
+    }
+
+    /**
+     * @param string $event
+     * @param string|Raw $table
+     * @param Closure $action
+     *
+     * @return void
+     */
+    public function registerEvent($event, $table, Closure $action): void
+    {
+        $table = $table ?: ':any';
+
+        if (':any' != $table) {
+            $table = $this->addTablePrefix($table, false);
+        }
+
+        $this->connection->getEventHandler()->registerEvent($event, $table, $action);
+    }
+
+    /**
+     * @param string $event
+     * @param string|Raw $table
+     *
+     * @return void
+     */
+    public function removeEvent(string $event, $table = ':any')
+    {
+        if (':any' != $table) {
+            $table = $this->addTablePrefix($table, false);
+        }
+
+        $this->connection->getEventHandler()->removeEvent($event, $table);
+    }
+
+    /**
+     * @param string $event
+     *
+     * @return mixed
+     */
+    public function fireEvents(string $event)
+    {
+        $params = func_get_args(); // @todo Replace this with an easier to read alteratnive
+        array_unshift($params, $this);
+
+        return call_user_func_array([$this->connection->getEventHandler(), 'fireEvents'], $params);
+    }
+
+    /**
+     * @return array<string, mixed[]>
+     */
+    public function getStatements()
+    {
+        return $this->statements;
+    }
+
+    /**
+     * @return string will return WPDB Fetch mode
+     */
+    public function getFetchMode()
+    {
+        return null !== $this->fetchMode
+            ? $this->fetchMode
+            : \OBJECT;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     /**
     * @param string|Raw $key The database column which holds the JSON value
     * @param string|Raw|string[] $jsonKey The json key/index to search
@@ -1404,21 +1786,6 @@ class QueryBuilderHandler
      */
     protected function whereFunctionCallJsonHandler($key, $jsonKey, $function, $operator, $value): self
     {
-        return $this->whereFunctionCallHandler(
-            $this->jsonParseExtractThenUnquote($key, $jsonKey),
-            $function,
-            $operator,
-            $value
-        );
-    }
-
-    /**
-     * @param string|Raw $key The database column which holds the JSON value
-     * @param string|Raw|string[] $jsonKey The json key/index to search
-     * @return \Pixie\QueryBuilder\Raw
-     */
-    protected function jsonParseExtractThenUnquote($key, $jsonKey): Raw
-    {
         // Handle potential raw values.
         if ($key instanceof Raw) {
             $key = $this->adapterInstance->parseRaw($key);
@@ -1427,15 +1794,12 @@ class QueryBuilderHandler
             $jsonKey = $this->adapterInstance->parseRaw($jsonKey);
         }
 
-        // If deeply nested jsonKey.
-        if (is_array($jsonKey)) {
-            $jsonKey = \implode('.', $jsonKey);
-        }
-
-        // Add any possible prefixes to the key
-        $key = $this->addTablePrefix($key, true);
-
-        return new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\"))");
+        return $this->whereFunctionCallHandler(
+            $this->jsonHandler->jsonExpressionFactory()->extractAndUnquote($key, $jsonKey),
+            $function,
+            $operator,
+            $value
+        );
     }
 
     /**
@@ -1448,224 +1812,20 @@ class QueryBuilderHandler
     */
     protected function whereJsonHandler($key, $jsonKey, $operator = null, $value = null, string $joiner = 'AND'): self
     {
-        return  $this->whereHandler(
-            $this->jsonParseExtractThenUnquote($key, $jsonKey),
+        // Handle potential raw values.
+        if ($key instanceof Raw) {
+            $key = $this->adapterInstance->parseRaw($key);
+        }
+        if ($jsonKey instanceof Raw) {
+            $jsonKey = $this->adapterInstance->parseRaw($jsonKey);
+        }
+
+        return $this->whereHandler(
+            $this->jsonHandler->jsonExpressionFactory()->extractAndUnquote($key, $jsonKey),
             $operator,
             $value,
             $joiner
         );
-    }
-
-
-    /**
-     * Runs a transaction
-     *
-     * @param \Closure(Transaction):void $callback
-     *
-     * @return static
-     */
-    public function transaction(Closure $callback): self
-    {
-        try {
-            // Begin the transaction
-            $this->dbInstance->query('START TRANSACTION');
-
-            // Get the Transaction class
-            $transaction = $this->container->build(Transaction::class, [$this->connection]);
-
-            $this->handleTransactionCall($callback, $transaction);
-
-            // If no errors have been thrown or the transaction wasn't completed within
-            $this->dbInstance->query('COMMIT');
-
-            return $this;
-        } catch (TransactionHaltException $e) {
-            // Commit or rollback behavior has been handled in the closure, so exit
-            return $this;
-        } catch (\Exception $e) {
-            // something happened, rollback changes
-            $this->dbInstance->query('ROLLBACK');
-
-            return $this;
-        }
-    }
-
-    /**
-     * Handles the transaction call.
-     * Catches any WPDB Errors (printed)
-     *
-     * @param Closure    $callback
-     * @param Transaction $transaction
-     *
-     * @return void
-     * @throws Exception
-     */
-    protected function handleTransactionCall(Closure $callback, Transaction $transaction): void
-    {
-        try {
-            ob_start();
-            $callback($transaction);
-            $output = ob_get_clean() ?: '';
-        } catch (Throwable $th) {
-            ob_end_clean();
-            throw $th;
-        }
-
-        // If we caught an error, throw an exception.
-        if (0 !== mb_strlen($output)) {
-            throw new Exception($output);
-        }
-    }
-
-    /*************************************************************************/
-    /*************************************************************************/
-    /*************************************************************************/
-    /**                              JOIN JOIN                              **/
-    /**                                 JOIN                                **/
-    /**                              JOIN JOIN                              **/
-    /*************************************************************************/
-    /*************************************************************************/
-    /*************************************************************************/
-
-    /**
-     * @param string|Raw $table
-     * @param string|Raw|Closure $key
-     * @param string|null $operator
-     * @param mixed $value
-     * @param string $type
-     *
-     * @return static
-     */
-    public function join($table, $key, ?string $operator = null, $value = null, $type = 'inner')
-    {
-        // Potentialy cast key from JSON
-        if (is_string($key) && $this->isJsonExpression($key)) {
-            $key = $this->jsonParseExtractThenUnquote(
-                $this->getColumnFromJsonExpression($key),
-                $this->getJsonKeysFromExpression($key)
-            );
-        }
-
-        // Potentially cast value from json
-        if (is_string($value) && $this->isJsonExpression($value)) {
-            $value = $this->jsonParseExtractThenUnquote(
-                $this->getColumnFromJsonExpression($value),
-                $this->getJsonKeysFromExpression($value)
-            );
-        }
-
-        if (!$key instanceof Closure) {
-            $key = function ($joinBuilder) use ($key, $operator, $value) {
-                $joinBuilder->on($key, $operator, $value);
-            };
-        }
-
-        // Build a new JoinBuilder class, keep it by reference so any changes made
-        // in the closure should reflect here
-        $joinBuilder = $this->container->build(JoinBuilder::class, [$this->connection]);
-        $joinBuilder = &$joinBuilder;
-        // Call the closure with our new joinBuilder object
-        $key($joinBuilder);
-        $table = $this->addTablePrefix($table, false);
-        // Get the criteria only query from the joinBuilder object
-        $this->statements['joins'][] = compact('type', 'table', 'joinBuilder');
-        return $this;
-    }
-
-
-
-    /**
-     * @param string|Raw $table
-     * @param string|Raw|Closure $key
-     * @param string|null $operator
-     * @param mixed $value
-     *
-     * @return static
-     */
-    public function leftJoin($table, $key, $operator = null, $value = null)
-    {
-        return $this->join($table, $key, $operator, $value, 'left');
-    }
-
-    /**
-     * @param string|Raw $table
-     * @param string|Raw|Closure $key
-     * @param string|null $operator
-     * @param mixed $value
-     *
-     * @return static
-     */
-    public function rightJoin($table, $key, $operator = null, $value = null)
-    {
-        return $this->join($table, $key, $operator, $value, 'right');
-    }
-
-    /**
-     * @param string|Raw $table
-     * @param string|Raw|Closure $key
-     * @param string|null $operator
-     * @param mixed $value
-     *
-     * @return static
-     */
-    public function innerJoin($table, $key, $operator = null, $value = null)
-    {
-        return $this->join($table, $key, $operator, $value, 'inner');
-    }
-
-    /**
-     * @param string|Raw $table
-     * @param string|Raw|Closure $key
-     * @param string|null $operator
-     * @param mixed $value
-     *
-     * @return static
-     */
-    public function crossJoin($table, $key, $operator = null, $value = null)
-    {
-        return $this->join($table, $key, $operator, $value, 'cross');
-    }
-
-    /**
-     * @param string|Raw $table
-     * @param string|Raw|Closure $key
-     * @param string|null $operator
-     * @param mixed $value
-     *
-     * @return static
-     */
-    public function outerJoin($table, $key, $operator = null, $value = null)
-    {
-        return $this->join($table, $key, $operator, $value, 'outer');
-    }
-
-    /**
-     * Shortcut to join 2 tables on the same key name with equals
-     *
-     * @param string $table
-     * @param string $key
-     * @param string $type
-     * @return self
-     * @throws Exception If base table is set as more than 1 or 0
-     */
-    public function joinUsing(string $table, string $key, string $type = 'INNER'): self
-    {
-        if (!array_key_exists('tables', $this->statements) || count($this->statements['tables']) !== 1) {
-            throw new Exception("JoinUsing can only be used with a single table set as the base of the query", 1);
-        }
-        $baseTable = end($this->statements['tables']);
-
-        // Potentialy cast key from JSON
-        if (is_string($key) && $this->isJsonExpression($key)) {
-            $key = $this->jsonParseExtractThenUnquote(
-                $this->getColumnFromJsonExpression($key),
-                $this->getJsonKeysFromExpression($key)
-            );
-        }
-
-        $remoteKey = $table = $this->addTablePrefix("{$table}.{$key}", true);
-        $localKey = $table = $this->addTablePrefix("{$baseTable}.{$key}", true);
-        return $this->join($table, $remoteKey, '=', $localKey, $type);
     }
 
     /**
@@ -1690,12 +1850,12 @@ class QueryBuilderHandler
     ): self {
         // Convert key if json
         if (null !== $localJsonKeys) {
-            $localColumn = $this->jsonParseExtractThenUnquote($localColumn, $localJsonKeys);
+            $localColumn = $this->jsonHandler->jsonExpressionFactory()->extractAndUnquote($localColumn, $localJsonKeys);
         }
 
         // Convert key if json
         if (null !== $remoteJsonKeys) {
-            $remoteColumn = $this->jsonParseExtractThenUnquote($remoteColumn, $remoteJsonKeys);
+            $remoteColumn = $this->jsonHandler->jsonExpressionFactory()->extractAndUnquote($remoteColumn, $remoteJsonKeys);
         }
 
         return $this->join($table, $remoteColumn, $operator, $localColumn, $type);
@@ -1817,228 +1977,7 @@ class QueryBuilderHandler
         );
     }
 
-    /**
-     * Add a raw query
-     *
-     * @param string|Raw $value
-     * @param mixed|mixed[] $bindings
-     *
-     * @return Raw
-     */
-    public function raw($value, $bindings = []): Raw
-    {
-        return new Raw($value, $bindings);
-    }
 
-    /**
-     * Return wpdb instance
-     *
-     * @return wpdb
-     */
-    public function dbInstance(): wpdb
-    {
-        return $this->dbInstance;
-    }
-
-    /**
-     * @param Connection $connection
-     *
-     * @return static
-     */
-    public function setConnection(Connection $connection): self
-    {
-        $this->connection = $connection;
-
-        return $this;
-    }
-
-    /**
-     * @return Connection
-     */
-    public function getConnection()
-    {
-        return $this->connection;
-    }
-
-    /**
-     * @param string|Raw|Closure $key
-     * @param string|null      $operator
-     * @param mixed|null       $value
-     * @param string $joiner
-     *
-     * @return static
-     */
-    protected function whereHandler($key, $operator = null, $value = null, $joiner = 'AND')
-    {
-        $key = $this->addTablePrefix($key);
-        if ($key instanceof Raw) {
-            $key = $this->adapterInstance->parseRaw($key);
-        }
-
-        // If JSON send to JSON handler
-        if (is_string($key) && $this->isJsonExpression($key)) {
-            $column = $this->getColumnFromJsonExpression($key);
-            $jsonKeys = $this->getJsonKeysFromExpression($key);
-            $this->whereJsonHandler($column, $jsonKeys, $operator, $value, $joiner);
-            return $this;
-        }
-
-        $this->statements['wheres'][] = compact('key', 'operator', 'value', 'joiner');
-        return $this;
-    }
-
-    /**
-     * Add table prefix (if given) on given string.
-     *
-     * @param array<string|int, string|int|float|bool|Raw|Closure>|string|int|float|bool|Raw|Closure     $values
-     * @param bool $tableFieldMix If we have mixes of field and table names with a "."
-     *
-     * @return mixed|mixed[]
-     */
-    public function addTablePrefix($values, bool $tableFieldMix = true)
-    {
-        if (is_null($this->tablePrefix)) {
-            return $values;
-        }
-
-        // $value will be an array and we will add prefix to all table names
-
-        // If supplied value is not an array then make it one
-        $single = false;
-        if (!is_array($values)) {
-            $values = [$values];
-            // We had single value, so should return a single value
-            $single = true;
-        }
-
-        $return = [];
-
-        foreach ($values as $key => $value) {
-            // It's a raw query, just add it to our return array and continue next
-            if ($value instanceof Raw || $value instanceof Closure) {
-                $return[$key] = $value;
-                continue;
-            }
-
-            // If key is not integer, it is likely a alias mapping,
-            // so we need to change prefix target
-            $target = &$value;
-            if (!is_int($key)) {
-                $target = &$key;
-            }
-
-            // Do prefix if the target is an expression or function.
-            if (
-                !$tableFieldMix
-                || (
-                    is_string($target) // Must be a string
-                    && (bool) preg_match('/^[A-Za-z0-9_.]+$/', $target) // Can only contain letters, numbers, underscore and full stops
-                    && 1 === \substr_count($target, '.') // Contains a single full stop ONLY.
-                )
-            ) {
-                $target = $this->tablePrefix . $target;
-            }
-
-            $return[$key] = $value;
-        }
-
-        // If we had single value then we should return a single value (end value of the array)
-        return true === $single ? end($return) : $return;
-    }
-
-    /**
-     * @param string $key
-     * @param mixed|mixed[]|bool $value
-     *
-     * @return void
-     */
-    protected function addStatement($key, $value)
-    {
-        if (!is_array($value)) {
-            $value = [$value];
-        }
-
-        if (!array_key_exists($key, $this->statements)) {
-            $this->statements[$key] = $value;
-        } else {
-            $this->statements[$key] = array_merge($this->statements[$key], $value);
-        }
-    }
-
-    /**
-     * @param string $event
-     * @param string|Raw $table
-     *
-     * @return callable|null
-     */
-    public function getEvent(string $event, $table = ':any'): ?callable
-    {
-        return $this->connection->getEventHandler()->getEvent($event, $table);
-    }
-
-    /**
-     * @param string $event
-     * @param string|Raw $table
-     * @param Closure $action
-     *
-     * @return void
-     */
-    public function registerEvent($event, $table, Closure $action): void
-    {
-        $table = $table ?: ':any';
-
-        if (':any' != $table) {
-            $table = $this->addTablePrefix($table, false);
-        }
-
-        $this->connection->getEventHandler()->registerEvent($event, $table, $action);
-    }
-
-    /**
-     * @param string $event
-     * @param string|Raw $table
-     *
-     * @return void
-     */
-    public function removeEvent(string $event, $table = ':any')
-    {
-        if (':any' != $table) {
-            $table = $this->addTablePrefix($table, false);
-        }
-
-        $this->connection->getEventHandler()->removeEvent($event, $table);
-    }
-
-    /**
-     * @param string $event
-     *
-     * @return mixed
-     */
-    public function fireEvents(string $event)
-    {
-        $params = func_get_args(); // @todo Replace this with an easier to read alteratnive
-        array_unshift($params, $this);
-
-        return call_user_func_array([$this->connection->getEventHandler(), 'fireEvents'], $params);
-    }
-
-    /**
-     * @return array<string, mixed[]>
-     */
-    public function getStatements()
-    {
-        return $this->statements;
-    }
-
-    /**
-     * @return string will return WPDB Fetch mode
-     */
-    public function getFetchMode()
-    {
-        return null !== $this->fetchMode
-            ? $this->fetchMode
-            : \OBJECT;
-    }
 
     // JSON
 

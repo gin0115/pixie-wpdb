@@ -975,7 +975,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->table('TableName')
             ->select(['column->foo->bar' => 'alias']);
 
-        $expected = 'SELECT JSON_UNQUOTE(JSON_EXTRACT(column, "$.foo.bar")) as alias FROM TableName';
+        $expected = 'SELECT JSON_UNQUOTE(JSON_EXTRACT(column, "$.foo.bar")) AS alias FROM TableName';
         $this->assertEquals($expected, $builder->getQuery()->getRawSql());
     }
 
@@ -986,7 +986,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->table('table')
             ->select(['table.column->foo->bar' => 'alias']);
 
-        $expected = 'SELECT JSON_UNQUOTE(JSON_EXTRACT(pr_table.column, "$.foo.bar")) as alias FROM pr_table';
+        $expected = 'SELECT JSON_UNQUOTE(JSON_EXTRACT(pr_table.column, "$.foo.bar")) AS alias FROM pr_table';
         $this->assertEquals($expected, $builder->getQuery()->getRawSql());
     }
 
