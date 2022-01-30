@@ -8,9 +8,7 @@ use Throwable;
 use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
-
 use Pixie\HasConnection;
-
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
@@ -726,56 +724,6 @@ class QueryBuilderHandler implements HasConnection
         }
 
         return $this;
-    }
-
-    /**
-     * Casts a select to JSON based on -> in column name.
-     *
-     * @param string $keys
-     * @param string|null $alias
-     * @return self
-     */
-    public function castToJsonSelect(string $keys, ?string $alias): self
-    {
-        $parts = explode('->', $keys);
-        $field = $parts[0];
-        unset($parts[0]);
-        return $this->selectJson($field, $parts, $alias);
-    }
-
-    /**
-     * Gets the column name form a potential array
-     *
-     * @param string $expression
-     * @return string
-     */
-    protected function getColumnFromJsonExpression(string $expression): string
-    {
-        if (! $this->jsonHandler->isJsonSelector($expression)) {
-            throw new Exception('JSON expression must contain at least 2 values, the table column and JSON key.', 1);
-        }
-
-        /** @var string[] Check done above. */
-        $parts = explode('->', $expression);
-        return $parts[0];
-    }
-
-    /**
-     * Gets all JSON object keys while removing the column name.
-     *
-     * @param string $expression
-     * @return string[]
-     */
-    protected function getJsonKeysFromExpression($expression): array
-    {
-        if (! $this->jsonHandler->isJsonSelector($expression)) {
-            throw new Exception('JSON expression must contain at least 2 values, the table column and JSON key.', 1);
-        }
-
-        /** @var string[] Check done above. */
-        $parts = explode('->', $expression);
-        unset($parts[0]);
-        return $parts;
     }
 
     /**
