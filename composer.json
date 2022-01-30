@@ -1,6 +1,6 @@
 {
     "name": "gin0115/pixie-wpdb",
-    "description": "An adoptation of Pixie (created byusmanhalalit) for WordPress using WPDB over PDO.",
+    "description": "An adaptation of Pixie (created byusmanhalalit) for WordPress using WPDB over PDO.",
     "homepage": "https://github.com/gin0115/pixie-wpdb",
     "keywords": [
         "query builder",
@@ -32,12 +32,12 @@
         "usmanhalalit/viocon": "1.0.*@dev"
     },
     "require-dev": {
-        "phpunit/phpunit": "^7.0",
+        "phpunit/phpunit": "^7.0 || ^8.0",
         "phpstan/phpstan": "^1.0",
         "szepeviktor/phpstan-wordpress": "^1.0",
-        "php-stubs/wordpress-stubs": "^5.8.0",
-        "roots/wordpress": "^5.8",
-        "wp-phpunit/wp-phpunit": "^5.8",
+        "php-stubs/wordpress-stubs": "^5.9.0",
+        "roots/wordpress": "^5.9",
+        "wp-phpunit/wp-phpunit": "^5.9",
         "symfony/var-dumper": "4.*",
         "yoast/phpunit-polyfills": "^1.0.0",
         "gin0115/wpunit-helpers": "~1.0.0",

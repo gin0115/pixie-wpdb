@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Pixie\Tests;
 
+use DateTime;
 use stdClass;
 use Exception;
 use Pixie\Binding;
@@ -83,11 +84,21 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
          )
          COLLATE {$this->wpdb->collate}";
 
+        $sqlUnique = "CREATE TABLE mock_unique (
+         id mediumint(8) unsigned NOT NULL auto_increment ,
+         email varchar(200) NULL,
+         counter int NULL,
+         PRIMARY KEY  (id),
+         UNIQUE KEY email  (email)
+         )
+         COLLATE {$this->wpdb->collate}";
+
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sqlFoo);
         dbDelta($sqlBar);
         dbDelta($sqlJson);
         dbDelta($sqlDates);
+        dbDelta($sqlUnique);
 
         static::$createdTables = true;
     }
@@ -674,10 +685,20 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         $resultC = $this->queryBuilderProvider('mock_')
             ->table('dates')
-            ->whereDate('datetime', date("Y-m-d", 1665425943)) // strtotime('2022-10-10 18:19:03')
+            ->whereDate('datetime', date("Y-m-d", 1665360001)) // strtotime('2022-10-10 18:19:03')
             ->get();
         $this->assertCount(1, $resultC);
         $this->assertEquals('2022-10-10', $resultC[0]->date);
+
+        $resultD = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereDate('date', '>', '2019-03-12')
+            ->get();
+
+        $expected = ["2022-10-10", "2020-03-12"];
+        $this->assertCount(2, $resultD);
+        $this->assertTrue(in_array($resultD[0]->date, $expected));
+        $this->assertTrue(in_array($resultD[1]->date, $expected));
     }
 
 
@@ -958,7 +979,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals('E', $byCol2DesThenCol1As[4]->string); // "{"col1":4,"col2":"a"}"
     }
 
-    /** @testdox [WIKI EXAMPLE] orderByJson https://github.com/gin0115/pixie-wpdb/wiki/Json#order-by-json */
+    /** @testdox [WIKI EXAMPLE] orderByJson https://github.com/gin0115/pixie-wpdb/wiki/Examples---JSON-Operations#order-by-json */
     public function testOrderByJsonWikiExample(): void
     {
         $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode(['stats' => ['likes' => 450, 'dislikes' => 5]])], ['%s', '%s']);
@@ -975,5 +996,114 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals('A', $results[1]->string); // Some Tile
         $this->assertEquals('D', $results[2]->string); // Examples
         $this->assertEquals('B', $results[3]->string); // Foo Ba
+    }
+
+    /** @testdox It should be possible to do joins from and to JSON object values. [USING ARROW SELECTORS] */
+    public function testJoinOnJsonWithSelectors(): void
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat A', 'number' => 1]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'B', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat B', 'number' => 2]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'C', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat C', 'number' => 3]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'D', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat D', 'number' => 4]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_foo', ['string' => 'Cat A', 'number' => 1], ['%s', '%d']);
+        $this->wpdb->insert('mock_foo', ['string' => 'Cat B', 'number' => 2], ['%s', '%d']);
+
+        $joinJSONTo = $this->queryBuilderProvider()
+            ->table('mock_foo')
+            ->join('mock_json', 'mock_foo.string', '=', 'mock_json.jsonCol->data->category')
+            ->get();
+
+        // Easily get the defined cat from the JSON string.
+        $getCategoryFromResult = function ($result) {
+            $decoded = \json_decode($result);
+            return $decoded->data->category;
+        };
+
+        $this->assertEquals("Cat A", $getCategoryFromResult($joinJSONTo[0]->jsonCol));
+        $this->assertEquals('A', $joinJSONTo[0]->string);
+        $this->assertEquals("Cat B", $getCategoryFromResult($joinJSONTo[1]->jsonCol));
+        $this->assertEquals('B', $joinJSONTo[1]->string);
+
+        $leftJoinJsonFrom = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->leftJoin('mock_foo', 'mock_json.jsonCol->data->number', '=', 'mock_foo.number')
+            ->get();
+
+        $this->assertEquals("Cat A", $getCategoryFromResult($leftJoinJsonFrom[0]->jsonCol));
+        $this->assertEquals('Cat A', $leftJoinJsonFrom[0]->string);
+        $this->assertEquals("Cat B", $getCategoryFromResult($leftJoinJsonFrom[1]->jsonCol));
+        $this->assertEquals('Cat B', $leftJoinJsonFrom[1]->string);
+        $this->assertEquals("Cat C", $getCategoryFromResult($leftJoinJsonFrom[2]->jsonCol));
+        $this->assertNull($leftJoinJsonFrom[2]->string);
+        $this->assertEquals("Cat D", $getCategoryFromResult($leftJoinJsonFrom[3]->jsonCol));
+        $this->assertNull($leftJoinJsonFrom[3]->string);
+    }
+
+    /** @testdox It should be possible to do joins from and to JSON object values. [USING JSON HELPER METHOD] */
+    public function testJoinOnJsonHelper(): void
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat A', 'number' => 1]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'B', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat B', 'number' => 2]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'C', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat C', 'number' => 3]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'D', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat D', 'number' => 4]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_foo', ['string' => 'Cat A', 'number' => 1], ['%s', '%d']);
+        $this->wpdb->insert('mock_foo', ['string' => 'Cat B', 'number' => 2], ['%s', '%d']);
+
+        $joinJSONTo = $this->queryBuilderProvider()
+            ->table('mock_foo')
+            ->joinJson('mock_json', 'mock_foo.string', null, '=', 'mock_json.jsonCol', ['data','category'])
+            ->get();
+
+        // Easily get the defined cat from the JSON string.
+        $getCategoryFromResult = function ($result) {
+            $decoded = \json_decode($result);
+            return $decoded->data->category;
+        };
+
+        $this->assertEquals("Cat A", $getCategoryFromResult($joinJSONTo[0]->jsonCol));
+        $this->assertEquals('A', $joinJSONTo[0]->string);
+        $this->assertEquals("Cat B", $getCategoryFromResult($joinJSONTo[1]->jsonCol));
+        $this->assertEquals('B', $joinJSONTo[1]->string);
+
+        $leftJoinJsonFrom = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->leftJoinJson('mock_foo', 'mock_json.jsonCol', ['data','number'], '=', 'mock_foo.number', null)
+            ->get();
+
+        $this->assertEquals("Cat A", $getCategoryFromResult($leftJoinJsonFrom[0]->jsonCol));
+        $this->assertEquals('Cat A', $leftJoinJsonFrom[0]->string);
+        $this->assertEquals("Cat B", $getCategoryFromResult($leftJoinJsonFrom[1]->jsonCol));
+        $this->assertEquals('Cat B', $leftJoinJsonFrom[1]->string);
+        $this->assertEquals("Cat C", $getCategoryFromResult($leftJoinJsonFrom[2]->jsonCol));
+        $this->assertNull($leftJoinJsonFrom[2]->string);
+        $this->assertEquals("Cat D", $getCategoryFromResult($leftJoinJsonFrom[3]->jsonCol));
+        $this->assertNull($leftJoinJsonFrom[3]->string);
+    }
+
+    /** @testdox It should be possible to create a query that will either create a row using a UNIQUE key if its doesnt exist, or increment a value if it does. */
+    public function testOnDuplicateKeyOnPirmaryKey(): void
+    {
+        $this->wpdb->insert('mock_unique', ['email' => 'me@me.com', 'counter' => 10], ['%s','%s', '%d']);
+
+        // We are trying to set the count to, but this exist already.
+        $count = 5;
+
+        $this->queryBuilderProvider()
+            ->table('mock_unique')
+            // If it exists, just increment the current count by the new count.
+            ->onDuplicateKeyUpdate([
+                'email' => 'me@me.com',
+                'counter' => ($this->queryBuilderProvider()->table('mock_unique')->find('me@me.com', 'email')->counter + $count)
+            ])
+            ->insert([
+
+                'email' => 'me@me.com',
+                'counter' => $count
+            ]);
+        $rows = $this->wpdb->get_results("SELECT * FROM mock_unique");
+
+        $this->assertCount(1, $rows);
+        $this->assertEquals('me@me.com', $rows[0]->email);
+        $this->assertEquals('15', $rows[0]->counter);
     }
 }

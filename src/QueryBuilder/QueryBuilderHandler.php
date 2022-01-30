@@ -8,13 +8,14 @@ use Throwable;
 use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
+
 use Pixie\QueryBuilder\Raw;
+
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-
 use function mb_strlen;
 
 class QueryBuilderHandler
@@ -695,7 +696,7 @@ class QueryBuilderHandler
             }
 
             // If no alias passed, but field is for JSON. thrown an exception.
-            if (is_numeric($field) && $this->isJsonExpression($alias)) {
+            if (is_numeric($field) && is_string($alias) && $this->isJsonExpression($alias)) {
                 throw new Exception("An alias must be used if you wish to select from JSON Object", 1);
             }
 
@@ -707,8 +708,6 @@ class QueryBuilderHandler
             $field = $this->addTablePrefix($field);
             $this->addStatement('selects', $field);
         }
-
-
 
         return $this;
     }
@@ -920,7 +919,7 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param string|Raw $key
+     * @param string|Raw|\Closure(QueryBuilderHandler):void $key
      * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
      * @param mixed|null $value
      *
@@ -1457,34 +1456,6 @@ class QueryBuilderHandler
         );
     }
 
-    /**
-     * @param string|Raw $table
-     * @param string|Raw|Closure $key
-     * @param string|null $operator
-     * @param mixed $value
-     * @param string $type
-     *
-     * @return static
-     */
-    public function join($table, $key, ?string $operator = null, $value = null, $type = 'inner')
-    {
-        if (!$key instanceof Closure) {
-            $key = function ($joinBuilder) use ($key, $operator, $value) {
-                $joinBuilder->on($key, $operator, $value);
-            };
-        }
-
-        // Build a new JoinBuilder class, keep it by reference so any changes made
-        // in the closure should reflect here
-        $joinBuilder = $this->container->build(JoinBuilder::class, [$this->connection]);
-        $joinBuilder = &$joinBuilder;
-        // Call the closure with our new joinBuilder object
-        $key($joinBuilder);
-        $table = $this->addTablePrefix($table, false);
-        // Get the criteria only query from the joinBuilder object
-        $this->statements['joins'][] = compact('type', 'table', 'joinBuilder');
-        return $this;
-    }
 
     /**
      * Runs a transaction
@@ -1521,14 +1492,12 @@ class QueryBuilderHandler
 
     /**
      * Handles the transaction call.
-     *
-     * Catches any WP Errors (printed)
+     * Catches any WPDB Errors (printed)
      *
      * @param Closure    $callback
      * @param Transaction $transaction
      *
      * @return void
-     *
      * @throws Exception
      */
     protected function handleTransactionCall(Closure $callback, Transaction $transaction): void
@@ -1547,6 +1516,63 @@ class QueryBuilderHandler
             throw new Exception($output);
         }
     }
+
+    /*************************************************************************/
+    /*************************************************************************/
+    /*************************************************************************/
+    /**                              JOIN JOIN                              **/
+    /**                                 JOIN                                **/
+    /**                              JOIN JOIN                              **/
+    /*************************************************************************/
+    /*************************************************************************/
+    /*************************************************************************/
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw|Closure $key
+     * @param string|null $operator
+     * @param mixed $value
+     * @param string $type
+     *
+     * @return static
+     */
+    public function join($table, $key, ?string $operator = null, $value = null, $type = 'inner')
+    {
+        // Potentialy cast key from JSON
+        if (is_string($key) && $this->isJsonExpression($key)) {
+            $key = $this->jsonParseExtractThenUnquote(
+                $this->getColumnFromJsonExpression($key),
+                $this->getJsonKeysFromExpression($key)
+            );
+        }
+
+        // Potentially cast value from json
+        if (is_string($value) && $this->isJsonExpression($value)) {
+            $value = $this->jsonParseExtractThenUnquote(
+                $this->getColumnFromJsonExpression($value),
+                $this->getJsonKeysFromExpression($value)
+            );
+        }
+
+        if (!$key instanceof Closure) {
+            $key = function ($joinBuilder) use ($key, $operator, $value) {
+                $joinBuilder->on($key, $operator, $value);
+            };
+        }
+
+        // Build a new JoinBuilder class, keep it by reference so any changes made
+        // in the closure should reflect here
+        $joinBuilder = $this->container->build(JoinBuilder::class, [$this->connection]);
+        $joinBuilder = &$joinBuilder;
+        // Call the closure with our new joinBuilder object
+        $key($joinBuilder);
+        $table = $this->addTablePrefix($table, false);
+        // Get the criteria only query from the joinBuilder object
+        $this->statements['joins'][] = compact('type', 'table', 'joinBuilder');
+        return $this;
+    }
+
+
 
     /**
      * @param string|Raw $table
@@ -1629,9 +1655,166 @@ class QueryBuilderHandler
         }
         $baseTable = end($this->statements['tables']);
 
+        // Potentialy cast key from JSON
+        if (is_string($key) && $this->isJsonExpression($key)) {
+            $key = $this->jsonParseExtractThenUnquote(
+                $this->getColumnFromJsonExpression($key),
+                $this->getJsonKeysFromExpression($key)
+            );
+        }
+
         $remoteKey = $table = $this->addTablePrefix("{$table}.{$key}", true);
         $localKey = $table = $this->addTablePrefix("{$baseTable}.{$key}", true);
         return $this->join($table, $remoteKey, '=', $localKey, $type);
+    }
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw $remoteColumn
+     * @param string|Raw|string[]|null $remoteJsonKeys The json key/index to search
+     * @param string $operator
+     * @param string|Raw $localColumn
+     * @param string|Raw|string[]|null $localJsonKeys
+     * @param string $type
+     *
+     * @return static
+     */
+    public function joinJson(
+        $table,
+        $remoteColumn,
+        $remoteJsonKeys,
+        string $operator,
+        $localColumn,
+        $localJsonKeys,
+        $type = 'inner'
+    ): self {
+        // Convert key if json
+        if (null !== $localJsonKeys) {
+            $localColumn = $this->jsonParseExtractThenUnquote($localColumn, $localJsonKeys);
+        }
+
+        // Convert key if json
+        if (null !== $remoteJsonKeys) {
+            $remoteColumn = $this->jsonParseExtractThenUnquote($remoteColumn, $remoteJsonKeys);
+        }
+
+        return $this->join($table, $remoteColumn, $operator, $localColumn, $type);
+    }
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw $remoteColumn
+     * @param string|Raw|string[]|null $remoteJsonKeys The json key/index to search
+     * @param string $operator
+     * @param string|Raw $localColumn
+     * @param string|Raw|string[]|null $localJsonKeys
+     *
+     * @return static
+     */
+    public function leftJoinJson(
+        $table,
+        $remoteColumn,
+        $remoteJsonKeys,
+        string $operator,
+        $localColumn,
+        $localJsonKeys
+    ): self {
+        return $this->joinJson(
+            $table,
+            $remoteColumn,
+            $remoteJsonKeys,
+            $operator,
+            $localColumn,
+            $localJsonKeys,
+            'left'
+        );
+    }
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw $remoteColumn
+     * @param string|Raw|string[]|null $remoteJsonKeys The json key/index to search
+     * @param string $operator
+     * @param string|Raw $localColumn
+     * @param string|Raw|string[]|null $localJsonKeys
+     *
+     * @return static
+     */
+    public function rightJoinJson(
+        $table,
+        $remoteColumn,
+        $remoteJsonKeys,
+        string $operator,
+        $localColumn,
+        $localJsonKeys
+    ): self {
+        return $this->joinJson(
+            $table,
+            $remoteColumn,
+            $remoteJsonKeys,
+            $operator,
+            $localColumn,
+            $localJsonKeys,
+            'right'
+        );
+    }
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw $remoteColumn
+     * @param string|Raw|string[]|null $remoteJsonKeys The json key/index to search
+     * @param string $operator
+     * @param string|Raw $localColumn
+     * @param string|Raw|string[]|null $localJsonKeys
+     *
+     * @return static
+     */
+    public function outerJoinJson(
+        $table,
+        $remoteColumn,
+        $remoteJsonKeys,
+        string $operator,
+        $localColumn,
+        $localJsonKeys
+    ): self {
+        return $this->joinJson(
+            $table,
+            $remoteColumn,
+            $remoteJsonKeys,
+            $operator,
+            $localColumn,
+            $localJsonKeys,
+            'outer'
+        );
+    }
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw $remoteColumn
+     * @param string|Raw|string[]|null $remoteJsonKeys The json key/index to search
+     * @param string $operator
+     * @param string|Raw $localColumn
+     * @param string|Raw|string[]|null $localJsonKeys
+     *
+     * @return static
+     */
+    public function crossJoinJson(
+        $table,
+        $remoteColumn,
+        $remoteJsonKeys,
+        string $operator,
+        $localColumn,
+        $localJsonKeys
+    ): self {
+        return $this->joinJson(
+            $table,
+            $remoteColumn,
+            $remoteJsonKeys,
+            $operator,
+            $localColumn,
+            $localJsonKeys,
+            'cross'
+        );
     }
 
     /**

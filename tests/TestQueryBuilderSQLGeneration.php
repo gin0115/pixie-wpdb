@@ -363,6 +363,34 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM foo WHERE key = 'value' AND (key2 <> 'value2' OR key3 = 'value3')", $builder->getQuery()->getRawSql());
     }
 
+     /** @testdox It should be possible to create a grouped OR where condition */
+    public function testGroupedOrWhere(): void
+    {
+        $builder = $this->queryBuilderProvider()
+            ->table('foo')
+            ->where('key', '=', 'value')
+            ->orWhere(function (QueryBuilderHandler $query) {
+                $query->where('key2', '<>', 'value2');
+                $query->orWhere('key3', '=', 'value3');
+            });
+
+        $this->assertEquals("SELECT * FROM foo WHERE key = 'value' OR (key2 <> 'value2' OR key3 = 'value3')", $builder->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to create a grouped OR where NOT condition */
+    public function testGroupedWhereNot(): void
+    {
+        $builder = $this->queryBuilderProvider()
+            ->table('foo')
+            ->where('key', '=', 'value')
+            ->whereNot(function (QueryBuilderHandler $query) {
+                $query->where('key2', '<>', 'value2')
+                ->orWhere('key3', '=', 'value3');
+            });
+
+        $this->assertEquals("SELECT * FROM foo WHERE key = 'value' AND NOT (key2 <> 'value2' OR key3 = 'value3')", $builder->getQuery()->getRawSql());
+    }
+
     /** @testdox It should be possible to create a query which uses group by (SINGLE) */
     public function testSingleGroupBy(): void
     {
@@ -563,6 +591,62 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM prefix_foo INNER JOIN prefix_bar ON prefix_bar.id != prefix_foo.id OR prefix_bar.baz != prefix_foo.baz", $builder->getQuery()->getRawSql());
     }
 
+    /** @testdox It should be possible to create a query using (INNER) joinJSON for a relationship [JSON HELPER]*/
+    public function testJoinJson(): void
+    {
+        // Single Condition
+        $builder = $this->queryBuilderProvider('prefix_')
+            ->table('foo')
+            ->joinJson('bar', 'foo.id', ['key1', 'key2'], '=', 'bar.id', 'index[2]');
+
+        $this->assertEquals("SELECT * FROM prefix_foo INNER JOIN prefix_bar ON JSON_UNQUOTE(JSON_EXTRACT(prefix_foo.id, \"$.key1.key2\")) = JSON_UNQUOTE(JSON_EXTRACT(prefix_bar.id, \"$.index[2]\"))", $builder->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to create a query using (OUTER) joinJSON for a relationship [JSON HELPER]*/
+    public function testOuterJoinJson(): void
+    {
+        // Single Condition
+        $builder = $this->queryBuilderProvider('prefix_')
+            ->table('foo')
+            ->outerJoinJson('bar', 'foo.id', ['key1', 'key2'], '=', 'bar.id', 'index[2]');
+
+        $this->assertEquals("SELECT * FROM prefix_foo OUTER JOIN prefix_bar ON JSON_UNQUOTE(JSON_EXTRACT(prefix_foo.id, \"$.key1.key2\")) = JSON_UNQUOTE(JSON_EXTRACT(prefix_bar.id, \"$.index[2]\"))", $builder->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to create a query using (RIGHT) joinJSON for a relationship [JSON HELPER]*/
+    public function testRightJoinJson(): void
+    {
+        // Single Condition
+        $builder = $this->queryBuilderProvider('prefix_')
+            ->table('foo')
+            ->rightJoinJson('bar', 'foo.id', ['key1', 'key2'], '=', 'bar.id', 'index[2]');
+
+        $this->assertEquals("SELECT * FROM prefix_foo RIGHT JOIN prefix_bar ON JSON_UNQUOTE(JSON_EXTRACT(prefix_foo.id, \"$.key1.key2\")) = JSON_UNQUOTE(JSON_EXTRACT(prefix_bar.id, \"$.index[2]\"))", $builder->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to create a query using (LEFT) joinJSON for a relationship [JSON HELPER]*/
+    public function testLeftJoinJson(): void
+    {
+        // Single Condition
+        $builder = $this->queryBuilderProvider('prefix_')
+            ->table('foo')
+            ->leftJoinJson('bar', 'foo.id', ['key1', 'key2'], '=', 'bar.id', 'index[2]');
+
+        $this->assertEquals("SELECT * FROM prefix_foo LEFT JOIN prefix_bar ON JSON_UNQUOTE(JSON_EXTRACT(prefix_foo.id, \"$.key1.key2\")) = JSON_UNQUOTE(JSON_EXTRACT(prefix_bar.id, \"$.index[2]\"))", $builder->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to create a query using (CROSS) joinJSON for a relationship [JSON HELPER]*/
+    public function testCrossJoinJson(): void
+    {
+        // Single Condition
+        $builder = $this->queryBuilderProvider('prefix_')
+            ->table('foo')
+            ->crossJoinJson('bar', 'foo.id', ['key1', 'key2'], '=', 'bar.id', 'index[2]');
+
+        $this->assertEquals("SELECT * FROM prefix_foo CROSS JOIN prefix_bar ON JSON_UNQUOTE(JSON_EXTRACT(prefix_foo.id, \"$.key1.key2\")) = JSON_UNQUOTE(JSON_EXTRACT(prefix_bar.id, \"$.index[2]\"))", $builder->getQuery()->getRawSql());
+    }
+
+
     #################################################
     ##             SUB AND RAW QUERIES             ##
     #################################################
@@ -673,6 +757,17 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("INSERT INTO foo (name,description) VALUES ('Sana','Blah')", $this->wpdb->usage_log['get_results'][0]['query']);
         $this->assertEquals("INSERT INTO foo (name,description) VALUES ('Mark','Woo')", $this->wpdb->usage_log['get_results'][1]['query']);
         $this->assertEquals("INSERT INTO foo (name,description) VALUES ('Sam','Boo')", $this->wpdb->usage_log['get_results'][2]['query']);
+    }
+
+    /** @testdox It should be possible to use Raw values for MYSQL function and constant values, which are not wrapped in quotes by WPDB. */
+    public function testInsertRawValue()
+    {
+        $this->queryBuilderProvider()
+            ->table('foo')->insert([
+        'col1' => 'val1',
+        'col2' => new Raw('CURRENT_TIMESTAMP')
+        ]);
+        $this->assertEquals("INSERT INTO foo (col1,col2) VALUES ('val1',CURRENT_TIMESTAMP)", $this->wpdb->usage_log['get_results'][0]['query']);
     }
 
     /** @testdox It should be possible to an Insert which ignores all errors generated by MYSQL */
@@ -1047,5 +1142,52 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $query = $builder()->orderBy(['multi->value->three' => 'DESC', 'multi->value' => 'ASC'])->getQuery()->getRawSql();
         $expected = "SELECT * FROM mock_json ORDER BY JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\")) DESC, JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value\")) ASC";
         $this->assertEquals($expected, $query);
+    }
+
+    /** @testdox It should be possible to use groupby with function calls. */
+    public function testCount_OrderBy_GroupBy_Complex(): void
+    {
+        $sql = $this->queryBuilderProvider()
+            ->table('Customers')
+            ->select(new Raw('COUNT(CustomerID)'), 'Country')
+            ->groupBy('Country')
+            ->orderBy(new Raw('COUNT(CustomerID)'), 'DESC')
+            ->getQuery()->getRawSql();
+
+        $expected = 'SELECT COUNT(CustomerID), Country FROM Customers GROUP BY Country ORDER BY COUNT(CustomerID) DESC';
+        $this->assertSame($expected, $sql);
+    }
+
+    /** @testdox Examples used in WIKI for having(). */
+    public function testHavingExamplesFromWiki(): void
+    {
+        // Using SUM function
+        $sql = $this->queryBuilderProvider()
+            ->table('order_details')
+            ->select(['product', 'SUM(quantity)' => '"Total quantity"'])
+            ->groupBy('product')
+            ->having('SUM(quantity)', '>', 10);
+        $expected = 'SELECT product, SUM(quantity) AS "Total quantity" FROM order_details GROUP BY product HAVING SUM(quantity) > 10';
+        $this->assertSame($expected, $sql->getQuery()->getRawSql());
+
+        // Group by multiple https://stackoverflow.com/questions/14756222/multiple-aggregate-functions-in-having-clause
+        $sql = $this->queryBuilderProvider()
+            ->table('movies')
+            ->select('category_id', 'year_released')
+            ->groupBy('year_released')
+            ->having('category_id', '<', 4)
+            ->having('category_id', '>', 2);
+        $expected = 'SELECT category_id, year_released FROM movies GROUP BY year_released HAVING category_id < 4 AND category_id > 2';
+        $this->assertSame($expected, $sql->getQuery()->getRawSql());
+
+        // Multiple as or Having
+        $sql = $this->queryBuilderProvider()
+            ->table('movies')
+            ->select('category_id', 'year_released')
+            ->groupBy('year_released')
+            ->having('category_id', '<', 4)
+            ->orHaving('category_id', '>', 2);
+        $expected = 'SELECT category_id, year_released FROM movies GROUP BY year_released HAVING category_id < 4 OR category_id > 2';
+        $this->assertSame($expected, $sql->getQuery()->getRawSql());
     }
 }
