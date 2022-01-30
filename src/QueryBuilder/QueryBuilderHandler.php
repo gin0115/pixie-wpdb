@@ -1123,7 +1123,7 @@ class QueryBuilderHandler implements HasConnection
             $key = $this->adapterInstance->parseRaw($key);
         }
 
-        $key = $this->adapterInstance->wrapSanitizer($this->addTablePrefix($key));
+        $key = $this->addTablePrefix($key);
         if ($key instanceof Closure) {
             throw new Exception('Key used for whereNull condition must be a string or raw exrpession.', 1);
         }
