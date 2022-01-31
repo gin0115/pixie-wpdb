@@ -8,7 +8,9 @@ use Throwable;
 use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
+
 use Pixie\HasConnection;
+
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
@@ -1213,13 +1215,15 @@ class QueryBuilderHandler implements HasConnection
      */
     public function join($table, $key, ?string $operator = null, $value = null, $type = 'inner')
     {
-        // Potentialy cast key from JSON
-        if (is_string($key) && $this->jsonHandler->isJsonSelector($key)) {
-            $key = $this->jsonHandler->extractAndUnquoteFromJsonSelector($key);
+        // Potentially cast key from JSON
+        if ($this->jsonHandler->isJsonSelector($key)) {
+            /** @var string $key */
+            $key = $this->jsonHandler->extractAndUnquoteFromJsonSelector($key); /** @phpstan-ignore-line */
         }
 
         // Potentially cast value from json
-        if (is_string($value) && $this->jsonHandler->isJsonSelector($value)) {
+        if ($this->jsonHandler->isJsonSelector($value)) {
+            /** @var string $value */
             $value = $this->jsonHandler->extractAndUnquoteFromJsonSelector($value);
         }
 
@@ -1494,5 +1498,15 @@ class QueryBuilderHandler implements HasConnection
         return null !== $this->fetchMode
             ? $this->fetchMode
             : \OBJECT;
+    }
+
+    /**
+     * Returns an NEW instance of the JSON builder populated with the same connection and hydrator details.
+     *
+     * @return JsonQueryBuilder
+     */
+    public function jsonBuilder(): JsonQueryBuilder
+    {
+        return new JsonQueryBuilder($this->getConnection(), $this->getFetchMode(), $this->hydratorConstructorArgs);
     }
 }

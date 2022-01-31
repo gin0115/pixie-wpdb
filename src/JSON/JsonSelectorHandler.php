@@ -51,7 +51,7 @@ class JsonSelectorHandler implements HasConnection
     */
     public function getColumn(string $expression): string
     {
-        return $this->asJsonSelector($expression)->getColumn();
+        return $this->toJsonSelector($expression)->getColumn();
     }
 
     /**
@@ -63,7 +63,7 @@ class JsonSelectorHandler implements HasConnection
      */
     public function getNodes(string $expression): array
     {
-        return $this->asJsonSelector($expression)->getNodes();
+        return $this->toJsonSelector($expression)->getNodes();
     }
 
     /**
@@ -73,7 +73,7 @@ class JsonSelectorHandler implements HasConnection
      * @return JsonSelector
      * @throws Exception If invalid JSON Selector string passed.
      */
-    public function asJsonSelector(string $expression): JsonSelector
+    public function toJsonSelector(string $expression): JsonSelector
     {
         if (! $this->isJsonSelector($expression)) {
             throw new Exception('JSON expression must contain at least 2 values, the table column and at least 1 node.', 1);

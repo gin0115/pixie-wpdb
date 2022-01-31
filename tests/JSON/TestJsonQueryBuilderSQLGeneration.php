@@ -44,7 +44,7 @@ class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
     {
         $config = $prefix ? ['prefix' => $prefix] : [];
         $connection = new Connection($this->wpdb, $config, $alias);
-        return new jsonQueryBuilder($connection);
+        return new JsonQueryBuilder($connection);
     }
 
        /** @testdox It should be possible to use laravel style JSON selectors for whereJson(), whereNotJson(), orWhereJson(), orWhereNotJson() */

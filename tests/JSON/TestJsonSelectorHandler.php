@@ -55,7 +55,7 @@ class TestJsonSelectorHandler extends WP_UnitTestCase
     public function testAsSelector(): void
     {
         $handler = new JsonSelectorHandler($this->createMock(Connection::class));
-        $selector = $handler->asJsonSelector('column->node1->node2');
+        $selector = $handler->toJsonSelector('column->node1->node2');
         $this->assertEquals('column', $selector->getColumn());
         $this->assertEquals(['node1','node2'], $selector->getNodes());
     }

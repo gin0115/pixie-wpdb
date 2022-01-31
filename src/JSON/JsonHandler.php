@@ -50,7 +50,7 @@ class JsonHandler
      */
     public function extractAndUnquoteFromJsonSelector(string $selector): string
     {
-        $selector = $this->jsonSelectorHandler()->asJsonSelector($selector);
+        $selector = $this->jsonSelectorHandler()->toJsonSelector($selector);
         return $this->jsonExpressionFactory()->extractAndUnquote(
             $selector->getColumn(),
             $selector->getNodes()

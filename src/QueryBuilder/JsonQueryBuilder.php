@@ -2,7 +2,7 @@
 
 namespace Pixie\QueryBuilder;
 
-class jsonQueryBuilder extends QueryBuilderHandler
+class JsonQueryBuilder extends QueryBuilderHandler
 {
     /**
     * @param string|Raw $key The database column which holds the JSON value
