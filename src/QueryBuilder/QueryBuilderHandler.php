@@ -9,17 +9,26 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use Pixie\QueryBuilder\Raw;
+use Pixie\HasConnection;
 
+use Pixie\JSON\JsonHandler;
+use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
+use Pixie\JSON\JsonSelectorHandler;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
+use Pixie\QueryBuilder\TablePrefixer;
 use function mb_strlen;
 
-class QueryBuilderHandler
+class QueryBuilderHandler implements HasConnection
 {
+    /**
+     * @method add
+     */
+    use TablePrefixer;
+
     /**
      * @var \Viocon\Container
      */
@@ -71,6 +80,13 @@ class QueryBuilderHandler
     protected $hydratorConstructorArgs;
 
     /**
+     * Handler for Json Selectors
+     *
+     * @var JsonHandler
+     */
+    protected $jsonHandler;
+
+    /**
      * @param \Pixie\Connection|null $connection
      * @param string $fetchMode
      * @param mixed[] $hydratorConstructorArgs
@@ -102,6 +118,9 @@ class QueryBuilderHandler
             WPDBAdapter::class,
             [$this->connection]
         );
+
+        // Setup JSON Selector handler.
+        $this->jsonHandler = new JsonHandler($connection);
     }
 
     /**
@@ -113,9 +132,21 @@ class QueryBuilderHandler
      */
     protected function setAdapterConfig(array $adapterConfig): void
     {
-        if (isset($adapterConfig['prefix'])) {
-            $this->tablePrefix = $adapterConfig['prefix'];
+        if (isset($adapterConfig[Connection::PREFIX])) {
+            $this->tablePrefix = $adapterConfig[Connection::PREFIX];
         }
+    }
+
+    /**
+     * Fetch query results as object of specified type
+     *
+     * @param string $className
+     * @param array<int, mixed> $constructorArgs
+     * @return static
+     */
+    public function asObject($className, $constructorArgs = array()): self
+    {
+        return $this->setFetchMode($className, $constructorArgs);
     }
 
     /**
@@ -640,7 +671,7 @@ class QueryBuilderHandler
      *
      * @throws Exception
      */
-    public function table(...$tables): QueryBuilderHandler
+    public function table(...$tables)
     {
         $instance =  $this->constructCurrentBuilderClass($this->connection);
         $this->setFetchMode($this->getFetchMode(), $this->hydratorConstructorArgs);
@@ -676,15 +707,12 @@ class QueryBuilderHandler
 
         foreach ($fields as $field => $alias) {
             // If we have a JSON expression
-            if ($this->isJsonExpression($field)) {
-                // Add using JSON select.
-                $this->castToJsonSelect($field, $alias);
-                unset($fields[$field]);
-                continue;
+            if ($this->jsonHandler->isJsonSelector($field)) {
+                $field = $this->jsonHandler->extractAndUnquoteFromJsonSelector($field);
             }
 
             // If no alias passed, but field is for JSON. thrown an exception.
-            if (is_numeric($field) && $this->isJsonExpression($alias)) {
+            if (is_numeric($field) && is_string($alias) && $this->jsonHandler->isJsonSelector($alias)) {
                 throw new Exception("An alias must be used if you wish to select from JSON Object", 1);
             }
 
@@ -697,36 +725,7 @@ class QueryBuilderHandler
             $this->addStatement('selects', $field);
         }
 
-
-
         return $this;
-    }
-
-    /**
-     * Checks if the passed expression is for JSON
-     * this->denotes->json
-     *
-     * @param string $expression
-     * @return bool
-     */
-    protected function isJsonExpression(string $expression): bool
-    {
-        return 2 <= count(explode('->', $expression));
-    }
-
-    /**
-     * Casts a select to JSON based on -> in column name.
-     *
-     * @param string $keys
-     * @param string|null $alias
-     * @return self
-     */
-    public function castToJsonSelect(string $keys, ?string $alias): self
-    {
-        $parts = explode('->', $keys);
-        $field = $parts[0];
-        unset($parts[0]);
-        return $this->selectJson($field, $parts, $alias);
     }
 
     /**
@@ -756,7 +755,7 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param string|array<string|Raw, mixed> $fields
+     * @param string|array<string|int, mixed> $fields
      * @param string          $defaultDirection
      *
      * @return static
@@ -774,6 +773,11 @@ class QueryBuilderHandler
                 $field = $value;
                 $type  = $defaultDirection;
             }
+
+            if ($this->jsonHandler->isJsonSelector($field)) {
+                $field = $this->jsonHandler->extractAndUnquoteFromJsonSelector($field);
+            }
+
             if (!$field instanceof Raw) {
                 $field = $this->addTablePrefix($field);
             }
@@ -781,6 +785,18 @@ class QueryBuilderHandler
         }
 
         return $this;
+    }
+
+    /**
+     * @param string|Raw $key The database column which holds the JSON value
+     * @param string|Raw|string[] $jsonKey The json key/index to search
+     * @param string $defaultDirection
+     * @return static
+     */
+    public function orderByJson($key, $jsonKey, string $defaultDirection = 'ASC'): self
+    {
+        $key = $this->jsonHandler->jsonExpressionFactory()->extractAndUnquote($key, $jsonKey);
+        return $this->orderBy($key, $defaultDirection);
     }
 
     /**
@@ -854,7 +870,7 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param string|Raw $key
+     * @param string|Raw|\Closure(QueryBuilderHandler):void $key
      * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
      * @param mixed|null $value
      *
@@ -1109,7 +1125,7 @@ class QueryBuilderHandler
             $key = $this->adapterInstance->parseRaw($key);
         }
 
-        $key = $this->adapterInstance->wrapSanitizer($this->addTablePrefix($key));
+        $key = $this->addTablePrefix($key);
         if ($key instanceof Closure) {
             throw new Exception('Key used for whereNull condition must be a string or raw exrpession.', 1);
         }
@@ -1117,72 +1133,6 @@ class QueryBuilderHandler
         return $this->{$operator . 'Where'}($this->raw("{$key} IS{$prefix} NULL"));
     }
 
-    /**
-    * @param string|Raw $key The database column which holds the JSON value
-    * @param string|Raw|string[] $jsonKey The json key/index to search
-    * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
-    * @param mixed|null $value
-    * @return static
-    */
-    public function whereJson($key, $jsonKey, $operator = null, $value = null): self
-    {
-        // If two params are given then assume operator is =
-        if (3 === func_num_args()) {
-            $value    = $operator;
-            $operator = '=';
-        }
-
-        // Handle potential raw values.
-        if ($key instanceof Raw) {
-            $key = $this->adapterInstance->parseRaw($key);
-        }
-        if ($jsonKey instanceof Raw) {
-            $jsonKey = $this->adapterInstance->parseRaw($jsonKey);
-        }
-
-        // If deeply nested jsonKey.
-        if (is_array($jsonKey)) {
-            $jsonKey = \implode('.', $jsonKey);
-        }
-
-        // Add any possible prefixes to the key
-        $key = $this->addTablePrefix($key, true);
-
-        return  $this->where(
-            new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\"))"),
-            $operator,
-            $value
-        );
-    }
-
-    /**
-     * @param string|Raw $table
-     * @param string|Raw|Closure $key
-     * @param string|null $operator
-     * @param mixed $value
-     * @param string $type
-     *
-     * @return static
-     */
-    public function join($table, $key, ?string $operator = null, $value = null, $type = 'inner')
-    {
-        if (!$key instanceof Closure) {
-            $key = function ($joinBuilder) use ($key, $operator, $value) {
-                $joinBuilder->on($key, $operator, $value);
-            };
-        }
-
-        // Build a new JoinBuilder class, keep it by reference so any changes made
-        // in the closure should reflect here
-        $joinBuilder = $this->container->build(JoinBuilder::class, [$this->connection]);
-        $joinBuilder = &$joinBuilder;
-        // Call the closure with our new joinBuilder object
-        $key($joinBuilder);
-        $table = $this->addTablePrefix($table, false);
-        // Get the criteria only query from the joinBuilder object
-        $this->statements['joins'][] = compact('type', 'table', 'joinBuilder');
-        return $this;
-    }
 
     /**
      * Runs a transaction
@@ -1219,14 +1169,12 @@ class QueryBuilderHandler
 
     /**
      * Handles the transaction call.
-     *
-     * Catches any WP Errors (printed)
+     * Catches any WPDB Errors (printed)
      *
      * @param Closure    $callback
      * @param Transaction $transaction
      *
      * @return void
-     *
      * @throws Exception
      */
     protected function handleTransactionCall(Closure $callback, Transaction $transaction): void
@@ -1245,6 +1193,59 @@ class QueryBuilderHandler
             throw new Exception($output);
         }
     }
+
+    /*************************************************************************/
+    /*************************************************************************/
+    /*************************************************************************/
+    /**                              JOIN JOIN                              **/
+    /**                                 JOIN                                **/
+    /**                              JOIN JOIN                              **/
+    /*************************************************************************/
+    /*************************************************************************/
+    /*************************************************************************/
+
+    /**
+     * @param string|Raw $table
+     * @param string|Raw|Closure $key
+     * @param string|null $operator
+     * @param mixed $value
+     * @param string $type
+     *
+     * @return static
+     */
+    public function join($table, $key, ?string $operator = null, $value = null, $type = 'inner')
+    {
+        // Potentially cast key from JSON
+        if ($this->jsonHandler->isJsonSelector($key)) {
+            /** @var string $key */
+            $key = $this->jsonHandler->extractAndUnquoteFromJsonSelector($key); /** @phpstan-ignore-line */
+        }
+
+        // Potentially cast value from json
+        if ($this->jsonHandler->isJsonSelector($value)) {
+            /** @var string $value */
+            $value = $this->jsonHandler->extractAndUnquoteFromJsonSelector($value);
+        }
+
+        if (!$key instanceof Closure) {
+            $key = function ($joinBuilder) use ($key, $operator, $value) {
+                $joinBuilder->on($key, $operator, $value);
+            };
+        }
+
+        // Build a new JoinBuilder class, keep it by reference so any changes made
+        // in the closure should reflect here
+        $joinBuilder = $this->container->build(JoinBuilder::class, [$this->connection]);
+        $joinBuilder = &$joinBuilder;
+        // Call the closure with our new joinBuilder object
+        $key($joinBuilder);
+        $table = $this->addTablePrefix($table, false);
+        // Get the criteria only query from the joinBuilder object
+        $this->statements['joins'][] = compact('type', 'table', 'joinBuilder');
+        return $this;
+    }
+
+
 
     /**
      * @param string|Raw $table
@@ -1327,6 +1328,11 @@ class QueryBuilderHandler
         }
         $baseTable = end($this->statements['tables']);
 
+        // Potentialy cast key from JSON
+        if ($this->jsonHandler->isJsonSelector($key)) {
+            $key = $this->jsonHandler->extractAndUnquoteFromJsonSelector($key);
+        }
+
         $remoteKey = $table = $this->addTablePrefix("{$table}.{$key}", true);
         $localKey = $table = $this->addTablePrefix("{$baseTable}.{$key}", true);
         return $this->join($table, $remoteKey, '=', $localKey, $type);
@@ -1385,72 +1391,20 @@ class QueryBuilderHandler
      */
     protected function whereHandler($key, $operator = null, $value = null, $joiner = 'AND')
     {
+        $key = $this->addTablePrefix($key);
         if ($key instanceof Raw) {
             $key = $this->adapterInstance->parseRaw($key);
         }
-        $key                          = $this->addTablePrefix($key);
+
+        if ($this->jsonHandler->isJsonSelector($key)) {
+            $key = $this->jsonHandler->extractAndUnquoteFromJsonSelector($key);
+        }
+
         $this->statements['wheres'][] = compact('key', 'operator', 'value', 'joiner');
         return $this;
     }
 
-    /**
-     * Add table prefix (if given) on given string.
-     *
-     * @param array<string|int, string|int|float|bool|Raw|Closure>|string|int|float|bool|Raw|Closure     $values
-     * @param bool $tableFieldMix If we have mixes of field and table names with a "."
-     *
-     * @return mixed|mixed[]
-     */
-    public function addTablePrefix($values, bool $tableFieldMix = true)
-    {
-        if (is_null($this->tablePrefix)) {
-            return $values;
-        }
 
-        // $value will be an array and we will add prefix to all table names
-
-        // If supplied value is not an array then make it one
-        $single = false;
-        if (!is_array($values)) {
-            $values = [$values];
-            // We had single value, so should return a single value
-            $single = true;
-        }
-
-        $return = [];
-
-        foreach ($values as $key => $value) {
-            // It's a raw query, just add it to our return array and continue next
-            if ($value instanceof Raw || $value instanceof Closure) {
-                $return[$key] = $value;
-                continue;
-            }
-
-            // If key is not integer, it is likely a alias mapping,
-            // so we need to change prefix target
-            $target = &$value;
-            if (!is_int($key)) {
-                $target = &$key;
-            }
-
-            // Do prefix if the target is an expression or function.
-            if (
-                !$tableFieldMix
-                || (
-                    is_string($target) // Must be a string
-                    && (bool) preg_match('/^[A-Za-z0-9_.]+$/', $target) // Can only contain letters, numbers, underscore and full stops
-                    && 1 === \substr_count($target, '.') // Contains a single full stop ONLY.
-                )
-            ) {
-                $target = $this->tablePrefix . $target;
-            }
-
-            $return[$key] = $value;
-        }
-
-        // If we had single value then we should return a single value (end value of the array)
-        return true === $single ? end($return) : $return;
-    }
 
     /**
      * @param string $key
@@ -1546,34 +1500,13 @@ class QueryBuilderHandler
             : \OBJECT;
     }
 
-    // JSON
-
     /**
-     * @param string|Raw $key The database column which holds the JSON value
-     * @param string|Raw|string[] $jsonKey The json key/index to search
-     * @param string|null $alias The alias used to define the value in results, if not defined will use json_{$jsonKey}
-     * @return static
+     * Returns an NEW instance of the JSON builder populated with the same connection and hydrator details.
+     *
+     * @return JsonQueryBuilder
      */
-    public function selectJson($key, $jsonKey, ?string $alias = null): self
+    public function jsonBuilder(): JsonQueryBuilder
     {
-        // Handle potential raw values.
-        if ($key instanceof Raw) {
-            $key = $this->adapterInstance->parseRaw($key);
-        }
-        if ($jsonKey instanceof Raw) {
-            $jsonKey = $this->adapterInstance->parseRaw($jsonKey);
-        }
-
-        // If deeply nested jsonKey.
-        if (is_array($jsonKey)) {
-            $jsonKey = \implode('.', $jsonKey);
-        }
-
-        // Add any possible prefixes to the key
-        $key = $this->addTablePrefix($key, true);
-
-        $alias = null === $alias ? "json_{$jsonKey}" : $alias;
-        return  $this->select(new Raw("JSON_UNQUOTE(JSON_EXTRACT({$key}, \"$.{$jsonKey}\")) as {$alias}"));
+        return new JsonQueryBuilder($this->getConnection(), $this->getFetchMode(), $this->hydratorConstructorArgs);
     }
 }
-// 'JSON_EXTRACT(json, "$.id") as jsonID'

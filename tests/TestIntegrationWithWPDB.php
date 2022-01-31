@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Pixie\Tests;
 
+use DateTime;
 use stdClass;
 use Exception;
 use Pixie\Binding;
@@ -83,11 +84,21 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
          )
          COLLATE {$this->wpdb->collate}";
 
+        $sqlUnique = "CREATE TABLE mock_unique (
+         id mediumint(8) unsigned NOT NULL auto_increment ,
+         email varchar(200) NULL,
+         counter int NULL,
+         PRIMARY KEY  (id),
+         UNIQUE KEY email  (email)
+         )
+         COLLATE {$this->wpdb->collate}";
+
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sqlFoo);
         dbDelta($sqlBar);
         dbDelta($sqlJson);
         dbDelta($sqlDates);
+        dbDelta($sqlUnique);
 
         static::$createdTables = true;
     }
@@ -458,7 +469,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         $rows = $this->queryBuilderProvider()
             ->table('mock_foo')
-            ->setFetchMode(ModelWithMagicSetter::class)
+            ->asObject(ModelWithMagicSetter::class)
             ->get();
 
         $this->assertInstanceOf(ModelWithMagicSetter::class, $rows[0]);
@@ -674,10 +685,20 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         $resultC = $this->queryBuilderProvider('mock_')
             ->table('dates')
-            ->whereDate('datetime', date("Y-m-d", 1665425943)) // strtotime('2022-10-10 18:19:03')
+            ->whereDate('datetime', date("Y-m-d", 1665360001)) // strtotime('2022-10-10 18:19:03')
             ->get();
         $this->assertCount(1, $resultC);
         $this->assertEquals('2022-10-10', $resultC[0]->date);
+
+        $resultD = $this->queryBuilderProvider('mock_')
+            ->table('dates')
+            ->whereDate('date', '>', '2019-03-12')
+            ->get();
+
+        $expected = ["2022-10-10", "2020-03-12"];
+        $this->assertCount(2, $resultD);
+        $this->assertTrue(in_array($resultD[0]->date, $expected));
+        $this->assertTrue(in_array($resultD[1]->date, $expected));
     }
 
 
@@ -686,117 +707,72 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
     /*         JSON FUNCTIONALITY         */
     /**************************************/
 
-    /** @testdox It should be possible to select values from inside a JSON object, held in a JSON column type. */
-    public function testCanSelectFromWithinJSONColumn1GenDeep()
+   /** @testdox It should be possible to do joins from and to JSON object values. [USING ARROW SELECTORS] */
+    public function testJoinOnJsonWithSelectors(): void
     {
-         $this->wpdb->insert('mock_json', ['string' => 'a', 'jsonCol' => \json_encode((object)['id' => 24748, 'name' => 'Sam'])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat A', 'number' => 1]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'B', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat B', 'number' => 2]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'C', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat C', 'number' => 3]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'D', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat D', 'number' => 4]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_foo', ['string' => 'Cat A', 'number' => 1], ['%s', '%d']);
+        $this->wpdb->insert('mock_foo', ['string' => 'Cat B', 'number' => 2], ['%s', '%d']);
 
-        $asRaw = $this->queryBuilderProvider('mock_')
-            ->table('json')
-            ->select('string', new Raw('JSON_UNQUOTE(JSON_EXTRACT(jsonCol, "$.id")) as jsonID'))
+        $joinJSONTo = $this->queryBuilderProvider()
+            ->table('mock_foo')
+            ->join('mock_json', 'mock_foo.string', '=', 'mock_json.jsonCol->data->category')
             ->get();
 
-        $asSelectJson = $this->queryBuilderProvider('mock_')
-            ->table('json')
-            ->select('string')
-            ->selectJson('jsonCol', "id", 'jsonID')
+        // Easily get the defined cat from the JSON string.
+        $getCategoryFromResult = function ($result) {
+            $decoded = \json_decode($result);
+            return $decoded->data->category;
+        };
+
+        $this->assertEquals("Cat A", $getCategoryFromResult($joinJSONTo[0]->jsonCol));
+        $this->assertEquals('A', $joinJSONTo[0]->string);
+        $this->assertEquals("Cat B", $getCategoryFromResult($joinJSONTo[1]->jsonCol));
+        $this->assertEquals('B', $joinJSONTo[1]->string);
+
+        $leftJoinJsonFrom = $this->queryBuilderProvider()
+            ->table('mock_json')
+            ->leftJoin('mock_foo', 'mock_json.jsonCol->data->number', '=', 'mock_foo.number')
             ->get();
 
-        $this->assertEquals($asRaw[0]->string, $asSelectJson[0]->string);
-        $this->assertEquals($asRaw[0]->jsonID, $asSelectJson[0]->jsonID);
-
-        // Without Alias
-        $jsonWoutAlias = $this->queryBuilderProvider('mock_')
-            ->table('json')
-            ->select('string')
-            ->selectJson('jsonCol', "id")
-            ->get();
-
-        $this->assertEquals('a', $jsonWoutAlias[0]->string);
-        $this->assertEquals('24748', $jsonWoutAlias[0]->json_id);
+        $this->assertEquals("Cat A", $getCategoryFromResult($leftJoinJsonFrom[0]->jsonCol));
+        $this->assertEquals('Cat A', $leftJoinJsonFrom[0]->string);
+        $this->assertEquals("Cat B", $getCategoryFromResult($leftJoinJsonFrom[1]->jsonCol));
+        $this->assertEquals('Cat B', $leftJoinJsonFrom[1]->string);
+        $this->assertEquals("Cat C", $getCategoryFromResult($leftJoinJsonFrom[2]->jsonCol));
+        $this->assertNull($leftJoinJsonFrom[2]->string);
+        $this->assertEquals("Cat D", $getCategoryFromResult($leftJoinJsonFrom[3]->jsonCol));
+        $this->assertNull($leftJoinJsonFrom[3]->string);
     }
 
-    /** @testdox It should be possible  */
-    public function testCanSelectFromWithinJSONColumn3GenDeep(): void
+    /** @testdox It should be possible to create a query that will either create a row using a UNIQUE key if its doesnt exist, or increment a value if it does. */
+    public function testOnDuplicateKeyOnPirmaryKey(): void
     {
-        $jsonData = (object)[
-            'key' => 'apple',
-            'data' => (object) [
-                'array' => [1,2,3,4],
-                'object' => (object) [
-                    'obj1' => 'val1',
-                    'obj2' => 'val2',
-                ]
-            ]
-        ];
-        $this->wpdb->insert('mock_json', ['string' => 'a', 'jsonCol' => \json_encode($jsonData)], ['%s', '%s']);
+        $this->wpdb->insert('mock_unique', ['email' => 'me@me.com', 'counter' => 10], ['%s','%s', '%d']);
 
-        // Extract a value from an object
-        $objectVal = $this->queryBuilderProvider('mock_')
-            ->table('json')
-            ->select('string')
-            ->selectJson('jsonCol', ['data', 'object', 'obj1'], 'jsonVALUE')
-            ->first();
+        // We are trying to set the count to, but this exist already.
+        $count = 5;
 
-        $this->assertNotNull($objectVal);
-        $this->assertEquals('a', $objectVal->string);
-        $this->assertEquals('val1', $objectVal->jsonVALUE);
+        $this->queryBuilderProvider()
+            ->table('mock_unique')
+            // If it exists, just increment the current count by the new count.
+            ->onDuplicateKeyUpdate([
+                'email' => 'me@me.com',
+                'counter' => ($this->queryBuilderProvider()->table('mock_unique')->find('me@me.com', 'email')->counter + $count)
+            ])
+            ->insert([
 
-        // Extract an entire array.
-        $arrayValues = $this->queryBuilderProvider('mock_')
-            ->table('json')
-            ->select('string')
-            ->selectJson('jsonCol', ['data', 'array'], 'jsonVALUE')
-            ->first();
+                'email' => 'me@me.com',
+                'counter' => $count
+            ]);
+        $rows = $this->wpdb->get_results("SELECT * FROM mock_unique");
 
-        $this->assertNotNull($arrayValues);
-        $this->assertEquals('a', $arrayValues->string);
-        $this->assertEquals('[1, 2, 3, 4]', $arrayValues->jsonVALUE);
-        $this->assertCount(4, \json_decode($arrayValues->jsonVALUE));
-        $this->assertContains('1', \json_decode($arrayValues->jsonVALUE));
-        $this->assertContains('2', \json_decode($arrayValues->jsonVALUE));
-        $this->assertContains('3', \json_decode($arrayValues->jsonVALUE));
-        $this->assertContains('4', \json_decode($arrayValues->jsonVALUE));
-
-        // Pluck a single item from an array using its key.
-        $pluckArrayValue = $this->queryBuilderProvider('mock_')
-            ->table('json')
-            ->select('string')
-            ->selectJson('json.jsonCol', ['data', 'array[1]'], 'jsonVALUE')
-            ->first();
-
-        $this->assertNotNull($pluckArrayValue);
-        $this->assertEquals('a', $pluckArrayValue->string);
-        $this->assertEquals('2', $pluckArrayValue->jsonVALUE);
+        $this->assertCount(1, $rows);
+        $this->assertEquals('me@me.com', $rows[0]->email);
+        $this->assertEquals('15', $rows[0]->counter);
     }
 
-    /** @testdox It should be possible to do a where query that checks a value inside a json value. Tests only 1 level deep */
-    public function testJsonWhere1GenDeep()
-    {
-        $this->wpdb->insert('mock_json', ['string' => 'a', 'jsonCol' => \json_encode((object)['id' => 24748, 'thing' => 'foo'])], ['%s', '%s']);
-        $this->wpdb->insert('mock_json', ['string' => 'b', 'jsonCol' => \json_encode((object)['id' => 78945, 'thing' => 'foo'])], ['%s', '%s']);
-        $this->wpdb->insert('mock_json', ['string' => 'b', 'jsonCol' => \json_encode((object)['id' => 78941, 'thing' => 'bar'])], ['%s', '%s']);
-
-        $whereThingFooRaw = $this->queryBuilderProvider('mock_')
-            ->table('json')
-            ->where(new Raw('JSON_EXTRACT(jsonCol,"$.thing")'), '=', 'foo')
-            ->get();
-
-        $whereThingFoo = $this->queryBuilderProvider('mock_')
-            ->table('json')
-            ->whereJson('jsonCol', 'thing', 'foo') // Assume its '='
-            ->get();
-
-        $this->assertEquals($whereThingFooRaw[0]->string, $whereThingFoo[0]->string);
-        $this->assertEquals($whereThingFooRaw[0]->jsonCol, $whereThingFoo[0]->jsonCol);
-
-        // Check with prefix
-        $whereThingFooPrefixed = $this->queryBuilderProvider('mock_')
-            ->table('json')
-            ->whereJson('json.jsonCol', 'thing', '<>', 'bar') // NOT BAR
-            ->get();
-
-        $this->assertEquals($whereThingFooPrefixed[0]->string, $whereThingFoo[0]->string);
-        $this->assertEquals($whereThingFooPrefixed[0]->jsonCol, $whereThingFoo[0]->jsonCol);
-    }
 }

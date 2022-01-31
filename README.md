@@ -12,13 +12,18 @@ A lightweight, expressive, query builder for WordPRess it can also be referred a
 
 > **Pixie WPDB** is an adaption of `pixie` originally written by [usmanhalalit](https://github.com/usmanhalalit). [Pixie is not longer under active development ](https://github.com/usmanhalalit/pixie)
 
+## Requirements
+ - PHP 7.1+
+ - MySql 5.7+ or MariaDB 10.2+
+
+> Tested all combinations of PHP 7.1, 7.2, 7.3, 7.4 with MySql 5.7 & MariaBD 10.2, 10.3, 10.4, 10.5, 10.6, 10.7
+
 
 It has some advanced features like:
 
  - Query Events
  - Nested Criteria
  - Sub Queries
- - Nested Queries
  - Multiple Database Connections.
 
 Additional features added to this version of Pixie
@@ -113,7 +118,7 @@ Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
        - [Where Month](#where-month)
        - [Where Year](#where-year)
     - [Grouped Where](#grouped-where)    
-    - [Where JSON]()    
+    - [Where JSON](#where-with-json-support)    
        - [Where IN JSON]()     
        - [Where BETWEEN JSON]()     
  - [Group By and Order By](#group-by-and-order-by)
@@ -367,7 +372,52 @@ QB::table('my_table')
     ->whereYear('date_column', '=', '2015'); // All where year is 2015 in any date formats
 ```
 
-#### Grouped Where
+### Where with JSON support
+
+These methods allow the querying of JSON objects, held within rows in your database. These methods mostly make use of `JSON_UNQUOTE()` and `JSON_EXTRACT()`. If you need to use other JSON methods, please consider writing your where condition with a Raw instance. See the `tests/TestIntegrationWithWPDB::testCanSelectFromWithinJSONColumn1GenDeep()` test for an example.
+
+### whereJSON
+```php
+// Example of data in Database
+[ "id" => 1, "jsonColumn" => '{ "objlv1":{ "objlv2Array":["a","b","c","d"] } }' ],
+[ "id" => 2, "jsonColumn" => '{ "objlv1":{ "objlv2Array":["e","f","g","h"] } }' ],
+[ "id" => 3, "jsonColumn" => '{ "objlv1":{ "objlv2Array":["r","a","c","i"] } }' ],
+
+// Using the helper method
+QB::table('my_table')
+    ->whereJson('jsonColumn', ['objlv1','objlv2Array[2]'], '=', 'c')
+    ->get();
+
+// Using Laravel style selectors.
+QB::table('my_table')
+    ->where('jsonColumn->objlv1->objlv2Array[2]', '=', 'c')
+    ->get();
+```
+This would return IDs 1 & 3, as both have C under index [2] of `objlv1.objlv2Array`, you can traverse as deep as you need.
+
+> Also include `orWhereJson()`, `whereNotJson()` & `orWhereNotJson()`, please see the standard version of these methods above for more details
+
+### WhereIn
+```php
+// Example of data in Database
+[ "id" => 1, "jsonColumn" => '{ "objlv1":{ "objlv2":"d" } }' ],
+[ "id" => 2, "jsonColumn" => '{ "objlv1":{ "objlv2":"h" } }' ],
+[ "id" => 3, "jsonColumn" => '{ "objlv1":{ "objlv2":"i" } }' ],
+
+// Using the helper method
+QB::table('my_table')
+    ->whereInJson('jsonColumn', ['objlv1','objlv2'], ['d', 'e', 'f','i'])
+    ->get();
+
+// Using Laravel style selectors.
+QB::table('my_table')
+    ->where('jsonColumn->objlv1->objlv2', ['d', 'e', 'f','i'])
+    ->get();
+```
+This would return IDs 1 & 3, as both contain either **d**,e,f,**i** of `objlv1.objlv2`, like with where you can traverse as deep as you need.
+> Also include `orWhereInJson()`, `whereNotInJson()` & `orWhereNotInJson()`, please see the standard version of these methods above for more details
+
+### Grouped Where
 Sometimes queries get complex, where you need grouped criteria, for example `WHERE age = 10 and (name like '%usman%' or description LIKE '%usman%')`.
 
 Pixie allows you to do so, you can nest as many closures as you need, like below.

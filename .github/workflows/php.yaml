@@ -11,12 +11,13 @@ jobs:
     strategy:
       matrix:
         operating-system: [ubuntu-latest]
-        php-versions: ['7.1', '7.2', '7.3', '7.4']
+        php-versions: ['7.1', '7.2', '7.3', '7.4', '8.0']
+        mysql-versions: ['mysql:5.7', 'mariadb:10.7','mariadb:10.6','mariadb:10.5','mariadb:10.4','mariadb:10.3','mariadb:10.2']
     runs-on: ${{ matrix.operating-system }}
     services:
       # Setup MYSQL
       mysql-service:
-        image: mysql:5.7
+        image: ${{ matrix.mysql-versions }}
         env:
           MYSQL_ROOT_PASSWORD: 'crab'
           MYSQL_DATABASE: pc_core_tests
@@ -27,6 +28,7 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=3
+  
     steps:
       - name: Checkout
         uses: actions/checkout@v2

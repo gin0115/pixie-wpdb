@@ -547,6 +547,13 @@ class WPDBAdapter
                         // Maybe cast the values bindings.
                         $value[0] = $this->getValue($value[0]);
                         $value[1] = $this->getValue($value[1]);
+
+                        // Parse any raws.
+                        $value = array_map(function ($value) {
+                            return $value instanceof Raw
+                                ? $this->parseRaw($value)
+                                : $value;
+                        }, $value);
                         break;
                     default:
                         $valuePlaceholder = '';
