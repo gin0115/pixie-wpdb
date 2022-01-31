@@ -39,7 +39,7 @@ class JsonSelectorHandler implements HasConnection
     public function isJsonSelector($expression): bool
     {
         return is_string($expression)
-        && 2 <= count(explode('->', $expression));
+        && 2 <= count(array_diff(explode('->', $expression), array("")));
     }
 
     /**
@@ -76,11 +76,11 @@ class JsonSelectorHandler implements HasConnection
     public function asJsonSelector(string $expression): JsonSelector
     {
         if (! $this->isJsonSelector($expression)) {
-            throw new Exception('JSON expression must contain at least 2 values, the table column and JSON key.', 1);
+            throw new Exception('JSON expression must contain at least 2 values, the table column and at least 1 node.', 1);
         }
 
         /** @var string[] Check done above. */
-        $parts = explode('->', $expression);
+        $parts = array_diff(explode('->', $expression), array(""));
 
         $column = array_shift($parts);
         $nodes = $parts;

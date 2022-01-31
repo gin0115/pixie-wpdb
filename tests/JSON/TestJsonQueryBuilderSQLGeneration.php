@@ -131,7 +131,6 @@ class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
         }
     }
 
-
     /** @testdox It should be possible to create a query using (INNER) joinJSON for a relationship [JSON HELPER]*/
     public function testJoinJson(): void
     {
