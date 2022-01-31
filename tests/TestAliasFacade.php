@@ -20,7 +20,12 @@ use Pixie\QueryBuilder\QueryBuilderHandler;
 class TestAliasFacade extends WP_UnitTestCase
 {
 
-    /** @testdox It should be possible to use the AliasFacade to call query builder methods using static methods and have the builder instance created for the first call. */
+    /**
+     * @testdox It should be possible to use the AliasFacade to call query builder methods using static methods and have the builder instance created for the first call.
+     * @runInSeparateProcess Run in own process due to static property.
+     * @preserveGlobalState disabled
+    */
+
     public function testInstanceOfQueryBuilderShouldBeCreatedIfNotAlreadyDefined(): void
     {
         $connection = new Connection(new Logable_WPDB());

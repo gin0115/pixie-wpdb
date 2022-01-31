@@ -38,7 +38,11 @@ class TestConnection extends WP_UnitTestCase
         $this->assertSame($wpdb, $connection->getDbInstance());
     }
 
-    /** @testdox It should be possible to create a connection and be able to recall the first instance with a static method. */
+    /**
+     * @testdox It should be possible to create a connection and be able to recall the first instance with a static method.
+     * @runInSeparateProcess Run in own process due to static property.
+     * @preserveGlobalState disabled
+    */
     public function testCachesFirstInstance(): void
     {
         // Initial Connection
