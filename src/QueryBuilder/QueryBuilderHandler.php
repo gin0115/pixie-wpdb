@@ -9,8 +9,9 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use Pixie\HasConnection;
+use function mb_strlen;
 
+use Pixie\HasConnection;
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
@@ -20,7 +21,6 @@ use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
 use Pixie\QueryBuilder\TablePrefixer;
-use function mb_strlen;
 
 class QueryBuilderHandler implements HasConnection
 {
@@ -1376,7 +1376,7 @@ class QueryBuilderHandler implements HasConnection
     /**
      * @return Connection
      */
-    public function getConnection()
+    public function getConnection(): Connection
     {
         return $this->connection;
     }
