@@ -47,18 +47,4 @@ class JsonExpressionFactory
         return new Raw("JSON_UNQUOTE(JSON_EXTRACT({$column}, \"$.{$nodes}\"))");
     }
 
-    /**
-     * @param string          $column  The database column which holds the JSON value
-     * @param string|string[] $nodes   The json key/index to search
-     * @param string|null     $alias   The alias to apply to this expression. Will be set as "json_{$column}" if not defined.
-     * @return \Pixie\QueryBuilder\Raw
-     */
-    public function extractAndUnquoteWithAlias(string $column, $nodes, ?string $alias = null): Raw
-    {
-        return new Raw(sprintf(
-            "%s AS %s",
-            $this->extractAndUnquote($column, $nodes)->getValue(),
-            null === $alias ? "json_{$column}" : $alias
-        ));
-    }
 }
