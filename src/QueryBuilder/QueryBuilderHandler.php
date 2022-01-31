@@ -1376,7 +1376,7 @@ class QueryBuilderHandler implements HasConnection
     /**
      * @return Connection
      */
-    public function getConnection()
+    public function getConnection(): Connection
     {
         return $this->connection;
     }
