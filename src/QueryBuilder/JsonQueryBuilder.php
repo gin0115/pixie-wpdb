@@ -4,7 +4,7 @@ namespace Pixie\QueryBuilder;
 
 class jsonQueryBuilder extends QueryBuilderHandler
 {
-     /**
+    /**
     * @param string|Raw $key The database column which holds the JSON value
     * @param string|Raw|string[] $jsonKey The json key/index to search
     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
