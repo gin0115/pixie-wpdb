@@ -266,4 +266,15 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
             ->select('a->b')
             ->first();
     }
+
+    /** @testdox It should be possile to create a JSONQueryBuilder from a regular query builder */
+    public function testCanCreateJSONBuilder(): void
+    {
+        $inital = $this->queryBuilderProvider('test');
+        $inital->setFetchMode('MOCK', [1,2]);
+        $json = $inital->jsonBuilder();
+
+        $this->assertSame($inital->getConnection(), $json->getConnection());
+        $this->assertSame($inital->getFetchMode(), $json->getFetchMode());
+    }
 }
