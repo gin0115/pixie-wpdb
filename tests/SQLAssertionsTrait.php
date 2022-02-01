@@ -44,8 +44,6 @@ trait SQLAssertionsTrait
                 join(\PHP_EOL, $messages)
             );
 
-            dump($parser->errors);
-
             $this->fail($message);
         } else {
             $this->assertTrue(true);
