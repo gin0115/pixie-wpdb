@@ -18,12 +18,15 @@ use Pixie\QueryBuilder\Raw;
 use Pixie\Tests\Logable_WPDB;
 use PhpMyAdmin\SqlParser\Parser;
 use Pixie\QueryBuilder\JoinBuilder;
+use Pixie\Tests\SQLAssertionsTrait;
 use Pixie\QueryBuilder\jsonQueryBuilder;
 use Pixie\QueryBuilder\QueryBuilderHandler;
 
 class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
 {
 
+    use SQLAssertionsTrait;
+    
     /** Mocked WPDB instance.
      * @var Logable_WPDB
      */
@@ -144,7 +147,7 @@ class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM prefix_foo INNER JOIN prefix_bar ON JSON_UNQUOTE(JSON_EXTRACT(prefix_foo.id, \"$.key1.key2\")) = JSON_UNQUOTE(JSON_EXTRACT(prefix_bar.id, \"$.index[2]\"))", $builder->getQuery()->getRawSql());
 
         // Check for valid query
-        new Parser($builder->getQuery()->getRawSql(), true);
+         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query using (OUTER) joinJSON for a relationship [JSON HELPER]*/
@@ -158,7 +161,7 @@ class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM prefix_foo FULL OUTER JOIN prefix_bar ON JSON_UNQUOTE(JSON_EXTRACT(prefix_foo.id, \"$.key1.key2\")) = JSON_UNQUOTE(JSON_EXTRACT(prefix_bar.id, \"$.index[2]\"))", $builder->getQuery()->getRawSql());
 
         // Check for valid query
-        $parser = new Parser($builder->getQuery()->getRawSql(), false);
+         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query using (RIGHT) joinJSON for a relationship [JSON HELPER]*/
@@ -172,7 +175,7 @@ class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM prefix_foo RIGHT JOIN prefix_bar ON JSON_UNQUOTE(JSON_EXTRACT(prefix_foo.id, \"$.key1.key2\")) = JSON_UNQUOTE(JSON_EXTRACT(prefix_bar.id, \"$.index[2]\"))", $builder->getQuery()->getRawSql());
 
         // Check for valid query
-        $parser = new Parser($builder->getQuery()->getRawSql(), false);
+         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query using (LEFT) joinJSON for a relationship [JSON HELPER]*/
@@ -186,7 +189,7 @@ class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM prefix_foo LEFT JOIN prefix_bar ON JSON_UNQUOTE(JSON_EXTRACT(prefix_foo.id, \"$.key1.key2\")) = JSON_UNQUOTE(JSON_EXTRACT(prefix_bar.id, \"$.index[2]\"))", $builder->getQuery()->getRawSql());
 
         // Check for valid query
-        $parser = new Parser($builder->getQuery()->getRawSql(), false);
+         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query using (CROSS) joinJSON for a relationship [JSON HELPER]*/
@@ -200,7 +203,7 @@ class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("SELECT * FROM prefix_foo CROSS JOIN prefix_bar ON JSON_UNQUOTE(JSON_EXTRACT(prefix_foo.id, \"$.key1.key2\")) = JSON_UNQUOTE(JSON_EXTRACT(prefix_bar.id, \"$.index[2]\"))", $builder->getQuery()->getRawSql());
 
         // Check for valid query
-        $parser = new Parser($builder->getQuery()->getRawSql(), false);
+         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query which gets values form a JSON column, while using RAW object for both the MYSQL col key and JSON object key (1st generation) */
@@ -216,7 +219,7 @@ class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
         );
 
         // Check for valid query
-        $parser = new Parser($builder->getQuery()->getRawSql(), false);
+         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to do a select from a JSON value, using column->jsonKey1->jsonKey2 */
@@ -230,7 +233,7 @@ class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals($expected, $builder->getQuery()->getRawSql());
 
         // Check for valid query
-        $parser = new Parser($builder->getQuery()->getRawSql(), false);
+         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to use table.column and have the prefix added to the table, even if used as JSON Select query */
@@ -244,7 +247,7 @@ class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals($expected, $builder->getQuery()->getRawSql());
 
         // Check for valid query
-        $parser = new Parser($builder->getQuery()->getRawSql(), false);
+         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a WHERE clause that allows OR NOT conditions, from traversing the JSON object. */
@@ -259,7 +262,7 @@ class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals($expected, $builder->getQuery()->getRawSql());
 
         // Check for valid query
-        $parser = new Parser($builder->getQuery()->getRawSql(), false);
+         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to use Json Where conditions and have the operation assumed as = to shorten the syntax */
@@ -282,7 +285,7 @@ class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
 
 
         // Check for valid query
-        $parser = new Parser($sql, false);
+        $parser =  $this->assertValidSQL($sql);
     }
 
     /** @testdox It should be possible to use a JSON date query and have the assumption be its '=' operator. */
