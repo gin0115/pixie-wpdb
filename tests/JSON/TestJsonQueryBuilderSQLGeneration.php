@@ -24,9 +24,8 @@ use Pixie\QueryBuilder\QueryBuilderHandler;
 
 class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
 {
-
     use SQLAssertionsTrait;
-    
+
     /** Mocked WPDB instance.
      * @var Logable_WPDB
      */
@@ -89,6 +88,10 @@ class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
                 $usingArrows->getQuery()->getRawSql(),
                 "Failed asserting a match with method :: \"{$method}\""
             );
+
+            // Check producing valid SQL
+            $this->assertValidSQL($helperMethod->getQuery()->getRawSql());
+            $this->assertValidSQL($usingArrows->getQuery()->getRawSql());
         }
     }
 
@@ -132,6 +135,10 @@ class TestJsonQueryBuilderSQLGeneration extends WP_UnitTestCase
                 $usingArrows->getQuery()->getRawSql(),
                 "Failed asserting a match with method :: \"{$method}\""
             );
+
+            // Check producing valid SQL
+            $this->assertValidSQL($helperMethod->getQuery()->getRawSql());
+            $this->assertValidSQL($usingArrows->getQuery()->getRawSql());
         }
     }
 
