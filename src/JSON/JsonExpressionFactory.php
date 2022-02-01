@@ -46,5 +46,4 @@ class JsonExpressionFactory
 
         return new Raw("JSON_UNQUOTE(JSON_EXTRACT({$column}, \"$.{$nodes}\"))");
     }
-
 }

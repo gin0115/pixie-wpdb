@@ -1309,7 +1309,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function outerJoin($table, $key, $operator = null, $value = null)
     {
-        return $this->join($table, $key, $operator, $value, 'outer');
+        return $this->join($table, $key, $operator, $value, 'full outer');
     }
 
     /**
