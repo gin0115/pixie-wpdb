@@ -384,7 +384,7 @@ class JsonQueryBuilder extends QueryBuilderHandler
             $operator,
             $localColumn,
             $localJsonKeys,
-            'outer'
+            'FULL OUTER'
         );
     }
 
