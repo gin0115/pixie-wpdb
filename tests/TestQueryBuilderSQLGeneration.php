@@ -56,6 +56,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->from('bar');
 
         $this->assertEquals('SELECT foo.id, bar.id FROM foo, bar', $builder->getQuery()->getSql());
+
+        // Check for valid SQL syntax
+        new Parser($builder->getQuery()->getRawSql(), false);
     }
 
     /** @testdox It should be possible to create a query for multiple tables. */
@@ -79,6 +82,8 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         // Check the passed query to prepare.
         $log = $this->wpdb->usage_log['get_results'][0];
         $this->assertEquals('SELECT * FROM foo WHERE id = 1 LIMIT 1', $log['query']);
+        // Check for valid SQL syntax
+        new Parser($log['query'], false);
 
         // With custom key
         $builder = $this->queryBuilderProvider()
@@ -86,6 +91,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $log = $this->wpdb->usage_log['get_results'][1];
         $this->assertEquals('SELECT * FROM foo WHERE custom = 2 LIMIT 1', $log['query']);
+
+        // Check for valid SQL syntax
+        new Parser($log['query'], false);
     }
 
     /** @testdox It should be possible to create a select query for specified fields. */
@@ -157,6 +165,8 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $log = $this->wpdb->usage_log['get_results'][0];
         $this->assertEquals('SELECT * FROM my_table WHERE name = \'Sana\'', $log['query']);
+        // Check for valid SQL syntax
+        new Parser($log['query'], false);
     }
 
     /** @testdox It should be possible to create a where condition but only return the first value and have this generated and run through WPDB::prepare() */
@@ -167,6 +177,8 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $log = $this->wpdb->usage_log['get_results'][0];
         $this->assertEquals('SELECT * FROM foo WHERE key = \'value\' LIMIT 1', $log['query']);
+        // Check for valid SQL syntax
+        new Parser($log['query'], false);
     }
 
     /** @testdox It should be possible to do a query which gets a count of all rows using sql `count()` */
@@ -177,6 +189,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $log = $this->wpdb->usage_log['get_results'][0];
         $this->assertEquals("SELECT COUNT(*) AS field FROM (SELECT * FROM foo WHERE key = 'value') as count LIMIT 1", $log['query']);
+
+        // Check for valid SQL syntax
+        new Parser($log['query'], false);
     }
 
     ################################################
@@ -783,6 +798,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertCount(2, $this->wpdb->usage_log['prepare'][0]['args']);
         $this->assertEquals('string', $this->wpdb->usage_log['prepare'][0]['args'][0]);
         $this->assertEquals(314, $this->wpdb->usage_log['prepare'][0]['args'][1]);
+
+        // Check for valid SQL syntax
+        new Parser($this->wpdb->usage_log['get_results'][0]['query'], false);
     }
 
 
@@ -821,7 +839,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->where('value', '=', 'Ifrah')
             ->where(\AB::raw('bar = %s', 'now'));
 
-        $this->assertEquals("SELECT count(cb_my_table.id) as tot FROM foo WHERE value = 'Ifrah' AND bar = 'now'", $query->getQuery()->getRawSql());
+        $this->assertEquals("SELECT count(cb_my_table.id) as tot FROM foo WHERE value = 'Ifrah' AND bar = 'now'", $query->getQuery()->getRawSql());// Check for valid SQL syntax
+        
+        new Parser($query->getQuery()->getRawSql(), false);
     }
 
 
@@ -844,6 +864,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         // Check the actual query.
         $this->assertEquals("INSERT INTO foo (name,description) VALUES ('Sana','Blah')", $this->wpdb->usage_log['get_results'][0]['query']);
+
+        // Check for valid SQL syntax
+        new Parser($this->wpdb->usage_log['get_results'][0]['query'], false);
     }
 
     /** @testdox It should be possible to insert multiple rows of data and get the row id/key returned as an array. */
@@ -869,6 +892,11 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("INSERT INTO foo (name,description) VALUES ('Sana','Blah')", $this->wpdb->usage_log['get_results'][0]['query']);
         $this->assertEquals("INSERT INTO foo (name,description) VALUES ('Mark','Woo')", $this->wpdb->usage_log['get_results'][1]['query']);
         $this->assertEquals("INSERT INTO foo (name,description) VALUES ('Sam','Boo')", $this->wpdb->usage_log['get_results'][2]['query']);
+        
+        // Check for valid SQL syntax
+        new Parser($this->wpdb->usage_log['get_results'][0]['query'], false);
+        new Parser($this->wpdb->usage_log['get_results'][1]['query'], false);
+        new Parser($this->wpdb->usage_log['get_results'][2]['query'], false);
     }
 
     /** @testdox It should be possible to use Raw values for MYSQL function and constant values, which are not wrapped in quotes by WPDB. */
@@ -880,6 +908,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         'col2' => new Raw('CURRENT_TIMESTAMP')
         ]);
         $this->assertEquals("INSERT INTO foo (col1,col2) VALUES ('val1',CURRENT_TIMESTAMP)", $this->wpdb->usage_log['get_results'][0]['query']);
+        
+        // Check for valid SQL syntax
+        new Parser($this->wpdb->usage_log['get_results'][0]['query'], false);
     }
 
     /** @testdox It should be possible to an Insert which ignores all errors generated by MYSQL */
@@ -905,6 +936,10 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("INSERT IGNORE INTO foo (name,description) VALUES ('Sana','Blah')", $this->wpdb->usage_log['get_results'][0]['query']);
         $this->assertEquals("INSERT IGNORE INTO foo (name,description) VALUES ('Mark','Woo')", $this->wpdb->usage_log['get_results'][1]['query']);
         $this->assertEquals("INSERT IGNORE INTO foo (name,description) VALUES ('Sam','Boo')", $this->wpdb->usage_log['get_results'][2]['query']);
+        // Check for valid SQL syntax
+        new Parser($this->wpdb->usage_log['get_results'][0]['query'], false);
+        new Parser($this->wpdb->usage_log['get_results'][1]['query'], false);
+        new Parser($this->wpdb->usage_log['get_results'][2]['query'], false);
     }
 
     /** @testdox It should be possible to create a query which will do an update on a duplicate key  */
@@ -921,6 +956,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $this->assertEquals(12, $ID);
         $this->assertEquals("INSERT INTO foo (name,counter) VALUES ('Baza',2) ON DUPLICATE KEY UPDATE name='Baza',counter=1", $this->wpdb->usage_log['get_results'][0]['query']);
+
+        // Check for valid SQL syntax
+        new Parser($this->wpdb->usage_log['get_results'][0]['query'], false);
     }
 
     /** @testdox It should be possible to create a REPLACE INTO query and have the values added using WPDB::prepare()*/
@@ -934,6 +972,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $query = $this->wpdb->usage_log['get_results'][0];
         $this->assertEquals('REPLACE INTO foo (id,name,doubt) VALUES (%d,%s,%d)', $prepared['query']);
         $this->assertEquals('REPLACE INTO foo (id,name,doubt) VALUES (24,\'Glynn\',1)', $query['query']);
+
+        // Check for valid SQL syntax
+        new Parser($query['query'], false);
     }
 
     /** @testdox It should be possible to create a query which will delete all rows that the match the criteria defined. Any values should be passed to WPDB::prepare() before being used. */
@@ -949,6 +990,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $this->assertEquals('DELETE FROM foo WHERE id > %d', $prepared['query']);
         $this->assertEquals('DELETE FROM foo WHERE id > 5', $query['query']);
+
+        // Check for valid SQL syntax
+        new Parser($query['query'], false);
     }
 
     /** @testdox It should be possible to create a nested query using subQueries. (Example from Readme) */
@@ -973,6 +1017,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             'SELECT * FROM (SELECT my_table.*, (SELECT details FROM person_details WHERE person_id = 3) as table_alias1 FROM my_table) as table_alias2',
             $this->wpdb->usage_log['get_results'][0]['query']
         );
+
+        // Check for valid SQL syntax
+        new Parser($this->wpdb->usage_log['get_results'][0]['query'], false);
     }
 
     /**
@@ -994,6 +1041,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             'SELECT customerNumber, checkNumber, amount FROM payments WHERE amount > (SELECT AVG(amount) FROM payments)',
             $this->wpdb->usage_log['get_results'][0]['query']
         );
+
+        // Check for valid SQL syntax
+        new Parser($this->wpdb->usage_log['get_results'][0]['query'], false);
     }
 
     /**
@@ -1015,6 +1065,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             'SELECT customerName FROM customers WHERE customerNumber NOT IN (SELECT DISTINCT customerNumber FROM orders)',
             $this->wpdb->usage_log['get_results'][0]['query']
         );
+
+        // Check for valid SQL syntax
+        new Parser($this->wpdb->usage_log['get_results'][0]['query'], false);
     }
 
     /** @testdox It should be possible to use partial expressions as strings and not have quotes added automatically by WPDB::prepare() */
@@ -1030,6 +1083,8 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             "SELECT Order_ID, Product_Name, DATE_FORMAT(Order_Date,'%d--%m--%y') as new_date_formate FROM orders",
             $this->wpdb->usage_log['get_results'][1]['query']
         );
+        // Check for valid SQL syntax
+        new Parser($this->wpdb->usage_log['get_results'][1]['query'], false);
     }
 
     /** @testdox It should be possible to use a Binding value in a delete where query */
@@ -1045,6 +1100,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $this->assertEquals('DELETE FROM foo WHERE id > %d', $prepared['query']);
         $this->assertEquals('DELETE FROM foo WHERE id > 5', $query['query']);
+
+        // Check for valid SQL syntax
+        new Parser($query['query'], false);
     }
 
     /** @testdox It should be possible to use both RAW expressions and Bindings values for doing where in queries. */
@@ -1117,9 +1175,15 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $query = $builder()->orderBy('single->value->once', 'DESC')->getQuery()->getRawSql();
         $expected = "SELECT * FROM mock_json ORDER BY JSON_UNQUOTE(JSON_EXTRACT(single, \"$.value.once\")) DESC";
         $this->assertEquals($expected, $query);
+
+        // Check for valid SQL syntax
+        new Parser($query, false);
+        
         $query = $builder()->orderBy(['multi->value->three' => 'DESC', 'multi->value' => 'ASC'])->getQuery()->getRawSql();
         $expected = "SELECT * FROM mock_json ORDER BY JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\")) DESC, JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value\")) ASC";
         $this->assertEquals($expected, $query);
+        // Check for valid SQL syntax
+        new Parser($query, false);
     }
 
     /** @testdox It should be possible to use groupby with function calls. */
@@ -1134,6 +1198,8 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $expected = 'SELECT COUNT(CustomerID), Country FROM Customers GROUP BY Country ORDER BY COUNT(CustomerID) DESC';
         $this->assertSame($expected, $sql);
+        // Check for valid SQL syntax
+        new Parser($sql, false);
     }
 
     /** @testdox Examples used in WIKI for having(). */
