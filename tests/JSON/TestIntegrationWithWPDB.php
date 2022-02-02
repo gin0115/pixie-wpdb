@@ -138,7 +138,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
      * Generates a query builder helper.
      *
      * @param string|null $prefix
-     * @return \Pixie\QueryBuilder\QueryBuilderHandler
+     * @return \Pixie\QueryBuilder\JsonQueryBuilder
      */
     public function jsonQueryBuilderProvider(?string $prefix = null, ?string $alias = null): JsonQueryBuilder
     {
@@ -480,5 +480,20 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertNull($leftJoinJsonFrom[3]->string);
     }
 
-    
+    /** @testdox It shoud be possible to do any aggregate function using json arrow selectors has the field. */
+    public function testAggregateFunctionsWithJsonArrowSelectors(): void
+    {
+        $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat A', 'number' => 1]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'B', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat B', 'number' => 2]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat C', 'number' => 3]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'A', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat D', 'number' => 4]])], ['%s', '%s']);
+
+
+        $builder = $this->queryBuilderProvider()->table('mock_json')->where('string', '=', 'A');
+
+        $this->assertEquals(3, $builder->count('jsonCol->data->number'));
+        $this->assertEquals(1, $builder->min('jsonCol->data->number'));
+        $this->assertEquals(4, $builder->max('jsonCol->data->number'));
+        $this->assertEquals((8 / 3), $builder->average('jsonCol->data->number'));
+    }
 }

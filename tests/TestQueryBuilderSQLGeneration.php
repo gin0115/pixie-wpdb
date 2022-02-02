@@ -1247,4 +1247,56 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         // Check for valid SQL syntax
         $this->assertValidSQL($sql->getQuery()->getRawSql());
     }
+
+    /** @testdox It should be possible to use JSON arrow selectors with count() and have a valid SQL query created. */
+    public function testCountWithJsonSelectors()
+    {
+        $builder = $this->queryBuilderProvider();
+        $builder->table('foo')->where('tree', '=', 'value')->count('multi->value->three');
+
+        $log = $this->wpdb->usage_log['get_results'][0];
+        $this->assertEquals("SELECT COUNT(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS field FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($log['query']);
+    }
+
+    /** @testdox It should be possible to use JSON arrow selectors with min() and have a valid SQL query created. */
+    public function testMinWithJsonSelectors()
+    {
+        $builder = $this->queryBuilderProvider();
+        $builder->table('foo')->where('tree', '=', 'value')->min('multi->value->three');
+
+        $log = $this->wpdb->usage_log['get_results'][0];
+        $this->assertEquals("SELECT MIN(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS field FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($log['query']);
+    }
+
+    /** @testdox It should be possible to use JSON arrow selectors with max() and have a valid SQL query created. */
+    public function testMaxWithJsonSelectors()
+    {
+        $builder = $this->queryBuilderProvider();
+        $builder->table('foo')->where('tree', '=', 'value')->max('multi->value->three');
+
+        $log = $this->wpdb->usage_log['get_results'][0];
+        $this->assertEquals("SELECT MAX(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS field FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($log['query']);
+    }
+
+     /** @testdox It should be possible to use JSON arrow selectors with average() and have a valid SQL query created. */
+    public function testAverageWithJsonSelectors()
+    {
+        $builder = $this->queryBuilderProvider();
+        $builder->table('foo')->where('tree', '=', 'value')->average('multi->value->three');
+
+        $log = $this->wpdb->usage_log['get_results'][0];
+        $this->assertEquals("SELECT AVG(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS field FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($log['query']);
+    }
 }
