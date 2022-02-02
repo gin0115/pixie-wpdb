@@ -1245,8 +1245,6 @@ class QueryBuilderHandler implements HasConnection
         return $this;
     }
 
-
-
     /**
      * @param string|Raw $table
      * @param string|Raw|Closure $key
