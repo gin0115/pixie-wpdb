@@ -1287,7 +1287,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertValidSQL($log['query']);
     }
 
-     /** @testdox It should be possible to use JSON arrow selectors with average() and have a valid SQL query created. */
+    /** @testdox It should be possible to use JSON arrow selectors with average() and have a valid SQL query created. */
     public function testAverageWithJsonSelectors()
     {
         $builder = $this->queryBuilderProvider();
