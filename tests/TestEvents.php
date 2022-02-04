@@ -120,7 +120,7 @@ class TestEvents extends WP_UnitTestCase
         $events->registerEvent('before-select', 'foo', $this->createClosure(null));
         $result = $this->queryBuilderProvider()->table('foo')->get();
 
-        dump($this->wpdb->usage_log, $result);
+
         $this->assertNotEmpty($this->wpdb->usage_log);
         $this->assertEquals("SELECT * FROM foo", $this->wpdb->usage_log['get_results'][0]['query']);
         $this->assertEquals('MOCK', $result['text']);
