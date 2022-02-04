@@ -5,7 +5,7 @@ class StaticLoaderCreator
     /** @var string[] Array of file names */
     protected array $files = [];
 
-    /** @var string[] Array of class names */
+    /** @var array<int, array{class:string|null, ns:string|null, interface:string|null, trait:string|null, file:string}> Classes */
     protected array $classes = [];
 
     /** @var string Path to the SRC directory. */
@@ -16,7 +16,11 @@ class StaticLoaderCreator
         $this->routePath = __DIR__ . DIRECTORY_SEPARATOR . 'src';
     }
 
-
+    /**
+     * Static initialiser
+     *
+     * @return void
+     */
     public static function run(): void
     {
         $instance = new self();
@@ -58,7 +62,7 @@ class StaticLoaderCreator
             $classData['interface'] = $this->getObjectTypeFromFile($file, T_INTERFACE);
             $classData['ns'] = $this->getNamespace($file);
             $classData['file'] = str_replace($this->routePath, '', $file);
-            $this->classes[$file] = $classData;
+            $this->classes[] = $classData;
         }
 
         // Set all classes to be required last, allow traits to load first.
@@ -72,11 +76,16 @@ class StaticLoaderCreator
      *
      * @see https://stackoverflow.com/questions/7153000/get-class-name-from-file/44654073
      * @param string $file
-     * @return void
+     * @return string|null
+     * @throws \Exception If file not found or empty.
      */
-    public function getNamespace($file)
+    public function getNamespace(string $file): ?string
     {
         $src = file_get_contents($file);
+
+        if (false === $src) {
+            throw new \Exception("Could not read contents of {$file}", 1);
+        }
 
         $tokens = token_get_all($src);
         $count = count($tokens);
@@ -110,15 +119,20 @@ class StaticLoaderCreator
      * get the class name form file path using token
      *
      * @see https://stackoverflow.com/questions/7153000/get-class-name-from-file/44654073
-     * @param string $filePathName
+     * @param string $file
+     * @param int $type
      * @return string|null
      */
-    protected function getObjectTypeFromFile($filePathName, $type = T_CLASS): ?string
+    protected function getObjectTypeFromFile(string $file, int $type = T_CLASS): ?string
     {
-        $php_code = file_get_contents($filePathName);
+        $src = file_get_contents($file);
+
+        if (false === $src) {
+            throw new \Exception("Could not read contents of {$file}", 1);
+        }
 
         $classes = array();
-        $tokens = token_get_all($php_code);
+        $tokens = token_get_all($src);
         $count = count($tokens);
         for ($i = 2; $i < $count; $i++) {
             if (
@@ -197,7 +211,7 @@ class StaticLoaderCreator
     /**
      * Gets the *_exists() method based on the token type.
      *
-     * @param array $token
+     * @param array{class:string|null, ns:string|null, interface:string|null, trait:string|null, file:string} $token
      * @return string
      */
     public function getMethodFromToken(array $token): string
@@ -217,7 +231,7 @@ class StaticLoaderCreator
     /**
      * Returns the full (namespaced) token name
      *
-     * @param array $token
+     * @param array{class:string|null, ns:string|null, interface:string|null, trait:string|null, file:string} $token
      * @return string
      */
     public function getFullTokenName(array $token): string
