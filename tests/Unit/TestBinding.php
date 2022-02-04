@@ -9,13 +9,14 @@ declare(strict_types=1);
  * @author GLynn Quelch <glynn.quelch@gmail.com>
  */
 
-namespace Pixie\Tests;
+namespace Pixie\Tests\Unit;
 
 use Pixie\Binding;
 use Pixie\Exception;
 use WP_UnitTestCase;
 use Pixie\Connection;
 use Pixie\QueryBuilder\Raw;
+use Pixie\Tests\Logable_WPDB;
 use Pixie\QueryBuilder\QueryBuilderHandler;
 
 class TestBinding extends WP_UnitTestCase

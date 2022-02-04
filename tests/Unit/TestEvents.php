@@ -9,13 +9,14 @@ declare(strict_types=1);
  * @author GLynn Quelch <glynn.quelch@gmail.com>
  */
 
-namespace Pixie\Tests;
+namespace Pixie\Tests\Unit;
 
 use Closure;
 use Exception;
 use WP_UnitTestCase;
 use Pixie\Connection;
 use Pixie\EventHandler;
+use Pixie\Tests\Logable_WPDB;
 use Gin0115\WPUnit_Helpers\Objects;
 use Pixie\QueryBuilder\QueryBuilderHandler;
 
