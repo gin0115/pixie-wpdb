@@ -22,4 +22,22 @@ class TestRaw extends \WP_UnitTestCase
         $raw = Raw::val('foo');
         $this->assertInstanceOf(Raw::class, $raw);
     }
+
+    /** @testdox It should be possible to use a raw object as  stringable object, which returns the value regardless of bindings. */
+    public function testIsStringable(): void
+    {
+        $raw = new Raw('STRING', []);
+        $this->assertEquals('STRING', (string) $raw);
+    }
+
+    /*** @testdox It should be possible to access both the value and bindings from a raw object. */
+    public function testCanGetExpressionAndBindings(): void
+    {
+        $raw = new Raw('EXP', [1,2,3]);
+        $this->assertEquals('EXP', $raw->getValue());
+        $this->assertCount(3, $raw->getBindings());
+        $this->assertContains(1, $raw->getBindings());
+        $this->assertContains(2, $raw->getBindings());
+        $this->assertContains(3, $raw->getBindings());
+    }
 }
