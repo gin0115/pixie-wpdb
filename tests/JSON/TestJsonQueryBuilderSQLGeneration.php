@@ -17,6 +17,7 @@ use Pixie\Connection;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Tests\Logable_WPDB;
 use PhpMyAdmin\SqlParser\Parser;
+use Pixie\JSON\JsonSelectorHandler;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\Tests\SQLAssertionsTrait;
 use Pixie\QueryBuilder\jsonQueryBuilder;
