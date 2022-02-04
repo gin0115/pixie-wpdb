@@ -14,17 +14,48 @@ namespace Pixie\Tests;
 use Closure;
 use Exception;
 use WP_UnitTestCase;
+use Pixie\Connection;
 use Pixie\EventHandler;
+use Gin0115\WPUnit_Helpers\Objects;
+use Pixie\QueryBuilder\QueryBuilderHandler;
 
 class TestEvents extends WP_UnitTestCase
 {
+
+    /** Mocked WPDB instance.
+     * @var Logable_WPDB
+     */
+    private $wpdb;
+
+    /** @var Connection */
+    private $connection;
+
+    public function setUp(): void
+    {
+        $this->wpdb = new Logable_WPDB();
+        parent::setUp();
+
+        $this->connection = new Connection($this->wpdb);
+    }
+
+    /**
+     * Generates a query builder helper.
+     *
+     * @param string|null $prefix
+     * @return \Pixie\QueryBuilder\QueryBuilderHandler
+     */
+    public function queryBuilderProvider(): QueryBuilderHandler
+    {
+        return new QueryBuilderHandler($this->connection);
+    }
+
     /**
      * Returns a simple closure that returns whatever string is passed.
      *
-     * @param string $returns
+     * @param mixed $returns
      * @return \Closure
      */
-    public function createClosure(string $returns): Closure
+    public function createClosure($returns): Closure
     {
         return function () use ($returns) {
             return $returns;
@@ -65,5 +96,35 @@ class TestEvents extends WP_UnitTestCase
         $handler->removeEvent('for_bar_table', 'bar');
         // Should stil hold empty key.
         $this->assertEmpty($handler->getEvents()['bar']);
+    }
+
+    /** @testdox It should be possible to register an event on before-select which will short circuit a get() call if returns anything but null. */
+    public function testEventBeforeSelectWillShortCircuitGet(): void
+    {
+        $events = $this->connection->getEventHandler();
+        $events->registerEvent('before-select', 'foo', $this->createClosure('This should skip the query being executed.'));
+        $result = $this->queryBuilderProvider()->table('foo')->get();
+
+        $this->assertEmpty($this->wpdb->usage_log);
+        $this->assertEquals('This should skip the query being executed.', $result);
+        $this->assertContains('before-selectfoo', Objects::get_property($events, 'firedEvents'));
+    }
+
+    /** @testdox It should be possible to register an event on before-select which will NOT short circuit a get() call if returns null. */
+    public function testEventBeforeSelectWillNotShortCircuitGet(): void
+    {
+        // Mock the WPDB return
+        $this->wpdb->then_return = ['id' => 1, 'text' => 'MOCK'];
+
+        $events = $this->connection->getEventHandler();
+        $events->registerEvent('before-select', 'foo', $this->createClosure(null));
+        $result = $this->queryBuilderProvider()->table('foo')->get();
+
+        dump($this->wpdb->usage_log, $result);
+        $this->assertNotEmpty($this->wpdb->usage_log);
+        $this->assertEquals("SELECT * FROM foo", $this->wpdb->usage_log['get_results'][0]['query']);
+        $this->assertEquals('MOCK', $result['text']);
+        $this->assertEquals(1, $result['id']);
+        $this->assertContains('before-selectfoo', Objects::get_property($events, 'firedEvents'));
     }
 }
