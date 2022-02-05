@@ -10,3 +10,4 @@ _tests
 wordpress
 clover.xml
 coverage-report
+.phpunit.result.cache

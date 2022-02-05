@@ -9,7 +9,7 @@ declare(strict_types=1);
  * @author GLynn Quelch <glynn.quelch@gmail.com>
  */
 
-namespace Pixie\Tests;
+namespace Pixie\Tests\QueryBuilderHandler;
 
 use DateTime;
 use stdClass;
@@ -226,9 +226,9 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals(1.5, $avg);
 
         // Get the max
-        $max = $this->queryBuilderProvider()
-            ->table('mock_foo')
-            ->max('number');
+        $max = $this->queryBuilderProvider('mock_')
+            ->table('foo')
+            ->max(new Raw('number'));
 
         $this->assertEquals(3, $max);
 

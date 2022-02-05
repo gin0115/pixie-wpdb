@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <phpunit bootstrap="tests/bootstrap.php" backupGlobals="false" colors="true" convertErrorsToExceptions="true" convertNoticesToExceptions="true" convertWarningsToExceptions="true">
     <testsuites>
-        <testsuite name="perique_migtations">
+        <testsuite name="gin0115_pixie_wpdb">
             <directory prefix="Test" suffix=".php">./tests</directory>
         </testsuite>
     </testsuites>
@@ -9,6 +9,9 @@
     <filter>
         <whitelist processUncoveredFilesFromWhitelist="true">
             <directory suffix=".php">./src/</directory>
+             <exclude>
+                 <file>src/loader.php</file>
+             </exclude>
         </whitelist>
     </filter>
 

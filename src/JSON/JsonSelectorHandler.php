@@ -82,12 +82,10 @@ class JsonSelectorHandler implements HasConnection
         /** @var string[] Check done above. */
         $parts = array_diff(explode('->', $expression), array(""));
 
+        /** @var string */
         $column = array_shift($parts);
+        /** @var string[] */
         $nodes = $parts;
-
-        if (! is_string($column)) {
-            throw new Exception('JSON expression must contain a valid column name', 1);
-        }
 
         return new JsonSelector($column, $nodes);
     }

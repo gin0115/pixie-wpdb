@@ -377,16 +377,27 @@ class QueryBuilderHandler implements HasConnection
      * @see Taken from the pecee-pixie library - https://github.com/skipperbent/pecee-pixie/
      *
      * @param string $type
-     * @param string $field
+     * @param string|Raw $field
      *
      * @return float
      */
-    protected function aggregate(string $type, string $field = '*'): float
+    protected function aggregate(string $type, $field = '*'): float
     {
+        // Parse a raw expression.
+        if ($field instanceof Raw) {
+            $field = $this->adapterInstance->parseRaw($field);
+        }
+
+        // Potentialy cast field from JSON
+        if ($this->jsonHandler->isJsonSelector($field)) {
+            $field = $this->jsonHandler->extractAndUnquoteFromJsonSelector($field);
+        }
+
         // Verify that field exists
         if ('*' !== $field && true === isset($this->statements['selects']) && false === \in_array($field, $this->statements['selects'], true)) {
             throw new \Exception(sprintf('Failed %s query - the column %s hasn\'t been selected in the query.', $type, $field));
         }
+
 
         if (false === isset($this->statements['tables'])) {
             throw new Exception('No table selected');
@@ -405,13 +416,13 @@ class QueryBuilderHandler implements HasConnection
      *
      * @see Taken from the pecee-pixie library - https://github.com/skipperbent/pecee-pixie/
      *
-     * @param string $field
+     * @param string|Raw $field
      *
      * @return int
      *
      * @throws Exception
      */
-    public function count(string $field = '*'): int
+    public function count($field = '*'): int
     {
         return (int)$this->aggregate('count', $field);
     }
@@ -421,13 +432,13 @@ class QueryBuilderHandler implements HasConnection
      *
      * @see Taken from the pecee-pixie library - https://github.com/skipperbent/pecee-pixie/
      *
-     * @param string $field
+     * @param string|Raw $field
      *
      * @return float
      *
      * @throws Exception
      */
-    public function sum(string $field): float
+    public function sum($field): float
     {
         return $this->aggregate('sum', $field);
     }
@@ -437,13 +448,13 @@ class QueryBuilderHandler implements HasConnection
      *
      * @see Taken from the pecee-pixie library - https://github.com/skipperbent/pecee-pixie/
      *
-     * @param string $field
+     * @param string|Raw $field
      *
      * @return float
      *
      * @throws Exception
      */
-    public function average(string $field): float
+    public function average($field): float
     {
         return $this->aggregate('avg', $field);
     }
@@ -453,13 +464,13 @@ class QueryBuilderHandler implements HasConnection
      *
      * @see Taken from the pecee-pixie library - https://github.com/skipperbent/pecee-pixie/
      *
-     * @param string $field
+     * @param string|Raw $field
      *
      * @return float
      *
      * @throws Exception
      */
-    public function min(string $field): float
+    public function min($field): float
     {
         return $this->aggregate('min', $field);
     }
@@ -469,13 +480,13 @@ class QueryBuilderHandler implements HasConnection
      *
      * @see Taken from the pecee-pixie library - https://github.com/skipperbent/pecee-pixie/
      *
-     * @param string $field
+     * @param string|Raw $field
      *
      * @return float
      *
      * @throws Exception
      */
-    public function max(string $field): float
+    public function max($field): float
     {
         return $this->aggregate('max', $field);
     }
@@ -609,8 +620,8 @@ class QueryBuilderHandler implements HasConnection
             return $eventResult;
         }
         $queryObject                         = $this->getQuery('update', $data);
-        list($preparedQuery, $executionTime) = $this->statement($queryObject->getSql(), $queryObject->getBindings());
-
+        $r = $this->statement($queryObject->getSql(), $queryObject->getBindings());
+        list($preparedQuery, $executionTime) = $r;
         $this->dbInstance()->get_results($preparedQuery);
         $this->fireEvents('after-update', $queryObject, $executionTime);
 
@@ -646,9 +657,9 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @return int number of rows effected
+     * @return mixed number of rows effected or shortcircuited response
      */
-    public function delete(): int
+    public function delete()
     {
         $eventResult = $this->fireEvents('before-delete');
         if (!is_null($eventResult)) {
@@ -1245,8 +1256,6 @@ class QueryBuilderHandler implements HasConnection
         return $this;
     }
 
-
-
     /**
      * @param string|Raw $table
      * @param string|Raw|Closure $key
@@ -1309,7 +1318,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function outerJoin($table, $key, $operator = null, $value = null)
     {
-        return $this->join($table, $key, $operator, $value, 'outer');
+        return $this->join($table, $key, $operator, $value, 'full outer');
     }
 
     /**

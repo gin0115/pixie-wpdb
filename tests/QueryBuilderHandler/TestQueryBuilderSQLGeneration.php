@@ -9,18 +9,21 @@ declare(strict_types=1);
  * @author GLynn Quelch <glynn.quelch@gmail.com>
  */
 
-namespace Pixie\Tests;
+namespace Pixie\Tests\QueryBuilderHandler;
 
 use Pixie\Binding;
 use WP_UnitTestCase;
 use Pixie\Connection;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Tests\Logable_WPDB;
+use PhpMyAdmin\SqlParser\Parser;
 use Pixie\QueryBuilder\JoinBuilder;
+use Pixie\Tests\SQLAssertionsTrait;
 use Pixie\QueryBuilder\QueryBuilderHandler;
 
 class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 {
+    use SQLAssertionsTrait;
 
     /** Mocked WPDB instance.
      * @var Logable_WPDB
@@ -55,6 +58,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->from('bar');
 
         $this->assertEquals('SELECT foo.id, bar.id FROM foo, bar', $builder->getQuery()->getSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query for multiple tables. */
@@ -64,6 +70,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->table('foo', 'bar');
 
         $this->assertEquals('SELECT * FROM foo, bar', $builder->getQuery()->getSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to do a quick and simple find using a single key value  */
@@ -75,6 +84,8 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         // Check the passed query to prepare.
         $log = $this->wpdb->usage_log['get_results'][0];
         $this->assertEquals('SELECT * FROM foo WHERE id = 1 LIMIT 1', $log['query']);
+        // Check for valid SQL syntax
+        $this->assertValidSQL($log['query']);
 
         // With custom key
         $builder = $this->queryBuilderProvider()
@@ -82,6 +93,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $log = $this->wpdb->usage_log['get_results'][1];
         $this->assertEquals('SELECT * FROM foo WHERE custom = 2 LIMIT 1', $log['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($log['query']);
     }
 
     /** @testdox It should be possible to create a select query for specified fields. */
@@ -94,12 +108,18 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $this->assertEquals('SELECT single FROM foo', $builder->getQuery()->getSql());
 
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
+
         // Multiple
         $builderMulti = $this->queryBuilderProvider()
             ->table('foo')
-            ->select(['double', 'dual']);
+            ->select(['tree', 'dual']);
 
-        $this->assertEquals('SELECT double, dual FROM foo', $builderMulti->getQuery()->getSql());
+        $this->assertEquals('SELECT tree, dual FROM foo', $builderMulti->getQuery()->getSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderMulti->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to use aliases with the select fields. */
@@ -110,6 +130,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->select(['single' => 'sgl', 'foo' => 'bar']);
 
         $this->assertEquals('SELECT single AS sgl, foo AS bar FROM foo', $builder->getQuery()->getSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to select distinct values, either individually or multiple columns. */
@@ -122,12 +145,18 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $this->assertEquals('SELECT DISTINCT single FROM foo', $builder->getQuery()->getSql());
 
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
+
         // Multiple
         $builderMulti = $this->queryBuilderProvider()
             ->table('foo')
-            ->selectDistinct(['double', 'dual']);
+            ->selectDistinct(['foo', 'dual']);
 
-        $this->assertEquals('SELECT DISTINCT double, dual FROM foo', $builderMulti->getQuery()->getSql());
+        $this->assertEquals('SELECT DISTINCT foo, dual FROM foo', $builderMulti->getQuery()->getSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderMulti->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to call findAll() and have the values prepared using WPDB::prepare() */
@@ -138,26 +167,33 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $log = $this->wpdb->usage_log['get_results'][0];
         $this->assertEquals('SELECT * FROM my_table WHERE name = \'Sana\'', $log['query']);
+        // Check for valid SQL syntax
+        $this->assertValidSQL($log['query']);
     }
 
     /** @testdox It should be possible to create a where condition but only return the first value and have this generated and run through WPDB::prepare() */
     public function testFirstWithWhereCondition(): void
     {
         $builder = $this->queryBuilderProvider();
-        $builder->table('foo')->where('key', '=', 'value')->first();
+        $builder->table('foo')->where('bar', '=', 'value')->first();
 
         $log = $this->wpdb->usage_log['get_results'][0];
-        $this->assertEquals('SELECT * FROM foo WHERE key = \'value\' LIMIT 1', $log['query']);
+        $this->assertEquals('SELECT * FROM foo WHERE bar = \'value\' LIMIT 1', $log['query']);
+        // Check for valid SQL syntax
+        $this->assertValidSQL($log['query']);
     }
 
     /** @testdox It should be possible to do a query which gets a count of all rows using sql `count()` */
     public function testSelectCount(): void
     {
         $builder = $this->queryBuilderProvider();
-        $builder->table('foo')->select('*')->where('key', '=', 'value')->count();
+        $builder->table('foo')->select('*')->where('tree', '=', 'value')->count();
 
         $log = $this->wpdb->usage_log['get_results'][0];
-        $this->assertEquals("SELECT COUNT(*) AS field FROM (SELECT * FROM foo WHERE key = 'value') as count LIMIT 1", $log['query']);
+        $this->assertEquals("SELECT COUNT(*) AS field FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($log['query']);
     }
 
     ################################################
@@ -170,21 +206,31 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     {
         $builderWhere = $this->queryBuilderProvider()
             ->table('foo')
-            ->where('key', '=', 'value')
-            ->where('key2', '=', 'value2');
-        $this->assertEquals("SELECT * FROM foo WHERE key = 'value' AND key2 = 'value2'", $builderWhere->getQuery()->getRawSql());
+            ->where('tree', '=', 'value')
+            ->where('tree2', '=', 'value2');
+        $this->assertEquals("SELECT * FROM foo WHERE tree = 'value' AND tree2 = 'value2'", $builderWhere->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderWhere->getQuery()->getRawSql());
+
 
         $builderNot = $this->queryBuilderProvider()
             ->table('foo')
-            ->whereNot('key', '<', 'value')
-            ->whereNot('key2', '>', 'value2');
-        $this->assertEquals("SELECT * FROM foo WHERE NOT key < 'value' AND NOT key2 > 'value2'", $builderNot->getQuery()->getRawSql());
+            ->whereNot('tree', '<', 'value')
+            ->whereNot('tree2', '>', 'value2');
+        $this->assertEquals("SELECT * FROM foo WHERE NOT tree < 'value' AND NOT tree2 > 'value2'", $builderNot->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderNot->getQuery()->getRawSql());
 
         $builderMixed = $this->queryBuilderProvider()
             ->table('foo')
-            ->where('key', '=', 'value')
-            ->whereNot('key2', '>', 'value2');
-        $this->assertEquals("SELECT * FROM foo WHERE key = 'value' AND NOT key2 > 'value2'", $builderMixed->getQuery()->getRawSql());
+            ->where('tree', '=', 'value')
+            ->whereNot('tree2', '>', 'value2');
+        $this->assertEquals("SELECT * FROM foo WHERE tree = 'value' AND NOT tree2 > 'value2'", $builderMixed->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderMixed->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query which uses Where and Where not (using OR condition) */
@@ -192,21 +238,30 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     {
         $builderWhere = $this->queryBuilderProvider()
             ->table('foo')
-            ->orWhere('key', '=', 'value')
-            ->orWhere('key2', '=', 'value2');
-        $this->assertEquals("SELECT * FROM foo WHERE key = 'value' OR key2 = 'value2'", $builderWhere->getQuery()->getRawSql());
+            ->orWhere('tree', '=', 'value')
+            ->orWhere('tree2', '=', 'value2');
+        $this->assertEquals("SELECT * FROM foo WHERE tree = 'value' OR tree2 = 'value2'", $builderWhere->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderWhere->getQuery()->getRawSql());
 
         $builderNot = $this->queryBuilderProvider()
             ->table('foo')
-            ->orWhereNot('key', '<', 'value')
-            ->orWhereNot('key2', '>', 'value2');
-        $this->assertEquals("SELECT * FROM foo WHERE NOT key < 'value' OR NOT key2 > 'value2'", $builderNot->getQuery()->getRawSql());
+            ->orWhereNot('tree', '<', 'value')
+            ->orWhereNot('tree2', '>', 'value2');
+        $this->assertEquals("SELECT * FROM foo WHERE NOT tree < 'value' OR NOT tree2 > 'value2'", $builderNot->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderNot->getQuery()->getRawSql());
 
         $builderMixed = $this->queryBuilderProvider()
             ->table('foo')
-            ->orWhere('key', '=', 'value')
-            ->orWhereNot('key2', '>', 'value2');
-        $this->assertEquals("SELECT * FROM foo WHERE key = 'value' OR NOT key2 > 'value2'", $builderMixed->getQuery()->getRawSql());
+            ->orWhere('tree', '=', 'value')
+            ->orWhereNot('tree2', '>', 'value2');
+        $this->assertEquals("SELECT * FROM foo WHERE tree = 'value' OR NOT tree2 > 'value2'", $builderMixed->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderMixed->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query which uses Where In and Where not In (using AND condition) */
@@ -214,21 +269,30 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     {
         $builderWhere = $this->queryBuilderProvider()
             ->table('foo')
-            ->whereIn('key', ['v1', 'v2'])
-            ->whereIn('key2', [2, 12]);
-        $this->assertEquals("SELECT * FROM foo WHERE key IN ('v1', 'v2') AND key2 IN (2, 12)", $builderWhere->getQuery()->getRawSql());
+            ->whereIn('baz', ['v1', 'v2'])
+            ->whereIn('baz2', [2, 12]);
+        $this->assertEquals("SELECT * FROM foo WHERE baz IN ('v1', 'v2') AND baz2 IN (2, 12)", $builderWhere->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderWhere->getQuery()->getRawSql());
 
         $builderNot = $this->queryBuilderProvider()
             ->table('foo')
-            ->whereNotIn('key', ['v1', 'v2'])
-            ->whereNotIn('key2', [2, 12]);
-        $this->assertEquals("SELECT * FROM foo WHERE key NOT IN ('v1', 'v2') AND key2 NOT IN (2, 12)", $builderNot->getQuery()->getRawSql());
+            ->whereNotIn('baz', ['v1', 'v2'])
+            ->whereNotIn('baz2', [2, 12]);
+        $this->assertEquals("SELECT * FROM foo WHERE baz NOT IN ('v1', 'v2') AND baz2 NOT IN (2, 12)", $builderNot->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderNot->getQuery()->getRawSql());
 
         $builderMixed = $this->queryBuilderProvider()
             ->table('foo')
-            ->whereNotIn('key', ['v1', 'v2'])
-            ->whereIn('key2', [2, 12]);
-        $this->assertEquals("SELECT * FROM foo WHERE key NOT IN ('v1', 'v2') AND key2 IN (2, 12)", $builderMixed->getQuery()->getRawSql());
+            ->whereNotIn('baz', ['v1', 'v2'])
+            ->whereIn('baz2', [2, 12]);
+        $this->assertEquals("SELECT * FROM foo WHERE baz NOT IN ('v1', 'v2') AND baz2 IN (2, 12)", $builderMixed->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderMixed->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query which uses Where In and Where not In (using OR condition) */
@@ -236,21 +300,30 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     {
         $builderWhere = $this->queryBuilderProvider()
             ->table('foo')
-            ->orWhereIn('key', ['v1', 'v2'])
-            ->orWhereIn('key2', [2, 12]);
-        $this->assertEquals("SELECT * FROM foo WHERE key IN ('v1', 'v2') OR key2 IN (2, 12)", $builderWhere->getQuery()->getRawSql());
+            ->orWhereIn('tree', ['v1', 'v2'])
+            ->orWhereIn('tree2', [2, 12]);
+        $this->assertEquals("SELECT * FROM foo WHERE tree IN ('v1', 'v2') OR tree2 IN (2, 12)", $builderWhere->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderWhere->getQuery()->getRawSql());
 
         $builderNot = $this->queryBuilderProvider()
             ->table('foo')
-            ->orWhereNotIn('key', ['v1', 'v2'])
-            ->orWhereNotIn('key2', [2, 12]);
-        $this->assertEquals("SELECT * FROM foo WHERE key NOT IN ('v1', 'v2') OR key2 NOT IN (2, 12)", $builderNot->getQuery()->getRawSql());
+            ->orWhereNotIn('tree', ['v1', 'v2'])
+            ->orWhereNotIn('tree2', [2, 12]);
+        $this->assertEquals("SELECT * FROM foo WHERE tree NOT IN ('v1', 'v2') OR tree2 NOT IN (2, 12)", $builderNot->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderNot->getQuery()->getRawSql());
 
         $builderMixed = $this->queryBuilderProvider()
             ->table('foo')
-            ->orWhereNotIn('key', ['v1', 'v2'])
-            ->orWhereIn('key2', [2, 12]);
-        $this->assertEquals("SELECT * FROM foo WHERE key NOT IN ('v1', 'v2') OR key2 IN (2, 12)", $builderMixed->getQuery()->getRawSql());
+            ->orWhereNotIn('tree', ['v1', 'v2'])
+            ->orWhereIn('tree2', [2, 12]);
+        $this->assertEquals("SELECT * FROM foo WHERE tree NOT IN ('v1', 'v2') OR tree2 IN (2, 12)", $builderMixed->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderMixed->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query which uses Where Null and Where not Null (using AND condition) */
@@ -258,21 +331,30 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     {
         $builderWhere = $this->queryBuilderProvider()
             ->table('foo')
-            ->whereNull('key')
-            ->whereNull('key2');
-        $this->assertEquals("SELECT * FROM foo WHERE key IS NULL AND key2 IS NULL", $builderWhere->getQuery()->getRawSql());
+            ->whereNull('tree')
+            ->whereNull('tree2');
+        $this->assertEquals("SELECT * FROM foo WHERE tree IS NULL AND tree2 IS NULL", $builderWhere->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderWhere->getQuery()->getRawSql());
 
         $builderNot = $this->queryBuilderProvider()
             ->table('foo')
-            ->whereNotNull('key')
-            ->whereNotNull('key2');
-        $this->assertEquals("SELECT * FROM foo WHERE key IS NOT NULL AND key2 IS NOT NULL", $builderNot->getQuery()->getRawSql());
+            ->whereNotNull('tree')
+            ->whereNotNull('tree2');
+        $this->assertEquals("SELECT * FROM foo WHERE tree IS NOT NULL AND tree2 IS NOT NULL", $builderNot->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderNot->getQuery()->getRawSql());
 
         $builderMixed = $this->queryBuilderProvider()
             ->table('foo')
-            ->whereNotNull('key')
-            ->whereNull('key2');
-        $this->assertEquals("SELECT * FROM foo WHERE key IS NOT NULL AND key2 IS NULL", $builderMixed->getQuery()->getRawSql());
+            ->whereNotNull('tree')
+            ->whereNull('tree2');
+        $this->assertEquals("SELECT * FROM foo WHERE tree IS NOT NULL AND tree2 IS NULL", $builderMixed->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderMixed->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query which uses Where Null and Where not Null (using OR condition) */
@@ -280,21 +362,30 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     {
         $builderWhere = $this->queryBuilderProvider()
             ->table('foo')
-            ->orWhereNull('key')
-            ->orWhereNull('key2');
-        $this->assertEquals("SELECT * FROM foo WHERE key IS NULL OR key2 IS NULL", $builderWhere->getQuery()->getRawSql());
+            ->orWhereNull('tree')
+            ->orWhereNull('tree2');
+        $this->assertEquals("SELECT * FROM foo WHERE tree IS NULL OR tree2 IS NULL", $builderWhere->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderWhere->getQuery()->getRawSql());
 
         $builderNot = $this->queryBuilderProvider()
             ->table('foo')
-            ->orWhereNotNull('key')
-            ->orWhereNotNull('key2');
-        $this->assertEquals("SELECT * FROM foo WHERE key IS NOT NULL OR key2 IS NOT NULL", $builderNot->getQuery()->getRawSql());
+            ->orWhereNotNull('tree')
+            ->orWhereNotNull('tree2');
+        $this->assertEquals("SELECT * FROM foo WHERE tree IS NOT NULL OR tree2 IS NOT NULL", $builderNot->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderNot->getQuery()->getRawSql());
 
         $builderMixed = $this->queryBuilderProvider()
             ->table('foo')
-            ->orWhereNotNull('key')
-            ->orWhereNull('key2');
-        $this->assertEquals("SELECT * FROM foo WHERE key IS NOT NULL OR key2 IS NULL", $builderMixed->getQuery()->getRawSql());
+            ->orWhereNotNull('tree')
+            ->orWhereNull('tree2');
+        $this->assertEquals("SELECT * FROM foo WHERE tree IS NOT NULL OR tree2 IS NULL", $builderMixed->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderMixed->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a querying using BETWEEN (AND/OR) 2 values. */
@@ -302,21 +393,30 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     {
         $builderWhere = $this->queryBuilderProvider()
             ->table('foo')
-            ->whereBetween('key', 'v1', 'v2')
-            ->whereBetween('key2', 2, 12);
-        $this->assertEquals("SELECT * FROM foo WHERE key BETWEEN 'v1' AND 'v2' AND key2 BETWEEN 2 AND 12", $builderWhere->getQuery()->getRawSql());
+            ->whereBetween('tree', 'v1', 'v2')
+            ->whereBetween('tree2', 2, 12);
+        $this->assertEquals("SELECT * FROM foo WHERE tree BETWEEN 'v1' AND 'v2' AND tree2 BETWEEN 2 AND 12", $builderWhere->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderWhere->getQuery()->getRawSql());
 
         $builderNot = $this->queryBuilderProvider()
             ->table('foo')
-            ->orWhereBetween('key2', 2, 12)
-            ->whereBetween('key', 'v1', 'v2');
-        $this->assertEquals("SELECT * FROM foo WHERE key2 BETWEEN 2 AND 12 AND key BETWEEN 'v1' AND 'v2'", $builderNot->getQuery()->getRawSql());
+            ->orWhereBetween('tree2', 2, 12)
+            ->whereBetween('tree', 'v1', 'v2');
+        $this->assertEquals("SELECT * FROM foo WHERE tree2 BETWEEN 2 AND 12 AND tree BETWEEN 'v1' AND 'v2'", $builderNot->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderNot->getQuery()->getRawSql());
 
         $builderMixed = $this->queryBuilderProvider()
             ->table('foo')
-            ->orWhereBetween('key', 'v1', 'v2')
-            ->orWhereBetween('key2', 2, 12);
-        $this->assertEquals("SELECT * FROM foo WHERE key BETWEEN 'v1' AND 'v2' OR key2 BETWEEN 2 AND 12", $builderMixed->getQuery()->getRawSql());
+            ->orWhereBetween('tree', 'v1', 'v2')
+            ->orWhereBetween('tree2', 2, 12);
+        $this->assertEquals("SELECT * FROM foo WHERE tree BETWEEN 'v1' AND 'v2' OR tree2 BETWEEN 2 AND 12", $builderMixed->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderMixed->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to use any where() condition and have the operator assumed as = (equals) */
@@ -324,25 +424,37 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     {
         $where = $this->queryBuilderProvider()
             ->table('foo')
-            ->where('key', 'value');
-        $this->assertEquals("SELECT * FROM foo WHERE key = 'value'", $where->getQuery()->getRawSql());
+            ->where('tree', 'value');
+        $this->assertEquals("SELECT * FROM foo WHERE tree = 'value'", $where->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($where->getQuery()->getRawSql());
 
         $orWhere = $this->queryBuilderProvider()
             ->table('foo')
-            ->where('key', 'value')
-            ->orWhere('key2', 'value2');
-        $this->assertEquals("SELECT * FROM foo WHERE key = 'value' OR key2 = 'value2'", $orWhere->getQuery()->getRawSql());
+            ->where('tree', 'value')
+            ->orWhere('tree2', 'value2');
+        $this->assertEquals("SELECT * FROM foo WHERE tree = 'value' OR tree2 = 'value2'", $orWhere->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($orWhere->getQuery()->getRawSql());
 
         $whereNot = $this->queryBuilderProvider()
             ->table('foo')
-            ->whereNot('key', 'value');
-        $this->assertEquals("SELECT * FROM foo WHERE NOT key = 'value'", $whereNot->getQuery()->getRawSql());
+            ->whereNot('tree', 'value');
+        $this->assertEquals("SELECT * FROM foo WHERE NOT tree = 'value'", $whereNot->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($whereNot->getQuery()->getRawSql());
 
         $orWhereNot = $this->queryBuilderProvider()
             ->table('foo')
-            ->where('key', 'value')
-            ->orWhereNot('key2', 'value2');
-        $this->assertEquals("SELECT * FROM foo WHERE key = 'value' OR NOT key2 = 'value2'", $orWhereNot->getQuery()->getRawSql());
+            ->where('tree', 'value')
+            ->orWhereNot('tree2', 'value2');
+        $this->assertEquals("SELECT * FROM foo WHERE tree = 'value' OR NOT tree2 = 'value2'", $orWhereNot->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($orWhereNot->getQuery()->getRawSql());
     }
 
     ################################################
@@ -354,13 +466,16 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     {
         $builder = $this->queryBuilderProvider()
             ->table('foo')
-            ->where('key', '=', 'value')
+            ->where('tree', '=', 'value')
             ->where(function (QueryBuilderHandler $query) {
-                $query->where('key2', '<>', 'value2');
-                $query->orWhere('key3', '=', 'value3');
+                $query->where('tree2', '<>', 'value2');
+                $query->orWhere('tree3', '=', 'value3');
             });
 
-        $this->assertEquals("SELECT * FROM foo WHERE key = 'value' AND (key2 <> 'value2' OR key3 = 'value3')", $builder->getQuery()->getRawSql());
+        $this->assertEquals("SELECT * FROM foo WHERE tree = 'value' AND (tree2 <> 'value2' OR tree3 = 'value3')", $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
      /** @testdox It should be possible to create a grouped OR where condition */
@@ -368,13 +483,16 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     {
         $builder = $this->queryBuilderProvider()
             ->table('foo')
-            ->where('key', '=', 'value')
+            ->where('tree', '=', 'value')
             ->orWhere(function (QueryBuilderHandler $query) {
-                $query->where('key2', '<>', 'value2');
-                $query->orWhere('key3', '=', 'value3');
+                $query->where('tree2', '<>', 'value2');
+                $query->orWhere('tree3', '=', 'value3');
             });
 
-        $this->assertEquals("SELECT * FROM foo WHERE key = 'value' OR (key2 <> 'value2' OR key3 = 'value3')", $builder->getQuery()->getRawSql());
+        $this->assertEquals("SELECT * FROM foo WHERE tree = 'value' OR (tree2 <> 'value2' OR tree3 = 'value3')", $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a grouped OR where NOT condition */
@@ -382,13 +500,16 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     {
         $builder = $this->queryBuilderProvider()
             ->table('foo')
-            ->where('key', '=', 'value')
+            ->where('tree', '=', 'value')
             ->whereNot(function (QueryBuilderHandler $query) {
-                $query->where('key2', '<>', 'value2')
-                ->orWhere('key3', '=', 'value3');
+                $query->where('tree2', '<>', 'value2')
+                ->orWhere('tree3', '=', 'value3');
             });
 
-        $this->assertEquals("SELECT * FROM foo WHERE key = 'value' AND NOT (key2 <> 'value2' OR key3 = 'value3')", $builder->getQuery()->getRawSql());
+        $this->assertEquals("SELECT * FROM foo WHERE tree = 'value' AND NOT (tree2 <> 'value2' OR tree3 = 'value3')", $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query which uses group by (SINGLE) */
@@ -398,6 +519,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->table('foo')->groupBy('bar');
 
         $this->assertEquals("SELECT * FROM foo GROUP BY bar", $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query which uses group by (Multiple) */
@@ -407,6 +531,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->table('foo')->groupBy(['bar', 'baz']);
 
         $this->assertEquals("SELECT * FROM foo GROUP BY bar, baz", $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to order by a single key and specify the direction. */
@@ -418,25 +545,37 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $this->assertEquals("SELECT * FROM foo ORDER BY bar ASC", $builderDef->getQuery()->getRawSql());
 
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderDef->getQuery()->getRawSql());
+
         // Specified DESC
         $builderDesc = $this->queryBuilderProvider()
             ->table('foo')->orderBy(['bar' => 'DESC']);
 
         $this->assertEquals("SELECT * FROM foo ORDER BY bar DESC", $builderDesc->getQuery()->getRawSql());
 
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderDesc->getQuery()->getRawSql());
+
         // Using the default
         $builderDesc = $this->queryBuilderProvider()
             ->table('foo')->orderBy('bar', 'DESC');
 
         $this->assertEquals("SELECT * FROM foo ORDER BY bar DESC", $builderDesc->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderDesc->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to use a Raw expression for the order by reference. */
     public function testOrderByRawExpression(): void
     {
         $builder = $this->queryBuilderProvider()
-            ->table('foo')->orderBy(new Raw('column = %s', ['bar']), 'DESC');
-        $this->assertEquals("SELECT * FROM foo ORDER BY column = 'bar' DESC", $builder->getQuery()->getRawSql());
+            ->table('foo')->orderBy(new Raw('col = %s', ['bar']), 'DESC');
+        $this->assertEquals("SELECT * FROM foo ORDER BY col = 'bar' DESC", $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to order by multiple keys and specify the direction. */
@@ -448,16 +587,25 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $this->assertEquals("SELECT * FROM foo ORDER BY bar ASC, baz ASC", $builderDef->getQuery()->getRawSql());
 
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderDef->getQuery()->getRawSql());
+
         // Specified DESC
         $builderDesc = $this->queryBuilderProvider()
             ->table('foo')->orderBy(['bar', 'baz'], 'DESC');
 
         $this->assertEquals("SELECT * FROM foo ORDER BY bar DESC, baz DESC", $builderDesc->getQuery()->getRawSql());
 
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderDesc->getQuery()->getRawSql());
+
         // Directions per field.
         $builderDesc = $this->queryBuilderProvider()
             ->table('foo')->orderBy(['bar' => 'ASC', 'baz'], 'DESC');
         $this->assertEquals("SELECT * FROM foo ORDER BY bar ASC, baz DESC", $builderDesc->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderDesc->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to set HAVING in queries. */
@@ -465,18 +613,26 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     {
         $builderHaving = $this->queryBuilderProvider()
             ->table('foo')
-            ->select(['real' => 'alias'])
-            ->having('alias', '!=', 'tree');
+            ->select('*')
+            ->groupBy('baz')
+            ->having('foo.real', '=', 'tree');
 
-        $this->assertEquals("SELECT real AS alias FROM foo HAVING alias != 'tree'", $builderHaving->getQuery()->getRawSql());
+        $this->assertEquals("SELECT * FROM foo GROUP BY baz HAVING foo.real = 'tree'", $builderHaving->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderHaving->getQuery()->getRawSql());
 
         $builderMixed = $this->queryBuilderProvider()
             ->table('foo')
-            ->select(['real' => 'alias'])
-            ->having('alias', '!=', 'tree')
-            ->orHaving('bar', '=', 'woop');
+            ->select('*')
+            ->groupBy('baz')
+            ->having('foo.real', '!=', 'tree')
+            ->orHaving('foo.bar', '=', 'woop');
 
-        $this->assertEquals("SELECT real AS alias FROM foo HAVING alias != 'tree' OR bar = 'woop'", $builderMixed->getQuery()->getRawSql());
+        $this->assertEquals("SELECT * FROM foo GROUP BY baz HAVING foo.real != 'tree' OR foo.bar = 'woop'", $builderMixed->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderMixed->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to limit the query */
@@ -486,15 +642,21 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->table('foo')->limit(12);
 
         $this->assertEquals("SELECT * FROM foo LIMIT 12", $builderLimit->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderLimit->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to set the offset that a query will start return results from */
     public function testOffset()
     {
         $builderOffset = $this->queryBuilderProvider()
-            ->table('foo')->offset(12);
+            ->table('foo')->offset(12)->limit(6);
 
-        $this->assertEquals("SELECT * FROM foo OFFSET 12", $builderOffset->getQuery()->getRawSql());
+        $this->assertEquals("SELECT * FROM foo LIMIT 6 OFFSET 12", $builderOffset->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderOffset->getQuery()->getRawSql());
     }
 
     #################################################
@@ -507,9 +669,12 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         // Single Condition
         $builder = $this->queryBuilderProvider('prefix_')
             ->table('foo')
-            ->join('bar', 'foo.id', '=', 'bar.id');
+            ->join('bar', 'bar.id', '=', 'foo.id');
 
-        $this->assertEquals("SELECT * FROM prefix_foo INNER JOIN prefix_bar ON prefix_foo.id = prefix_bar.id", $builder->getQuery()->getRawSql());
+        $this->assertEquals("SELECT * FROM prefix_foo INNER JOIN prefix_bar ON prefix_bar.id = prefix_foo.id", $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query using (OUTER) join for a relationship */
@@ -518,9 +683,12 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         // Single Condition
         $builder = $this->queryBuilderProvider('prefix_')
             ->table('foo')
-            ->outerJoin('bar', 'foo.id', '=', 'bar.id');
+            ->outerJoin('bar', 'bar.id', '=', 'foo.id');
 
-        $this->assertEquals("SELECT * FROM prefix_foo OUTER JOIN prefix_bar ON prefix_foo.id = prefix_bar.id", $builder->getQuery()->getRawSql());
+        $this->assertEquals("SELECT * FROM prefix_foo FULL OUTER JOIN prefix_bar ON prefix_bar.id = prefix_foo.id", $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query using (RIGHT) join for a relationship */
@@ -529,9 +697,12 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         // Single Condition
         $builder = $this->queryBuilderProvider('prefix_')
             ->table('foo')
-            ->rightJoin('bar', 'foo.id', '=', 'bar.id');
+            ->rightJoin('bar', 'bar.id', '=', 'foo.id');
 
-        $this->assertEquals("SELECT * FROM prefix_foo RIGHT JOIN prefix_bar ON prefix_foo.id = prefix_bar.id", $builder->getQuery()->getRawSql());
+        $this->assertEquals("SELECT * FROM prefix_foo RIGHT JOIN prefix_bar ON prefix_bar.id = prefix_foo.id", $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query using (LEFT) join for a relationship */
@@ -540,9 +711,12 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         // Single Condition
         $builder = $this->queryBuilderProvider('prefix_')
             ->table('foo')
-            ->leftJoin('bar', 'foo.id', '=', 'bar.id');
+            ->leftJoin('bar', 'bar.id', '=', 'foo.id');
 
-        $this->assertEquals("SELECT * FROM prefix_foo LEFT JOIN prefix_bar ON prefix_foo.id = prefix_bar.id", $builder->getQuery()->getRawSql());
+        $this->assertEquals("SELECT * FROM prefix_foo LEFT JOIN prefix_bar ON prefix_bar.id = prefix_foo.id", $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query using (CROSS) join for a relationship */
@@ -551,9 +725,12 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         // Single Condition
         $builder = $this->queryBuilderProvider('prefix_')
             ->table('foo')
-            ->crossJoin('bar', 'foo.id', '=', 'bar.id');
+            ->crossJoin('bar', 'bar.id', '=', 'foo.id');
 
-        $this->assertEquals("SELECT * FROM prefix_foo CROSS JOIN prefix_bar ON prefix_foo.id = prefix_bar.id", $builder->getQuery()->getRawSql());
+        $this->assertEquals("SELECT * FROM prefix_foo CROSS JOIN prefix_bar ON prefix_bar.id = prefix_foo.id", $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a query using (INNER) join for a relationship */
@@ -562,9 +739,12 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         // Single Condition
         $builder = $this->queryBuilderProvider('in_')
             ->table('foo')
-            ->innerJoin('bar', 'foo.id', '=', 'bar.id');
+            ->innerJoin('bar', 'bar.id', '=', 'foo.id');
 
-        $this->assertEquals("SELECT * FROM in_foo INNER JOIN in_bar ON in_foo.id = in_bar.id", $builder->getQuery()->getRawSql());
+        $this->assertEquals("SELECT * FROM in_foo INNER JOIN in_bar ON in_bar.id = in_foo.id", $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a conditional join using multiple ON with AND conditions */
@@ -577,6 +757,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
                 $builder->on('bar.baz', '!=', 'foo.baz');
             });
         $this->assertEquals("SELECT * FROM prefix_foo INNER JOIN prefix_bar ON prefix_bar.id != prefix_foo.id AND prefix_bar.baz != prefix_foo.baz", $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to create a conditional join using multiple ON with OR conditions */
@@ -589,6 +772,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
                 $builder->orOn('bar.baz', '!=', 'foo.baz');
             });
         $this->assertEquals("SELECT * FROM prefix_foo INNER JOIN prefix_bar ON prefix_bar.id != prefix_foo.id OR prefix_bar.baz != prefix_foo.baz", $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
 
@@ -616,6 +802,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertCount(2, $this->wpdb->usage_log['prepare'][0]['args']);
         $this->assertEquals('string', $this->wpdb->usage_log['prepare'][0]['args'][0]);
         $this->assertEquals(314, $this->wpdb->usage_log['prepare'][0]['args'][1]);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($this->wpdb->usage_log['get_results'][0]['query']);
     }
 
 
@@ -654,7 +843,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->where('value', '=', 'Ifrah')
             ->where(\AB::raw('bar = %s', 'now'));
 
-        $this->assertEquals("SELECT count(cb_my_table.id) as tot FROM foo WHERE value = 'Ifrah' AND bar = 'now'", $query->getQuery()->getRawSql());
+        $this->assertEquals("SELECT count(cb_my_table.id) as tot FROM foo WHERE value = 'Ifrah' AND bar = 'now'", $query->getQuery()->getRawSql());// Check for valid SQL syntax
+
+        $this->assertValidSQL($query->getQuery()->getRawSql());
     }
 
 
@@ -677,6 +868,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         // Check the actual query.
         $this->assertEquals("INSERT INTO foo (name,description) VALUES ('Sana','Blah')", $this->wpdb->usage_log['get_results'][0]['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($this->wpdb->usage_log['get_results'][0]['query']);
     }
 
     /** @testdox It should be possible to insert multiple rows of data and get the row id/key returned as an array. */
@@ -702,6 +896,11 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("INSERT INTO foo (name,description) VALUES ('Sana','Blah')", $this->wpdb->usage_log['get_results'][0]['query']);
         $this->assertEquals("INSERT INTO foo (name,description) VALUES ('Mark','Woo')", $this->wpdb->usage_log['get_results'][1]['query']);
         $this->assertEquals("INSERT INTO foo (name,description) VALUES ('Sam','Boo')", $this->wpdb->usage_log['get_results'][2]['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($this->wpdb->usage_log['get_results'][0]['query']);
+        $this->assertValidSQL($this->wpdb->usage_log['get_results'][1]['query']);
+        $this->assertValidSQL($this->wpdb->usage_log['get_results'][2]['query']);
     }
 
     /** @testdox It should be possible to use Raw values for MYSQL function and constant values, which are not wrapped in quotes by WPDB. */
@@ -713,6 +912,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         'col2' => new Raw('CURRENT_TIMESTAMP')
         ]);
         $this->assertEquals("INSERT INTO foo (col1,col2) VALUES ('val1',CURRENT_TIMESTAMP)", $this->wpdb->usage_log['get_results'][0]['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($this->wpdb->usage_log['get_results'][0]['query']);
     }
 
     /** @testdox It should be possible to an Insert which ignores all errors generated by MYSQL */
@@ -738,6 +940,10 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertEquals("INSERT IGNORE INTO foo (name,description) VALUES ('Sana','Blah')", $this->wpdb->usage_log['get_results'][0]['query']);
         $this->assertEquals("INSERT IGNORE INTO foo (name,description) VALUES ('Mark','Woo')", $this->wpdb->usage_log['get_results'][1]['query']);
         $this->assertEquals("INSERT IGNORE INTO foo (name,description) VALUES ('Sam','Boo')", $this->wpdb->usage_log['get_results'][2]['query']);
+        // Check for valid SQL syntax
+        $this->assertValidSQL($this->wpdb->usage_log['get_results'][0]['query']);
+        $this->assertValidSQL($this->wpdb->usage_log['get_results'][1]['query']);
+        $this->assertValidSQL($this->wpdb->usage_log['get_results'][2]['query']);
     }
 
     /** @testdox It should be possible to create a query which will do an update on a duplicate key  */
@@ -754,6 +960,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $this->assertEquals(12, $ID);
         $this->assertEquals("INSERT INTO foo (name,counter) VALUES ('Baza',2) ON DUPLICATE KEY UPDATE name='Baza',counter=1", $this->wpdb->usage_log['get_results'][0]['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($this->wpdb->usage_log['get_results'][0]['query']);
     }
 
     /** @testdox It should be possible to create a REPLACE INTO query and have the values added using WPDB::prepare()*/
@@ -767,6 +976,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $query = $this->wpdb->usage_log['get_results'][0];
         $this->assertEquals('REPLACE INTO foo (id,name,doubt) VALUES (%d,%s,%d)', $prepared['query']);
         $this->assertEquals('REPLACE INTO foo (id,name,doubt) VALUES (24,\'Glynn\',1)', $query['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($query['query']);
     }
 
     /** @testdox It should be possible to create a query which will delete all rows that the match the criteria defined. Any values should be passed to WPDB::prepare() before being used. */
@@ -782,6 +994,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $this->assertEquals('DELETE FROM foo WHERE id > %d', $prepared['query']);
         $this->assertEquals('DELETE FROM foo WHERE id > 5', $query['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($query['query']);
     }
 
     /** @testdox It should be possible to create a nested query using subQueries. (Example from Readme) */
@@ -806,6 +1021,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             'SELECT * FROM (SELECT my_table.*, (SELECT details FROM person_details WHERE person_id = 3) as table_alias1 FROM my_table) as table_alias2',
             $this->wpdb->usage_log['get_results'][0]['query']
         );
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($this->wpdb->usage_log['get_results'][0]['query']);
     }
 
     /**
@@ -827,6 +1045,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             'SELECT customerNumber, checkNumber, amount FROM payments WHERE amount > (SELECT AVG(amount) FROM payments)',
             $this->wpdb->usage_log['get_results'][0]['query']
         );
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($this->wpdb->usage_log['get_results'][0]['query']);
     }
 
     /**
@@ -848,6 +1069,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             'SELECT customerName FROM customers WHERE customerNumber NOT IN (SELECT DISTINCT customerNumber FROM orders)',
             $this->wpdb->usage_log['get_results'][0]['query']
         );
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($this->wpdb->usage_log['get_results'][0]['query']);
     }
 
     /** @testdox It should be possible to use partial expressions as strings and not have quotes added automatically by WPDB::prepare() */
@@ -863,6 +1087,8 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             "SELECT Order_ID, Product_Name, DATE_FORMAT(Order_Date,'%d--%m--%y') as new_date_formate FROM orders",
             $this->wpdb->usage_log['get_results'][1]['query']
         );
+        // Check for valid SQL syntax
+        $this->assertValidSQL($this->wpdb->usage_log['get_results'][1]['query']);
     }
 
     /** @testdox It should be possible to use a Binding value in a delete where query */
@@ -878,6 +1104,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $this->assertEquals('DELETE FROM foo WHERE id > %d', $prepared['query']);
         $this->assertEquals('DELETE FROM foo WHERE id > 5', $query['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($query['query']);
     }
 
     /** @testdox It should be possible to use both RAW expressions and Bindings values for doing where in queries. */
@@ -885,9 +1114,13 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     {
         $builderWhere = $this->queryBuilderProvider()
             ->table('foo')
-            ->whereIn('key', [Binding::asString('v1'), Binding::asRaw("'v2'")])
-            ->whereIn('key2', [Binding::asInt(10 / 4), new Raw('%d', 12)]);
-        $this->assertEquals("SELECT * FROM foo WHERE key IN ('v1', 'v2') AND key2 IN (2, 12)", $builderWhere->getQuery()->getRawSql());
+            ->whereIn('tree', [Binding::asString('v1'), Binding::asRaw("'v2'")])
+            ->whereIn('tree2', [Binding::asInt(10 / 4), new Raw('%d', 12)]);
+        $this->assertEquals("SELECT * FROM foo WHERE tree IN ('v1', 'v2') AND tree2 IN (2, 12)", $builderWhere->getQuery()->getRawSql());
+
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderWhere->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to use RAW expressions for the key in whereNull conditions. */
@@ -895,9 +1128,12 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     {
         $builderNot = $this->queryBuilderProvider()
             ->table('foo')
-            ->whereNotNull(new Raw('key'))
-            ->whereNotNull('key2');
-        $this->assertEquals("SELECT * FROM foo WHERE key IS NOT NULL AND key2 IS NOT NULL", $builderNot->getQuery()->getRawSql());
+            ->whereNotNull(new Raw('tree'))
+            ->whereNotNull('tree2');
+        $this->assertEquals("SELECT * FROM foo WHERE tree IS NOT NULL AND tree2 IS NOT NULL", $builderNot->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builderNot->getQuery()->getRawSql());
     }
 
 
@@ -910,6 +1146,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $expected = 'SELECT JSON_UNQUOTE(JSON_EXTRACT(column, "$.foo.bar")) AS alias FROM TableName';
         $this->assertEquals($expected, $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
     /** @testdox It should be possible to use table.column and have the prefix added to the table, even if used as JSON Select query */
@@ -921,11 +1160,14 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $expected = 'SELECT JSON_UNQUOTE(JSON_EXTRACT(pr_table.column, "$.foo.bar")) AS alias FROM pr_table';
         $this->assertEquals($expected, $builder->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
 
 
-   
+
 
     /** @testdox It should be possible to use Laravel style arrow selectors for using JSON in order by. */
     public function testOrderByJsonExpression(): void
@@ -936,10 +1178,16 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $query = $builder()->orderBy('single->value->once', 'DESC')->getQuery()->getRawSql();
         $expected = "SELECT * FROM mock_json ORDER BY JSON_UNQUOTE(JSON_EXTRACT(single, \"$.value.once\")) DESC";
+        $this->assertEquals($expected, $query);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($query);
 
         $query = $builder()->orderBy(['multi->value->three' => 'DESC', 'multi->value' => 'ASC'])->getQuery()->getRawSql();
         $expected = "SELECT * FROM mock_json ORDER BY JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\")) DESC, JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value\")) ASC";
         $this->assertEquals($expected, $query);
+        // Check for valid SQL syntax
+        $this->assertValidSQL($query);
     }
 
     /** @testdox It should be possible to use groupby with function calls. */
@@ -954,6 +1202,8 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         $expected = 'SELECT COUNT(CustomerID), Country FROM Customers GROUP BY Country ORDER BY COUNT(CustomerID) DESC';
         $this->assertSame($expected, $sql);
+        // Check for valid SQL syntax
+        $this->assertValidSQL($sql);
     }
 
     /** @testdox Examples used in WIKI for having(). */
@@ -968,6 +1218,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $expected = 'SELECT product, SUM(quantity) AS "Total quantity" FROM order_details GROUP BY product HAVING SUM(quantity) > 10';
         $this->assertSame($expected, $sql->getQuery()->getRawSql());
 
+        // Check for valid SQL syntax
+        $this->assertValidSQL($sql->getQuery()->getRawSql());
+
         // Group by multiple https://stackoverflow.com/questions/14756222/multiple-aggregate-functions-in-having-clause
         $sql = $this->queryBuilderProvider()
             ->table('movies')
@@ -978,6 +1231,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $expected = 'SELECT category_id, year_released FROM movies GROUP BY year_released HAVING category_id < 4 AND category_id > 2';
         $this->assertSame($expected, $sql->getQuery()->getRawSql());
 
+        // Check for valid SQL syntax
+        $this->assertValidSQL($sql->getQuery()->getRawSql());
+
         // Multiple as or Having
         $sql = $this->queryBuilderProvider()
             ->table('movies')
@@ -987,5 +1243,60 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
             ->orHaving('category_id', '>', 2);
         $expected = 'SELECT category_id, year_released FROM movies GROUP BY year_released HAVING category_id < 4 OR category_id > 2';
         $this->assertSame($expected, $sql->getQuery()->getRawSql());
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($sql->getQuery()->getRawSql());
+    }
+
+    /** @testdox It should be possible to use JSON arrow selectors with count() and have a valid SQL query created. */
+    public function testCountWithJsonSelectors()
+    {
+        $builder = $this->queryBuilderProvider();
+        $builder->table('foo')->where('tree', '=', 'value')->count('multi->value->three');
+
+        $log = $this->wpdb->usage_log['get_results'][0];
+        $this->assertEquals("SELECT COUNT(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS field FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($log['query']);
+    }
+
+    /** @testdox It should be possible to use JSON arrow selectors with min() and have a valid SQL query created. */
+    public function testMinWithJsonSelectors()
+    {
+        $builder = $this->queryBuilderProvider();
+        $builder->table('foo')->where('tree', '=', 'value')->min('multi->value->three');
+
+        $log = $this->wpdb->usage_log['get_results'][0];
+        $this->assertEquals("SELECT MIN(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS field FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($log['query']);
+    }
+
+    /** @testdox It should be possible to use JSON arrow selectors with max() and have a valid SQL query created. */
+    public function testMaxWithJsonSelectors()
+    {
+        $builder = $this->queryBuilderProvider();
+        $builder->table('foo')->where('tree', '=', 'value')->max('multi->value->three');
+
+        $log = $this->wpdb->usage_log['get_results'][0];
+        $this->assertEquals("SELECT MAX(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS field FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($log['query']);
+    }
+
+    /** @testdox It should be possible to use JSON arrow selectors with average() and have a valid SQL query created. */
+    public function testAverageWithJsonSelectors()
+    {
+        $builder = $this->queryBuilderProvider();
+        $builder->table('foo')->where('tree', '=', 'value')->average('multi->value->three');
+
+        $log = $this->wpdb->usage_log['get_results'][0];
+        $this->assertEquals("SELECT AVG(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS field FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
+
+        // Check for valid SQL syntax
+        $this->assertValidSQL($log['query']);
     }
 }
