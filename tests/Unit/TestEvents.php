@@ -128,4 +128,90 @@ class TestEvents extends WP_UnitTestCase
         $this->assertEquals(1, $result['id']);
         $this->assertContains('before-selectfoo', Objects::get_property($events, 'firedEvents'));
     }
+
+    /** @testdox It should be possible to register an event that is fired after a select query, which holds the query object, results and time taken. */
+    public function testEventAfterSelect(): void
+    {
+        // Mock the WPDB return
+        $this->wpdb->then_return = ['id' => 1, 'text' => 'MOCK'];
+
+        // Data from event.
+        $data = array();
+
+        $this->connection->getEventHandler()
+            ->registerEvent('after-select', 'foo', function (QueryBuilderHandler $query, array $results, int $time) use (&$data) {
+                $data['query'] = $query;
+                $data['results'] = $results;
+                $data['time'] = $time;
+            });
+        $results = $this->queryBuilderProvider()->table('foo')->get();
+
+        $this->assertArrayHasKey('query', $data);
+        $this->assertInstanceOf(QueryBuilderHandler::class, $data['query']);
+        $this->assertArrayHasKey('results', $data);
+        $this->assertIsArray($data['results']);
+        $this->assertEquals($results, $data['results']);
+        $this->assertArrayHasKey('time', $data);
+        $this->assertIsInt($data['time']);
+    }
+
+    /** INSERT */
+
+    /** @testdox It should be possible to register an event on before-insert which will short circuit a get() call if returns anything but null. */
+    public function testEventBeforeInsertWillShortCircuitGet(): void
+    {
+        $events = $this->connection->getEventHandler();
+        $events->registerEvent('before-insert', 'foo', $this->createClosure('This should skip the query being executed.'));
+        $result = $this->queryBuilderProvider()->table('foo')->insert(['bar' => 'baz']);
+
+        $this->assertEmpty($this->wpdb->usage_log);
+        $this->assertEquals('This should skip the query being executed.', $result);
+        $this->assertContains('before-insertfoo', Objects::get_property($events, 'firedEvents'));
+    }
+
+    /** @testdox It should be possible to register an event on before-insert which will NOT short circuit a get() call if returns null. */
+    public function testEventBeforeInsertWillNotShortCircuitGet(): void
+    {
+        // Mock the WPDB return
+        $this->wpdb->rows_affected = 1;
+        $this->wpdb->insert_id = 10;
+
+        $events = $this->connection->getEventHandler();
+        $events->registerEvent('before-insert', 'foo', $this->createClosure(null));
+        $result = $this->queryBuilderProvider()->table('foo')->insert(['bar' => 'baz']);
+
+        $this->assertNotEmpty($this->wpdb->usage_log);
+        $this->assertEquals("INSERT INTO foo (bar) VALUES ('baz')", $this->wpdb->usage_log['get_results'][0]['query']);
+        $this->assertEquals(10, $result);
+        $this->assertContains('before-insertfoo', Objects::get_property($events, 'firedEvents'));
+    }
+
+    /** @testdox It should be possible to register an event that is fired after a select query, which holds the query object, results and time taken. */
+    public function testEventAfterInsert(): void
+    {
+        // Mock the WPDB return
+        $this->wpdb->rows_affected = 1;
+        $this->wpdb->insert_id = 10;
+
+        // Data from event.
+        $data = array();
+
+        $this->connection->getEventHandler()
+            ->registerEvent('after-insert', 'foo', function (QueryBuilderHandler $query, ?int $results, int $time) use (&$data) {
+                $data['query'] = $query;
+                $data['results'] = $results;
+                $data['time'] = $time;
+            });
+        $result = $this->queryBuilderProvider()->table('foo')->insert(['bar' => 'baz']);
+
+        $this->assertArrayHasKey('query', $data);
+        $this->assertInstanceOf(QueryBuilderHandler::class, $data['query']);
+
+        $this->assertArrayHasKey('results', $data);
+        $this->assertIsInt($data['results']);
+        $this->assertEquals($result, $data['results']);
+
+        $this->assertArrayHasKey('time', $data);
+        $this->assertIsInt($data['time']);
+    }
 }
