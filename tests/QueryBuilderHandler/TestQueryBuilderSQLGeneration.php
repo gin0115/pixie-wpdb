@@ -9,7 +9,7 @@ declare(strict_types=1);
  * @author GLynn Quelch <glynn.quelch@gmail.com>
  */
 
-namespace Pixie\Tests;
+namespace Pixie\Tests\QueryBuilderHandler;
 
 use Pixie\Binding;
 use WP_UnitTestCase;

@@ -620,8 +620,8 @@ class QueryBuilderHandler implements HasConnection
             return $eventResult;
         }
         $queryObject                         = $this->getQuery('update', $data);
-        list($preparedQuery, $executionTime) = $this->statement($queryObject->getSql(), $queryObject->getBindings());
-
+        $r = $this->statement($queryObject->getSql(), $queryObject->getBindings());
+        list($preparedQuery, $executionTime) = $r;
         $this->dbInstance()->get_results($preparedQuery);
         $this->fireEvents('after-update', $queryObject, $executionTime);
 
@@ -657,9 +657,9 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @return int number of rows effected
+     * @return mixed number of rows effected or shortcircuited response
      */
-    public function delete(): int
+    public function delete()
     {
         $eventResult = $this->fireEvents('before-delete');
         if (!is_null($eventResult)) {
