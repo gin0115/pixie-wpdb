@@ -13,6 +13,7 @@ namespace Pixie\Tests\Unit;
 
 use Closure;
 use Exception;
+use Pixie\Event;
 use WP_UnitTestCase;
 use Pixie\Connection;
 use Pixie\EventHandler;
@@ -96,7 +97,7 @@ class TestEvents extends WP_UnitTestCase
         $handler->registerEvent('for_bar_table', 'bar', $this->createClosure('bar_table'));
         // Remove.
         $handler->removeEvent('for_bar_table', 'bar');
-        // Should stil hold empty key.
+        // Should still hold empty key.
         $this->assertEmpty($handler->getEvents()['bar']);
     }
 
@@ -104,7 +105,7 @@ class TestEvents extends WP_UnitTestCase
     public function testEventBeforeSelectWillShortCircuitGet(): void
     {
         $events = $this->connection->getEventHandler();
-        $events->registerEvent('before-select', 'foo', $this->createClosure('This should skip the query being executed.'));
+        $events->registerEvent(Event::BEFORE_SELECT, 'foo', $this->createClosure('This should skip the query being executed.'));
         $result = $this->queryBuilderProvider()->table('foo')->get();
 
         $this->assertEmpty($this->wpdb->usage_log);
@@ -140,7 +141,7 @@ class TestEvents extends WP_UnitTestCase
         $data = array();
 
         $this->connection->getEventHandler()
-            ->registerEvent('after-select', 'foo', function (QueryBuilderHandler $query, array $results, int $time) use (&$data) {
+            ->registerEvent(Event::AFTER_SELECT, 'foo', function (QueryBuilderHandler $query, array $results, int $time) use (&$data) {
                 $data['query'] = $query;
                 $data['results'] = $results;
                 $data['time'] = $time;
@@ -162,7 +163,7 @@ class TestEvents extends WP_UnitTestCase
     public function testEventBeforeInsertWillShortCircuitGet(): void
     {
         $events = $this->connection->getEventHandler();
-        $events->registerEvent('before-insert', 'foo', $this->createClosure('This should skip the query being executed.'));
+        $events->registerEvent(Event::BEFORE_INSERT, 'foo', $this->createClosure('This should skip the query being executed.'));
         $result = $this->queryBuilderProvider()->table('foo')->insert(['bar' => 'baz']);
 
         $this->assertEmpty($this->wpdb->usage_log);
@@ -198,7 +199,7 @@ class TestEvents extends WP_UnitTestCase
         $data = array();
 
         $this->connection->getEventHandler()
-            ->registerEvent('after-insert', 'foo', function (QueryBuilderHandler $query, ?int $results, int $time) use (&$data) {
+            ->registerEvent(Event::AFTER_INSERT, 'foo', function (QueryBuilderHandler $query, ?int $results, int $time) use (&$data) {
                 $data['query'] = $query;
                 $data['results'] = $results;
                 $data['time'] = $time;
@@ -223,7 +224,7 @@ class TestEvents extends WP_UnitTestCase
     public function testEventBeforeUpdateWillShortCircuitGet(): void
     {
         $events = $this->connection->getEventHandler();
-        $events->registerEvent('before-update', 'foo', $this->createClosure('This should skip the query being executed.'));
+        $events->registerEvent(Event::BEFORE_UPDATE, 'foo', $this->createClosure('This should skip the query being executed.'));
         $result = $this->queryBuilderProvider()->table('foo')->where('id', 1)->update(['bar' => 'baz']);
 
         $this->assertEmpty($this->wpdb->usage_log);
@@ -259,7 +260,7 @@ class TestEvents extends WP_UnitTestCase
         $data = array();
 
         $this->connection->getEventHandler()
-            ->registerEvent('after-update', 'foo', function (QueryBuilderHandler $query, QueryObject $queryObject, int $time) use (&$data) {
+            ->registerEvent(Event::AFTER_UPDATE, 'foo', function (QueryBuilderHandler $query, QueryObject $queryObject, int $time) use (&$data) {
                 $data['query'] = $query;
                 $data['queryObject'] = $queryObject;
                 $data['time'] = $time;
@@ -282,7 +283,7 @@ class TestEvents extends WP_UnitTestCase
     public function testEventBeforeDeleteWillShortCircuitGet(): void
     {
         $events = $this->connection->getEventHandler();
-        $events->registerEvent('before-delete', 'foo', $this->createClosure('This should skip the query being executed.'));
+        $events->registerEvent(Event::BEFORE_DELETE, 'foo', $this->createClosure('This should skip the query being executed.'));
         $result = $this->queryBuilderProvider()->table('foo')->where('id', 1)->delete();
 
         $this->assertEmpty($this->wpdb->usage_log);
@@ -318,7 +319,7 @@ class TestEvents extends WP_UnitTestCase
         $data = array();
 
         $this->connection->getEventHandler()
-            ->registerEvent('after-delete', 'foo', function (QueryBuilderHandler $query, QueryObject $queryObject, int $time) use (&$data) {
+            ->registerEvent(Event::AFTER_DELETE, 'foo', function (QueryBuilderHandler $query, QueryObject $queryObject, int $time) use (&$data) {
                 $data['query'] = $query;
                 $data['queryObject'] = $queryObject;
                 $data['time'] = $time;
