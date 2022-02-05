@@ -620,8 +620,8 @@ class QueryBuilderHandler implements HasConnection
             return $eventResult;
         }
         $queryObject                         = $this->getQuery('update', $data);
-        list($preparedQuery, $executionTime) = $this->statement($queryObject->getSql(), $queryObject->getBindings());
-
+        $r = $this->statement($queryObject->getSql(), $queryObject->getBindings());
+        list($preparedQuery, $executionTime) = $r;
         $this->dbInstance()->get_results($preparedQuery);
         $this->fireEvents('after-update', $queryObject, $executionTime);
 
@@ -1487,6 +1487,7 @@ class QueryBuilderHandler implements HasConnection
     {
         $params = func_get_args(); // @todo Replace this with an easier to read alteratnive
         array_unshift($params, $this);
+
 
         return call_user_func_array([$this->connection->getEventHandler(), 'fireEvents'], $params);
     }

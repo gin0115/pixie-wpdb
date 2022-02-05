@@ -18,6 +18,7 @@ use Pixie\Connection;
 use Pixie\EventHandler;
 use Pixie\Tests\Logable_WPDB;
 use Gin0115\WPUnit_Helpers\Objects;
+use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\QueryBuilderHandler;
 
 class TestEvents extends WP_UnitTestCase
@@ -210,6 +211,66 @@ class TestEvents extends WP_UnitTestCase
         $this->assertArrayHasKey('results', $data);
         $this->assertIsInt($data['results']);
         $this->assertEquals($result, $data['results']);
+
+        $this->assertArrayHasKey('time', $data);
+        $this->assertIsInt($data['time']);
+    }
+
+
+      /** UPDATE */
+
+    /** @testdox It should be possible to register an event on before-update which will short circuit a get() call if returns anything but null. */
+    public function testEventBeforeUpdateWillShortCircuitGet(): void
+    {
+        $events = $this->connection->getEventHandler();
+        $events->registerEvent('before-update', 'foo', $this->createClosure('This should skip the query being executed.'));
+        $result = $this->queryBuilderProvider()->table('foo')->where('id', 1)->update(['bar' => 'baz']);
+
+        $this->assertEmpty($this->wpdb->usage_log);
+        $this->assertEquals('This should skip the query being executed.', $result);
+        $this->assertContains('before-updatefoo', Objects::get_property($events, 'firedEvents'));
+    }
+
+    /** @testdox It should be possible to register an event on before-update which will NOT short circuit a get() call if returns null. */
+    public function testEventBeforeUpdateWillNotShortCircuitGet(): void
+    {
+        // Mock the WPDB return
+        $this->wpdb->rows_affected = 2;
+        $this->wpdb->insert_id = 24;
+
+        $events = $this->connection->getEventHandler();
+        $events->registerEvent('before-update', 'foo', $this->createClosure(null));
+        $result = $this->queryBuilderProvider()->table('foo')->where('id', 1)->update(['bar' => 'baz']);
+
+        $this->assertNotEmpty($this->wpdb->usage_log);
+        $this->assertEquals("UPDATE foo SET bar='baz' WHERE id = 1", $this->wpdb->usage_log['get_results'][0]['query']);
+        $this->assertEquals(2, $result);
+        $this->assertContains('before-updatefoo', Objects::get_property($events, 'firedEvents'));
+    }
+
+    /** @testdox It should be possible to register an event that is fired after a select query, which holds the query object, results and time taken. */
+    public function testEventAfterUpdate(): void
+    {
+        // Mock the WPDB return
+        $this->wpdb->rows_affected = 2;
+        $this->wpdb->insert_id = 24;
+
+        // Data from event.
+        $data = array();
+
+        $this->connection->getEventHandler()
+            ->registerEvent('after-update', 'foo', function (QueryBuilderHandler $query, QueryObject $queryObject, int $time) use (&$data) {
+                $data['query'] = $query;
+                $data['queryObject'] = $queryObject;
+                $data['time'] = $time;
+            });
+        $result = $this->queryBuilderProvider()->table('foo')->where('id', 1)->update(['bar' => 'baz']);
+
+        $this->assertArrayHasKey('query', $data);
+        $this->assertInstanceOf(QueryBuilderHandler::class, $data['query']);
+
+        $this->assertArrayHasKey('queryObject', $data);
+        $this->assertInstanceOf(QueryObject::class, $data['queryObject']);
 
         $this->assertArrayHasKey('time', $data);
         $this->assertIsInt($data['time']);
