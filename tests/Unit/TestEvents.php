@@ -217,7 +217,7 @@ class TestEvents extends WP_UnitTestCase
     }
 
 
-      /** UPDATE */
+    /** UPDATE */
 
     /** @testdox It should be possible to register an event on before-update which will short circuit a get() call if returns anything but null. */
     public function testEventBeforeUpdateWillShortCircuitGet(): void
@@ -265,6 +265,65 @@ class TestEvents extends WP_UnitTestCase
                 $data['time'] = $time;
             });
         $result = $this->queryBuilderProvider()->table('foo')->where('id', 1)->update(['bar' => 'baz']);
+
+        $this->assertArrayHasKey('query', $data);
+        $this->assertInstanceOf(QueryBuilderHandler::class, $data['query']);
+
+        $this->assertArrayHasKey('queryObject', $data);
+        $this->assertInstanceOf(QueryObject::class, $data['queryObject']);
+
+        $this->assertArrayHasKey('time', $data);
+        $this->assertIsInt($data['time']);
+    }
+
+    /** DELETE */
+
+    /** @testdox It should be possible to register an event on before-delete which will short circuit a get() call if returns anything but null. */
+    public function testEventBeforeDeleteWillShortCircuitGet(): void
+    {
+        $events = $this->connection->getEventHandler();
+        $events->registerEvent('before-delete', 'foo', $this->createClosure('This should skip the query being executed.'));
+        $result = $this->queryBuilderProvider()->table('foo')->where('id', 1)->delete();
+
+        $this->assertEmpty($this->wpdb->usage_log);
+        $this->assertEquals('This should skip the query being executed.', $result);
+        $this->assertContains('before-deletefoo', Objects::get_property($events, 'firedEvents'));
+    }
+
+    /** @testdox It should be possible to register an event on before-delete which will NOT short circuit a get() call if returns null. */
+    public function testEventBeforeDeleteWillNotShortCircuitGet(): void
+    {
+        // Mock the WPDB return
+        $this->wpdb->rows_affected = 2;
+        $this->wpdb->insert_id = 24;
+
+        $events = $this->connection->getEventHandler();
+        $events->registerEvent('before-delete', 'foo', $this->createClosure(null));
+        $result = $this->queryBuilderProvider()->table('foo')->where('id', 1)->delete();
+
+        $this->assertNotEmpty($this->wpdb->usage_log);
+        $this->assertEquals("DELETE FROM foo WHERE id = 1", $this->wpdb->usage_log['get_results'][0]['query']);
+        $this->assertEquals(2, $result);
+        $this->assertContains('before-deletefoo', Objects::get_property($events, 'firedEvents'));
+    }
+
+    /** @testdox It should be possible to register an event that is fired after a select query, which holds the query object, results and time taken. */
+    public function testEventAfterDelete(): void
+    {
+        // Mock the WPDB return
+        $this->wpdb->rows_affected = 2;
+        $this->wpdb->insert_id = 24;
+
+        // Data from event.
+        $data = array();
+
+        $this->connection->getEventHandler()
+            ->registerEvent('after-delete', 'foo', function (QueryBuilderHandler $query, QueryObject $queryObject, int $time) use (&$data) {
+                $data['query'] = $query;
+                $data['queryObject'] = $queryObject;
+                $data['time'] = $time;
+            });
+        $this->queryBuilderProvider()->table('foo')->where('id', 1)->delete();
 
         $this->assertArrayHasKey('query', $data);
         $this->assertInstanceOf(QueryBuilderHandler::class, $data['query']);

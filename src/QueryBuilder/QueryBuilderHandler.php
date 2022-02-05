@@ -657,9 +657,9 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @return int number of rows effected
+     * @return mixed number of rows effected or shortcircuited response
      */
-    public function delete(): int
+    public function delete()
     {
         $eventResult = $this->fireEvents('before-delete');
         if (!is_null($eventResult)) {
@@ -1487,7 +1487,6 @@ class QueryBuilderHandler implements HasConnection
     {
         $params = func_get_args(); // @todo Replace this with an easier to read alteratnive
         array_unshift($params, $this);
-
 
         return call_user_func_array([$this->connection->getEventHandler(), 'fireEvents'], $params);
     }
