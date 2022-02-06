@@ -1,98 +1,185 @@
 # Pixie WPDB Query Builder for WordPress
 
-
-![alt text](https://img.shields.io/badge/Current_Version-0.0.1-yellow.svg?style=flat " ") 
-[![Open Source Love](https://badges.frapsoft.com/os/mit/mit.svg?v=102)]()
+[![GitHub issues](https://img.shields.io/github/release/gin0115/pixie-wpdb)](https://github.com/gin0115/pixie-wpdb/releases)
 ![](https://github.com/gin0115/pixie-wpdb/workflows/GitHub_CI/badge.svg " ")
 [![codecov](https://codecov.io/gh/gin0115/pixie-wpdb/branch/master/graph/badge.svg?token=4yEceIaSFP)](https://codecov.io/gh/gin0115/pixie-wpdb)
 [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/gin0115/pixie-wpdb/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/gin0115/pixie-wpdb/?branch=master)
+[![GitHub issues](https://img.shields.io/github/issues/gin0115/pixie-wpdb)](https://github.com/gin0115/pixie-wpdb/issues)
+[![Open Source Love](https://badges.frapsoft.com/os/mit/mit.svg?v=102)]()
 
+An expressive, query builder for WordPRess it can also be referred as a Database Abstraction Layer. Pixie WPDB supports WPDB ONLY and it takes care of query sanitization, table prefixing and many other things with a unified API.
 
-A lightweight, expressive, query builder for WordPRess it can also be referred as a Database Abstraction Layer. Pixie WPDB supports WPDB ONLY and it takes care of query sanitization, table prefixing and many other things with a unified API.
+> **Pixie WPDB** is an adaption of `pixie` originally written by [usmanhalalit](https://github.com/usmanhalalit). [Pixie](https://github.com/usmanhalalit/pixie) is no longer under active development.
 
-> **Pixie WPDB** is an adaption of `pixie` originally written by [usmanhalalit](https://github.com/usmanhalalit). [Pixie is not longer under active development ](https://github.com/usmanhalalit/pixie)
+# Features
+* [Fluent API](https://github.com/gin0115/pixie-wpdb/wiki/Query%20Methods)
+* [Nested Queries](https://github.com/gin0115/pixie-wpdb/wiki/Sub%20&%20Nested%20Queries)
+* [Multiple Connections](https://github.com/gin0115/pixie-wpdb/wiki/Home#setup-connection)
+* [Sub Queries](https://github.com/gin0115/pixie-wpdb/wiki/Sub%20&%20Nested%20Queries)
+* [JSON Support](https://github.com/gin0115/pixie-wpdb/wiki/Json%20Methods)
+* [Model Hydration](https://github.com/gin0115/pixie-wpdb/wiki/Result%20Hydration)
+* [Custom Alias Facade](https://github.com/gin0115/pixie-wpdb/wiki/Home#connection-alias)
+* [Raw SQL Expressions](https://github.com/gin0115/pixie-wpdb/wiki/Bindings%20&%20Raw%20Expressions)
+* [Value Type Binding](https://github.com/gin0115/pixie-wpdb/wiki/Bindings%20&%20Raw%20Expressions)
+* [Transaction Support](https://github.com/gin0115/pixie-wpdb/wiki/Transactions)
+* [Query Events](https://github.com/gin0115/pixie-wpdb/wiki/Query%20Events)
 
-## Requirements
- - PHP 7.1+
- - MySql 5.7+ or MariaDB 10.2+
+```php
+$thing = QB::table('someTable')->where('something','=', 'something else')->first();
+```
 
-> Tested all combinations of PHP 7.1, 7.2, 7.3, 7.4, 8.0, 8.1 with MySql 5.7 & MariaBD 10.2, 10.3, 10.4, 10.5, 10.6, 10.7
+# Install
 
+## Perquisites
 
-It has some advanced features like:
+* WordPress 5.7+ (tested upto 5.9)
+* PHP 7.1+ (includes support for PHP8)
+* MySql 5.7+ or MariaDB 10.2+
+* Composer (optional)
 
- - Query Events
- - Nested Criteria
- - Sub Queries
- - Multiple Database Connections.
+## Using Composer
 
-Additional features added to this version of Pixie
- - JSON Support (Select, Where)
- - Aggregation methods (Min, Max, Average & Sum)
- - Custom Model Hydration
- - Date based Where (Month, Day, Year & Date)
+The easiest way to include Pixie in your project is to use [composer](http://getcomposer.org/doc/00-intro.md#installation-nix). 
 
-The syntax is quite similar to Laravel's query builder.
+```bash
+composer require gin0115/pixie-wpdb
+```
 
-## Example
-```PHP
-// Make sure you have Composer's autoload file included
-require 'vendor/autoload.php';
+## Static Loader
 
-// Create a connection, once only.
-$config = [
-    Connection::PREFIX => 'cb_', // Table prefix, optional
-];
+If you are planning to just inlcude Pixie direct in your plugin, you can extract the `src` directory and add this to your `functions.php` or similar.
 
-// Get the current (gloabl) WPDB instance, or create a custom one 
+```php 
+require_once '/path/to/src/loader.php'; 
+
+```
+> Each class is checked if already loaded, to avoid conflicts if used on multiple plugins.
+
+# Setup Connection
+
+If you are only planning on having a single connection, you will only need to configure the connection once. 
+
+```php
+# Basic setup
+
+// Access the global WPDB or a custom instance for additional tables.
 global $wpdb;
 
-// Give this instance its own custom class alias (for calling statically);
-$alias = 'QB';
+// Configure the builder and/or internal WPDB instance
+$connection_config = [Connection::PREFIX => 'gin0115_'];
 
-new \Pixie\Connection($wpdb, $config, $alias);
+// Give a *single* Alias
+$builder_alias = 'Gin0115\\DB';
+
+new Connection( $wpdb, $connection_config, $builder_alias );
 ```
 
-**Simple Query:**
+This would then give access to an instance of the QueryBuilder using this connection, via the alias defined `Gin0115\DB`
 
-The query below returns the row where id = 3, null if no rows.
+```php
+$foos = Gin0115\DB::table('foo')->where('column', 'red')->get();
+```
+
+> Generated & executed query :: "SELECT * FROM gin0115_foo WHERE column = 'red'; "
+
+## Connection Config
+
+It is possible to configure the connection used by your instance of the query builder.
+
+Values
+
+| Key      | Constant | Value | Description |  
+| ----------- | ----------- |----------- |----------- |
+| prefix      | Connection:: PREFIX       | STRING | Custom table prefix (will ignore WPDB prefix)|
+| use_wpdb_prefix   | Connection:: USE_WPDB_PREFIX        | BOOL | If true will use WPDB prefix and ignore custom prefix
+| clone_wpdb      | Connection:: CLONE_WPDB       | BOOL | If true, will clone WPDB to not use reference to the instance (usually the $GLOBAL)|
+| show_errors | Connection:: SHOW_ERRORS | BOOL | If set to true will configure WPDB to show/hide errors |
+ 
+
+```php
+$config = [
+    Connection::PREFIX          => 'acme_',
+    Connection::USE_WPDB_PREFIX => true,
+    Connection::CLONE_WPDB      => true,
+    Connection::SHOW_ERRORS     => false,
+];
+```
+
+> It is advised to use the class constants over string keys, to avoid BC breakages later on
+
+### PREFIX
+
+> @type string
+
+This allows for the setting of a table prefix. This is then automatically prepended to the table name, in either a table definition or whenever a colum is referenced with its table `table.column`
+
+* `DB::table('foo')` would be `acme_foo`
+* `select('foo.id')` would be `acme_foo.id`
+
+### USE_WPDB_PREFIX
+
+> @type Bool
+
+If this is defined and set to true, the table prefix will be set to match that of the passed `WPDB` instance. Any custom prefix added will be over ruled using this option.
+
+### CLONE_WPDB
+
+> @type Bool
+
+If this is defined and set to true, the instance of `WPDB` passed, will be cloned. This allows you to make changes such as show errors, without having other plugins change the GLOBAL WPDB or your changes effecting them. 
+
+### SHOW_ERRORS
+
+> @type Bool
+
+If you are planning on using `Transactions` , it is best to ensure errors are enabled. This allows for auto ROLLBACK or COMMIT, through catching Exceptions. If you need to define this either way, its best to also CLONE_WPDB to avoid side effects.
+
+## Connection Alias
+
+When you create a connection:
+
 ```PHP
-$row = QB::table('my_table')->find(3);
+new Connection($wpdb, $config, 'MyAlias');
 ```
 
-**Full Queries:**
+`MyAlias` is the name for the class alias you want to use (like `MyAlias::table(...)` ), you can use whatever name (with Namespace also, `MyNamespace\\MyClass` ) you like or you may skip it if you don't need an alias. Alias gives you the ability to easily access the QueryBuilder class across your application.
+
+# Usage
+
+Once a connection is created, the builder can be accessed either directly using the Alias Facade or by creating an instance.
+
+## Static Usage
+
+The easiest way to use Pixie is to use the alias facade provided. This allows you to access a builder instance anywhere, much like WPDB. 
+
+```php
+// Create the connection early on.
+$connection = new Connection($wpdb, $config, 'Alias');
+
+// Insert some data to bar.
+Alias::table('bar')->insert(['column'=>'value']);
+```
+
+## None Static Usage
+
+When not using an alias you can instantiate the QueryBuilder handler separately, helpful for Dependency Injection and Testing.
 
 ```PHP
-$query = QB::table('my_table')->where('name', '=', 'Sana');
+// Create connection and builder instance.
+$connection = new Connection($wpdb, $config);
+$qb = new QueryBuilderHandler($connection);
 
-// Get result
-$query->get();
+$query = $qb->table('my_table')->where('name', '=', 'Sana');
+$results = $query->get();
 ```
 
-**Query Events:**
+`$connection` here is optional, if not given it will always associate itself to the first connection, but it can be useful when you have multiple database connections.
 
-After the code below, every time a select query occurs on `users` table, it will add this where criteria, so banned users don't get access.
+# Credits
 
-```PHP
-QB::registerEvent('before-select', 'users', function($qb)
-{
-    $qb->where('status', '!=', 'banned');
-});
-```
+This package began as a fork of [Pixie](https://github.com/usmanhalalit/pixie) originally written by [usmanhalalit](https://github.com/usmanhalalit)
+A few features have been inspired by the [Pecee-pixie](https://github.com/skipperbent/pecee-pixie/) fork and continuation, especially the extended aggregate methods.
 
-
-There are many advanced options which are documented below. Sold? Let's install.
-
-## Installation
-
-Pixie uses [Composer](http://getcomposer.org/doc/00-intro.md#installation-nix) to make things easy.
-
-To install run `composer require gin0115/pixie-wpdb`
-
-Library on [Packagist](https://packagist.org/packages/gin0115/pixie-wpdb).
-
-## Full Usage API
-For the full usage docs, please see the wiki.
 
 ## Changelog
 * 0.0.2 - Improvements to the `updateOrInsert()` method
