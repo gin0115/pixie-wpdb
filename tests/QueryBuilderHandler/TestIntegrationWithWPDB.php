@@ -407,21 +407,38 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
     /** @testdox [WPDB] It should be possible to use updateOrInsert/upsert to either add a unique dataset or update an existing one. */
     public function testUpsert()
     {
+        $this->wpdb->insert('mock_foo', ['string' => 'first', 'number' => 12], ['%s', '%d']);
+
         $builder = $this->queryBuilderProvider();
 
-        // INSERT
-        $id = $builder->table('mock_foo')->updateOrInsert(['string' => 'first', 'number' => 24]);
+        // UPDATE (was 12, now 24)
+        $updated = $builder->table('mock_foo')->updateOrInsert(['string' => 'first' ], ['string' => 'first', 'number' => 24 ]);
+        $this->assertNotNull($updated);
+        $this->assertEquals(24, $builder->table('mock_foo')->find('first', 'string')->number);
+        $this->assertCount(1, $builder->table('mock_foo')->get());
+        // CREATE
+        $updated = $builder->table('mock_foo')->updateOrInsert(['string' => 'second' ], ['string' => 'second', 'number' => 42 ]);
+        $this->assertNotNull($updated);
+        $this->assertEquals(42, $builder->table('mock_foo')->find('second', 'string')->number);
 
-        // Check we actually inserted the row.
-        $this->assertTrue($id >= 1);
-        $this->assertEquals('first', $builder->table('mock_foo')->find(24, 'number')->string);
+        // Should now be 2 rows.
+        $this->assertCount(2, $builder->table('mock_foo')->get());
+    }
 
-        // UPDATE
-        $updated = $builder->table('mock_foo')->updateOrInsert(['string' => 'second', 'number' => 24]);
+    public function testUpsertWithAttributesMissingFromValues(): void
+    {
+        $this->wpdb->insert('mock_foo', ['string' => 'first', 'number' => 12], ['%s', '%d']);
+        $builder = $this->queryBuilderProvider();
 
-        // Check we updated.
-        $this->assertEquals(1, $updated);
-        $this->assertEquals('second', $builder->table('mock_foo')->find(24, 'number')->string);
+        // UPDATE (was 12, now 24)
+        $builder->table('mock_foo')->updateOrInsert(['string' => 'first' ], ['number' => 24 ]);
+        $this->assertEquals(24, $builder->table('mock_foo')->find('first', 'string')->number);
+        $this->assertCount(1, $builder->table('mock_foo')->get());
+
+        // CREATE
+        $builder->table('mock_foo')->updateOrInsert(['string' => 'second' ], ['number' => 42 ]);
+        $this->assertEquals(42, $builder->table('mock_foo')->find('second', 'string')->number);
+        $this->assertCount(2, $builder->table('mock_foo')->get());
     }
 
     /** @testdox [WPDB] It should be possible to create a query which deletes all rows based on the criteria */
@@ -434,7 +451,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $builder = $this->queryBuilderProvider();
 
         // Remove all with a NUMBER of 2 or more.
-        $r = $builder->table('mock_foo')->where('number', '>=', 2)->delete();
+        $builder->table('mock_foo')->where('number', '>=', 2)->delete();
 
         // Check we only have the first value.
         $rows = $builder->table('mock_foo')->get();
@@ -774,5 +791,4 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals('me@me.com', $rows[0]->email);
         $this->assertEquals('15', $rows[0]->counter);
     }
-
 }
