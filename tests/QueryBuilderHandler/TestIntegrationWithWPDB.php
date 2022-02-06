@@ -423,24 +423,22 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         // Should now be 2 rows.
         $this->assertCount(2, $builder->table('mock_foo')->get());
-        // Check we updated.
-        dump($builder->table('mock_foo')->get());
     }
 
     public function testUpsertWithAttributesMissingFromValues(): void
     {
         $this->wpdb->insert('mock_foo', ['string' => 'first', 'number' => 12], ['%s', '%d']);
         $builder = $this->queryBuilderProvider();
-        
+
         // UPDATE (was 12, now 24)
         $builder->table('mock_foo')->updateOrInsert(['string' => 'first' ], ['number' => 24 ]);
         $this->assertEquals(24, $builder->table('mock_foo')->find('first', 'string')->number);
         $this->assertCount(1, $builder->table('mock_foo')->get());
 
         // CREATE
-        $updated = $builder->table('mock_foo')->updateOrInsert(['string' => 'second' ], ['number' => 42 ]);
-        dump($builder->table('mock_foo')->get());
-
+        $builder->table('mock_foo')->updateOrInsert(['string' => 'second' ], ['number' => 42 ]);
+        $this->assertEquals(42, $builder->table('mock_foo')->find('second', 'string')->number);
+        $this->assertCount(2, $builder->table('mock_foo')->get());
     }
 
     /** @testdox [WPDB] It should be possible to create a query which deletes all rows based on the criteria */
@@ -453,7 +451,7 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $builder = $this->queryBuilderProvider();
 
         // Remove all with a NUMBER of 2 or more.
-        $r = $builder->table('mock_foo')->where('number', '>=', 2)->delete();
+        $builder->table('mock_foo')->where('number', '>=', 2)->delete();
 
         // Check we only have the first value.
         $rows = $builder->table('mock_foo')->get();

@@ -224,11 +224,11 @@ class TestEvents extends WP_UnitTestCase
     public function testEventBeforeUpdateWillShortCircuitGet(): void
     {
         $events = $this->connection->getEventHandler();
-        $events->registerEvent(Event::BEFORE_UPDATE, 'foo', $this->createClosure('This should skip the query being executed.'));
+        $events->registerEvent(Event::BEFORE_UPDATE, 'foo', $this->createClosure(9999));
         $result = $this->queryBuilderProvider()->table('foo')->where('id', 1)->update(['bar' => 'baz']);
 
         $this->assertEmpty($this->wpdb->usage_log);
-        $this->assertEquals('This should skip the query being executed.', $result);
+        $this->assertEquals(9999, $result);
         $this->assertContains('before-updatefoo', Objects::get_property($events, 'firedEvents'));
     }
 
