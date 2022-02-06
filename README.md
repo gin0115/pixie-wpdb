@@ -105,34 +105,7 @@ $config = [
 ];
 ```
 
-> It is advised to use the class constants over string keys, to avoid BC breakages later on
-
-### PREFIX
-
-> @type string
-
-This allows for the setting of a table prefix. This is then automatically prepended to the table name, in either a table definition or whenever a colum is referenced with its table `table.column`
-
-* `DB::table('foo')` would be `acme_foo`
-* `select('foo.id')` would be `acme_foo.id`
-
-### USE_WPDB_PREFIX
-
-> @type Bool
-
-If this is defined and set to true, the table prefix will be set to match that of the passed `WPDB` instance. Any custom prefix added will be over ruled using this option.
-
-### CLONE_WPDB
-
-> @type Bool
-
-If this is defined and set to true, the instance of `WPDB` passed, will be cloned. This allows you to make changes such as show errors, without having other plugins change the GLOBAL WPDB or your changes effecting them. 
-
-### SHOW_ERRORS
-
-> @type Bool
-
-If you are planning on using `Transactions` , it is best to ensure errors are enabled. This allows for auto ROLLBACK or COMMIT, through catching Exceptions. If you need to define this either way, its best to also CLONE_WPDB to avoid side effects.
+> [More details on the config](https://github.com/gin0115/pixie-wpdb/wiki#connection-config)
 
 ## Connection Alias
 
