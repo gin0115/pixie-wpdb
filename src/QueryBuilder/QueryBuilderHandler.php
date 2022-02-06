@@ -611,9 +611,9 @@ class QueryBuilderHandler implements HasConnection
     /**
      * @param array<string, mixed> $data
      *
-     * @return int|null
+     * @return int|null Number of row effected, null for none.
      */
-    public function update($data)
+    public function update(array $data): ?int
     {
         $eventResult = $this->fireEvents('before-update');
         if (!is_null($eventResult)) {
@@ -625,23 +625,30 @@ class QueryBuilderHandler implements HasConnection
         $this->dbInstance()->get_results($preparedQuery);
         $this->fireEvents('after-update', $queryObject, $executionTime);
 
-        return 0 !== $this->dbInstance()->rows_affected
-            ? $this->dbInstance()->rows_affected
+        return 0 !== (int) $this->dbInstance()->rows_affected
+            ? (int) $this->dbInstance()->rows_affected
             : null;
     }
 
     /**
-     * @param array<string, mixed> $data
+     * Update or Insert based on the attributes.
      *
-     * @return int|null will return row id for insert and bool for success/fail on update
+     * @param array<string, mixed> $attributes Conditions to check
+     * @param array<string, mixed> $values     Values to add/update
+     *
+     * @return int|int[]|null will return row id(s) for insert and null for success/fail on update
      */
-    public function updateOrInsert($data)
+    public function updateOrInsert(array $attributes, array $values = [])
     {
-        if ($this->first()) {
-            return $this->update($data);
+        // Check if existing post exists.
+        $query = clone $this;
+        foreach ($attributes as $column => $value) {
+            $query->where($column, $value);
         }
 
-        return $this->insert($data);
+        return null !== $query->first()
+            ? $this->update(array_merge($values, $attributes))
+            : $this->insert(array_merge($values, $attributes));
     }
 
     /**
