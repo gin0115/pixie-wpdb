@@ -42,7 +42,8 @@
         "yoast/phpunit-polyfills": "^1.0.0",
         "gin0115/wpunit-helpers": "~1.0.0",
         "friendsofphp/php-cs-fixer": "^3",
-        "phpmyadmin/sql-parser": "dev-master"
+        "phpmyadmin/sql-parser": "dev-master",
+        "pinkcrab/function-constructors": "*"
     },
     "autoload": {
         "psr-4": {

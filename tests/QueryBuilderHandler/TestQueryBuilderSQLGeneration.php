@@ -1299,4 +1299,5 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         // Check for valid SQL syntax
         $this->assertValidSQL($log['query']);
     }
+
 }

@@ -22,6 +22,7 @@ use Pixie\Tests\Logable_WPDB;
 use Pixie\Tests\Fixtures\ModelForMockFoo;
 use Pixie\QueryBuilder\QueryBuilderHandler;
 use Pixie\Tests\Fixtures\ModelWithMagicSetter;
+use PinkCrab\FunctionConstructors\GeneralFunctions as Func;
 
 class TestIntegrationWithWPDB extends WP_UnitTestCase
 {
@@ -790,5 +791,48 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertCount(1, $rows);
         $this->assertEquals('me@me.com', $rows[0]->email);
         $this->assertEquals('15', $rows[0]->counter);
+    }
+
+    /** @testdox It should be possible to create a query with multiple joins */
+    public function testMultipleJoins(): void
+    {
+
+        $this->wpdb->insert('mock_foo', ['string' => 'Primary', 'number' => 4], ['%s', '%d']);
+        $this->wpdb->insert('mock_foo', ['string' => 'Secondary', 'number' => 2], ['%s', '%d']);
+        $this->wpdb->insert('mock_foo', ['string' => 'Third', 'number' => 3], ['%s', '%d']);
+
+        $this->wpdb->insert('mock_bar', ['string' => 'Apple', 'number' => 1], ['%s', '%d']);
+        $this->wpdb->insert('mock_bar', ['string' => 'Apple', 'number' => 2], ['%s', '%d']);
+        $this->wpdb->insert('mock_bar', ['string' => 'Banana', 'number' => 1], ['%s', '%d']);
+        $this->wpdb->insert('mock_bar', ['string' => 'Banana', 'number' => 3], ['%s', '%d']);
+        $this->wpdb->insert('mock_bar', ['string' => 'Strawberry', 'number' => 1], ['%s', '%d']);
+        $this->wpdb->insert('mock_bar', ['string' => 'Raspberry', 'number' => 4], ['%s', '%d']);
+
+        $this->wpdb->insert('mock_json', ['string' => 'Primary', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat A', 'number' => 1]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'Primary', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat B', 'number' => 2]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'Secondary', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat C', 'number' => 3]])], ['%s', '%s']);
+        $this->wpdb->insert('mock_json', ['string' => 'Third', 'jsonCol' => \json_encode(['data' => ['category' => 'Cat D', 'number' => 4]])], ['%s', '%s']);
+
+        $query = $this->queryBuilderProvider()
+            ->table('mock_foo')
+            ->select([
+                'mock_json.id' => 'jsonID',
+                'mock_foo.number' => 'fooNum',
+                'mock_foo.string' => 'priority',
+                'mock_bar.string' => 'fruit',
+                'mock_json.jsonCol' => 'json'
+            ])
+            ->join('mock_json', 'mock_json.string', '=', 'mock_foo.string')
+            ->join('mock_bar', 'mock_bar.number', '=', 'mock_foo.number');
+
+        $expected = "SELECT mock_json.id AS jsonID, mock_foo.number AS fooNum, mock_foo.string AS priority, mock_bar.string AS fruit, mock_json.jsonCol AS json FROM mock_foo INNER JOIN mock_json ON mock_json.string = mock_foo.string INNER JOIN mock_bar ON mock_bar.number = mock_foo.number";
+        $this->assertEquals($expected, $query->getQuery()->getRawSql());
+
+        // Expecting 4 results for each JSON row
+        $results = $query->get();
+        $this->assertCount(4, $results);
+        $this->assertCount(2, array_filter($results, Func\propertyEquals('fruit', 'Raspberry')));
+        $this->assertCount(1, array_filter($results, Func\propertyEquals('fruit', 'Apple')));
+        $this->assertCount(1, array_filter($results, Func\propertyEquals('fruit', 'Banana')));
     }
 }

@@ -8,9 +8,7 @@ use Throwable;
 use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
-
 use Pixie\HasConnection;
-
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
@@ -20,6 +18,7 @@ use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
 use Pixie\QueryBuilder\TablePrefixer;
+
 use function mb_strlen;
 
 class QueryBuilderHandler implements HasConnection
@@ -1246,7 +1245,7 @@ class QueryBuilderHandler implements HasConnection
         }
 
         if (!$key instanceof Closure) {
-            $key = function ($joinBuilder) use ($key, $operator, $value) {
+            $key = function (JoinBuilder $joinBuilder) use ($key, $operator, $value) {
                 $joinBuilder->on($key, $operator, $value);
             };
         }
@@ -1254,10 +1253,12 @@ class QueryBuilderHandler implements HasConnection
         // Build a new JoinBuilder class, keep it by reference so any changes made
         // in the closure should reflect here
         $joinBuilder = $this->container->build(JoinBuilder::class, [$this->connection]);
-        $joinBuilder = &$joinBuilder;
+
         // Call the closure with our new joinBuilder object
         $key($joinBuilder);
+
         $table = $this->addTablePrefix($table, false);
+
         // Get the criteria only query from the joinBuilder object
         $this->statements['joins'][] = compact('type', 'table', 'joinBuilder');
         return $this;

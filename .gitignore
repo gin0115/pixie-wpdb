@@ -11,3 +11,4 @@ wordpress
 clover.xml
 coverage-report
 .phpunit.result.cache
+workspace.code-workspace
