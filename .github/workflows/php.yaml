@@ -62,6 +62,6 @@ jobs:
 
       - name: Test on WP5.8
         if: ${{ matrix.php-versions != '8.0' && matrix.php-versions != '8.1' }}
-        run: rm composer.lock && composer require php-stubs/wordpress-stubs:5.8 --dev && composer require roots/wordpress:5.8 --dev && composer require roots/wordpress:5.8 --dev && composer all
+        run: rm composer.lock && rm vendor && composer require php-stubs/wordpress-stubs:5.8 --dev && composer require roots/wordpress:5.8 --dev && composer require roots/wordpress:5.8 --dev && composer install && composer all
 
       
