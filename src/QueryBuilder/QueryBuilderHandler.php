@@ -8,9 +8,7 @@ use Throwable;
 use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
-
 use Pixie\HasConnection;
-
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
@@ -20,6 +18,7 @@ use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
 use Pixie\QueryBuilder\TablePrefixer;
+
 use function mb_strlen;
 
 class QueryBuilderHandler implements HasConnection
@@ -360,6 +359,29 @@ class QueryBuilderHandler implements HasConnection
             throw new Exception("Failed to find {$fieldName}={$value}", 1);
         }
         return $result;
+    }
+
+    /**
+     * Allows the handling of a basic if/else with conditional access.
+     *
+     * @param bool $condition
+     * @param \Closure $if
+     * @param \Closure|null $else
+     * @return self
+     */
+    public function when(bool $condition, \Closure $if, ?\Closure $else = null): self
+    {
+        // If the condition evaluates to true
+        if (true === $condition) {
+            $if($this);
+            return $this;
+        }
+
+        // If false and we have a else closure
+        if (null !== $else) {
+            $else($this);
+        }
+        return $this;
     }
 
     /**
