@@ -166,14 +166,6 @@ class Connection
     }
 
     /**
-     * @return Container
-     */
-    public function getContainer()
-    {
-        return $this->container;
-    }
-
-    /**
      * @return EventHandler
      */
     public function getEventHandler()
