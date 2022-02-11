@@ -155,7 +155,7 @@ A few features have been inspired by the [Pecee-pixie](https://github.com/skippe
 
 
 ## Changelog
-* 0.0.2 - 
+* 0.1.0 - 
     * Improvements to the `updateOrInsert()` method
     * Introduced `when()` to query builder
     * Expanded test cover for WP5.5 to WP5.9 
