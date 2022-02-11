@@ -4,7 +4,6 @@ namespace Pixie;
 
 use wpdb;
 use Exception;
-use Viocon\Container;
 use Pixie\AliasFacade;
 use Pixie\EventHandler;
 use Pixie\QueryBuilder\QueryBuilderHandler;
