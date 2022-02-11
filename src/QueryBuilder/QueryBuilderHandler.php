@@ -8,7 +8,9 @@ use Throwable;
 use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
+
 use Pixie\HasConnection;
+
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
@@ -18,7 +20,6 @@ use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
 use Pixie\QueryBuilder\TablePrefixer;
-
 use function mb_strlen;
 
 class QueryBuilderHandler implements HasConnection
@@ -27,11 +28,6 @@ class QueryBuilderHandler implements HasConnection
      * @method add
      */
     use TablePrefixer;
-
-    /**
-     * @var \Viocon\Container
-     */
-    protected $container;
 
     /**
      * @var Connection
@@ -104,7 +100,6 @@ class QueryBuilderHandler implements HasConnection
 
         // Set all dependencies from connection.
         $this->connection = $connection;
-        $this->container  = $this->connection->getContainer();
         $this->dbInstance = $this->connection->getDbInstance();
         $this->setAdapterConfig($this->connection->getAdapterConfig());
 
@@ -113,10 +108,7 @@ class QueryBuilderHandler implements HasConnection
         $this->hydratorConstructorArgs = $hydratorConstructorArgs;
 
         // Query builder adapter instance
-        $this->adapterInstance = $this->container->build(
-            WPDBAdapter::class,
-            [$this->connection]
-        );
+        $this->adapterInstance = new WPDBAdapter($this->connection);
 
         // Setup JSON Selector handler.
         $this->jsonHandler = new JsonHandler($connection);
@@ -507,10 +499,7 @@ class QueryBuilderHandler implements HasConnection
 
         $queryArr = $this->adapterInstance->$type($this->statements, $dataToBePassed);
 
-        return $this->container->build(
-            QueryObject::class,
-            [$queryArr['sql'], $queryArr['bindings'], $this->dbInstance]
-        );
+        return new QueryObject($queryArr['sql'], $queryArr['bindings'], $this->dbInstance);
     }
 
     /**
@@ -1165,7 +1154,7 @@ class QueryBuilderHandler implements HasConnection
             $this->dbInstance->query('START TRANSACTION');
 
             // Get the Transaction class
-            $transaction = $this->container->build(Transaction::class, [$this->connection]);
+            $transaction = new Transaction($this->connection);
 
             $this->handleTransactionCall($callback, $transaction);
 
@@ -1252,7 +1241,7 @@ class QueryBuilderHandler implements HasConnection
 
         // Build a new JoinBuilder class, keep it by reference so any changes made
         // in the closure should reflect here
-        $joinBuilder = $this->container->build(JoinBuilder::class, [$this->connection]);
+        $joinBuilder =  new JoinBuilder($this->connection);
 
         // Call the closure with our new joinBuilder object
         $key($joinBuilder);

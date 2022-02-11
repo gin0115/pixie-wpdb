@@ -5,11 +5,8 @@ namespace Pixie\QueryBuilder;
 use Closure;
 use Pixie\Binding;
 use Pixie\Exception;
-
 use Pixie\Connection;
-
 use Pixie\QueryBuilder\Raw;
-
 use Pixie\QueryBuilder\NestedCriteria;
 
 use function is_bool;
@@ -27,15 +24,10 @@ class WPDBAdapter
      */
     protected $connection;
 
-    /**
-     * @var \Viocon\Container
-     */
-    protected $container;
 
     public function __construct(Connection $connection)
     {
         $this->connection = $connection;
-        $this->container  = $this->connection->getContainer();
     }
 
     /**
@@ -520,7 +512,7 @@ class WPDBAdapter
 
                 // Build a new NestedCriteria class, keep it by reference so any changes made
                 // in the closure should reflect here
-                $nestedCriteria = $this->container->build(NestedCriteria::class, [$this->connection]);
+                $nestedCriteria = new NestedCriteria($this->connection);
 
                 $nestedCriteria = &$nestedCriteria;
                 // Call the closure with our new nestedCriteria object
