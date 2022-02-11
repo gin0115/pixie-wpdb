@@ -44,7 +44,10 @@ jobs:
         run: php -v
 
       - name: Clear existing composer
-        run: rm -rf wordpress && rm -rf vendor && rm -rf composer.lock 
+        run: >
+          rm -rf wordpress 
+          && rm -rf vendor 
+          && rm -rf composer.lock 
 
       - name: Validate composer.json and composer.lock
         run: composer validate
