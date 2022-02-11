@@ -18,11 +18,7 @@ tests_add_filter(
     'muplugins_loaded',
     function () {
         global $wp_version;
-        echo 'WordPress Version' . $wp_version . PHP_EOL;
-        echo 'WordPress Version' . $wp_version . PHP_EOL;
-        echo 'WordPress Version' . $wp_version . PHP_EOL;
-        echo 'WordPress Version' . $wp_version . PHP_EOL;
-        echo 'WordPress Version' . $wp_version . PHP_EOL;
+        echo 'WordPress Version ' . $wp_version . PHP_EOL;
     }
 );
 
