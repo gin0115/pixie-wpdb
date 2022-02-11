@@ -60,8 +60,21 @@ jobs:
       - name: Codecov
         run: bash <(curl -s https://codecov.io/bash) -t ${{ secrets.CODECOV_PIXIE }}
 
-      # - name: Test on WP5.8
-      #   if: ${{ matrix.php-versions != '8.0' && matrix.php-versions != '8.1' }}
-      #   run: rm composer.lock && rm -rf vendor && composer require php-stubs/wordpress-stubs:5.8 --dev && composer require roots/wordpress:5.8 --dev && composer require roots/wordpress:5.8 --dev && composer install && composer all
+      - name: Test on WP5.8
+        if: ${{ matrix.php-versions != '8.0' && matrix.php-versions != '8.1' }}
+        run: rm composer.lock && rm -rf vendor && composer require php-stubs/wordpress-stubs:5.8 --dev && composer require roots/wordpress:5.8 --dev && composer require roots/wordpress:5.8 --dev && composer install && composer all
+
+      - name: Test on WP5.7
+        if: ${{ matrix.php-versions != '8.0' && matrix.php-versions != '8.1' }}
+        run: rm composer.lock && rm -rf vendor && composer require php-stubs/wordpress-stubs:5.7 --dev && composer require roots/wordpress:5.7 --dev && composer require roots/wordpress:5.7 --dev && composer install && composer all
+
+      - name: Test on WP5.6
+        if: ${{ matrix.php-versions != '8.0' && matrix.php-versions != '8.1' }}
+        run: rm composer.lock && rm -rf vendor && composer require php-stubs/wordpress-stubs:5.6 --dev && composer require roots/wordpress:5.6 --dev && composer require roots/wordpress:5.6 --dev && composer install && composer all
+
+      - name: Test on WP5.5
+        if: ${{ matrix.php-versions != '8.0' && matrix.php-versions != '8.1' }}
+        run: rm composer.lock && rm -rf vendor && composer require php-stubs/wordpress-stubs:5.5 --dev && composer require roots/wordpress:5.5 --dev && composer require roots/wordpress:5.5 --dev && composer install && composer all
+
 
       
