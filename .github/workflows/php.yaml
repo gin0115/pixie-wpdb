@@ -60,8 +60,8 @@ jobs:
       - name: Codecov
         run: bash <(curl -s https://codecov.io/bash) -t ${{ secrets.CODECOV_PIXIE }}
 
-      - name: Test on 5.8
+      - name: Test on WP5.8
         if: ${{ matrix.php-versions != '8.0' }}
-        run: composer require php-stubs/wordpress-stubs:5.8.0 --dev && composer require roots/wordpress:5.8.0 --dev && composer require roots/wordpress:5.8.0 --dev && composer all
+        run: rm compoer.lock && composer require php-stubs/wordpress-stubs:5.8 --dev && composer require roots/wordpress:5.8 --dev && composer require roots/wordpress:5.8 --dev && composer all
 
       
