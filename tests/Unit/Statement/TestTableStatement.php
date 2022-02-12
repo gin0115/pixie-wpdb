@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Unit tests for the SelectStatement
+ * Unit tests for the TableStatement
  *
  * @since 0.2.0
  * @author GLynn Quelch <glynn.quelch@gmail.com>
@@ -17,16 +17,16 @@ use WP_UnitTestCase;
 use Pixie\QueryBuilder\Raw;
 use Pixie\JSON\JsonSelector;
 use Pixie\Statement\Statement;
-use Pixie\Statement\SelectStatement;
+use Pixie\Statement\TableStatement;
 
 /**
  * @group v0.2
  * @group unit
  * @group statement
  */
-class TestSelectStatement extends WP_UnitTestCase
+class TestTableStatement extends WP_UnitTestCase
 {
-    /** Supplies all types which will throw as fields for statement */
+    /** Supplies all types which will throw as tables for statement */
     public function invalidTypeProvider(): array
     {
         return [
@@ -40,40 +40,39 @@ class TestSelectStatement extends WP_UnitTestCase
     }
 
     /**
-     * @testdox An exception should be thrown if a none String, Raw or JsonSelector passed as the field of a select statement.
+     * @testdox An exception should be thrown if a none String, Raw passed as the table in a statement.
      * @dataProvider invalidTypeProvider
      */
-    public function testThrowsIfNoneStringRawJsonSelectorPassed($field)
+    public function testThrowsIfNoneStringRawJsonSelectorPassed($table)
     {
-        $this->expectExceptionMessage('Only string, Raw and JsonSelectors may be used as select fields');
+        $this->expectExceptionMessage('Only string and Raw may be used as tables');
         $this->expectException(TypeError::class);
 
-        new SelectStatement($field);
+        new TableStatement($table);
     }
 
-    /** @testdox It should be possible to get the correct type from any Statement [SELECT] */
+    /** @testdox It should be possible to get the correct type from any Statement [TABLE] */
     public function testGetType(): void
     {
-        $this->assertEquals('select', (new SelectStatement('*'))->getType());
-        $this->assertEquals(Statement::SELECT, (new SelectStatement('*'))->getType());
+        $this->assertEquals('table', (new TableStatement('*'))->getType());
+        $this->assertEquals(Statement::TABLE, (new TableStatement('*'))->getType());
     }
 
-    /** @testdox Raw and JsonSelector fields will need to be interpolated before they can be parsed, it should be possible to check if this needs to happen. */
+    /** @testdox Raw tables will need to be interpolated before they can be parsed, it should be possible to check if this needs to happen. */
     public function testCanInterpolateField(): void
     {
-        $statement = function ($field): SelectStatement {
-            return new SelectStatement($field);
+        $statement = function ($table): TableStatement {
+            return new TableStatement($table);
         };
 
-        $this->assertFalse($statement('string')->fieldRequiresInterpolation());
-        $this->assertTrue($statement(new Raw('string'))->fieldRequiresInterpolation());
-        $this->assertTrue($statement(new JsonSelector('string', ['a','b']))->fieldRequiresInterpolation());
+        $this->assertFalse($statement('tableName')->tableRequiresInterpolation());
+        $this->assertTrue($statement(new Raw('tableName'))->tableRequiresInterpolation());
     }
 
-    /** @testdox It should be possible to interpolate a field and be given a new instance of a Statement with the resolved field. */
+    /** @testdox It should be possible to interpolate a table and be given a new instance of a Statement with the resolved table. */
     public function testCanInterpolateFieldWithClosure(): void
     {
-        $statement = new SelectStatement(new Raw('foo-%s', ['boo']), 'alias');
+        $statement = new TableStatement(new Raw('foo-%s', ['boo']), 'alias');
         $newStatement = $statement->interpolateField(
             function (Raw $e) {
                 return sprintf($e->getValue(), ...$e->getBindings());
@@ -85,7 +84,7 @@ class TestSelectStatement extends WP_UnitTestCase
         $this->assertEquals('alias', $newStatement->getAlias());
 
         // Field should be whatever is returned from closure
-        $this->assertEquals('foo-boo', $newStatement->getField());
+        $this->assertEquals('foo-boo', $newStatement->getTable());
 
         // Should be a new object.
         $this->assertNotSame($statement, $newStatement);
@@ -94,10 +93,10 @@ class TestSelectStatement extends WP_UnitTestCase
     /** @testdox It should be possible to check if the statement has an alias and gets it value if it does. */
     public function testGetAliasIfExists(): void
     {
-        $with = new SelectStatement('field', 'with');
-        $without = new SelectStatement('field');
-        $empty = new SelectStatement('field', '');
-        $null = new SelectStatement('field', null);
+        $with = new TableStatement('table', 'with');
+        $without = new TableStatement('table');
+        $empty = new TableStatement('table', '');
+        $null = new TableStatement('table', null);
 
         $this->assertTrue($with->hasAlias());
         $this->assertFalse($without->hasAlias());

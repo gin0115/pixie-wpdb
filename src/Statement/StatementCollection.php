@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Interface for all statements.
+ * Collection for holding and accessing all statements.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -17,27 +17,55 @@ declare(strict_types=1);
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * @since 0.0.2
+ * @since 0.2.0
  * @author Glynn Quelch <glynn.quelch@gmail.com>
  * @license http://www.opensource.org/licenses/mit-license.html  MIT License
  * @package Gin0115\Pixie
  * @subpackage QueryBuilder\Statement
  */
 
-namespace Pixie\QueryBuilder\Statement;
+namespace Pixie\Statement;
 
-interface Statement
+class StatementCollection
 {
     /**
-     * Statement Types.
+     * Holds all the statements
+     * @var array{select:SelectStatement[]}
      */
-    public const SELECT = 'select';
-    public const TABLE = 'table';
+    protected $statements = [
+        Statement::SELECT => [],
+        Statement::TABLE => [],
+    ];
 
     /**
-     * Get the statement type
+     * Adds a select statement to the collection.
      *
-     * @return string
+     * @param SelectStatement $statement
+     * @return self
      */
-    public function getType(): string;
+    public function addSelect(SelectStatement $statement): self
+    {
+        $this->statements[Statement::SELECT][] = $statement;
+        return $this;
+    }
+
+    /**
+     * Get all SelectStatements
+     *
+     * @return SelectStatement[]
+     */
+    public function getSelect(): array
+    {
+        return $this->statements[Statement::SELECT];
+    }
+
+    /**
+     * Select statements exist.
+     *
+     * @return bool
+     */
+    public function hasSelect(): bool
+    {
+        return 0 < count($this->getSelect());
+    }
 }

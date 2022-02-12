@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Select statement model.
+ * Table statement model.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -24,24 +24,23 @@ declare(strict_types=1);
  * @subpackage QueryBuilder\Statement
  */
 
-namespace Pixie\QueryBuilder\Statement;
+namespace Pixie\Statement;
 
 use TypeError;
 use Pixie\QueryBuilder\Raw;
-use Pixie\JSON\JsonSelector;
-use Pixie\QueryBuilder\Statement\Statement;
+use Pixie\Statement\Statement;
 
-class SelectStatement implements Statement
+class TableStatement implements Statement
 {
     /**
-     * The field which is being selected
+     * The table which is being selected
      *
-     * @var string|Raw|JsonSelector
+     * @var string|Raw
      */
-    protected $field;
+    protected $table;
 
     /**
-     * The alias for the selected field
+     * The alias for the selected table
      *
      * @var string|null
      */
@@ -50,71 +49,70 @@ class SelectStatement implements Statement
     /**
      * Creates a Select Statement
      *
-     * @param string|Raw|JsonSelector $field
+     * @param string|Raw $table
      * @param string|null             $alias
      */
-    public function __construct($field, ?string $alias = null)
+    public function __construct($table, ?string $alias = null)
     {
-        // Verify valid field type.
-        $this->verifyField($field);
-        $this->field = $field;
+        // Verify valid table type.
+        $this->verifyTable($table);
+        $this->table = $table;
         $this->alias = $alias;
     }
 
     /** @inheritDoc */
     public function getType(): string
     {
-        return Statement::SELECT;
+        return Statement::TABLE;
     }
 
     /**
      * Verifies if the passed filed is of a valid type.
      *
-     * @param mixed $field
+     * @param mixed $table
      * @return void
      */
-    protected function verifyField($field): void
+    protected function verifyTable($table): void
     {
         if (
-            !is_string($field)
-            && ! is_a($field, Raw::class)
-            && !is_a($field, JsonSelector::class)
+            !is_string($table)
+            && ! is_a($table, Raw::class)
         ) {
-            throw new TypeError("Only string, Raw and JsonSelectors may be used as select fields");
+            throw new TypeError("Only string and Raw may be used as tables");
         }
     }
 
     /**
-     * Checks if the passed field needs to be interpolated.
+     * Checks if the passed table needs to be interpolated.
      *
-     * @return bool TRUE if Raw or JsonSelector, FALSE if string.
+     * @return bool TRUE if Raw, FALSE if string.
      */
-    public function fieldRequiresInterpolation(): bool
+    public function tableRequiresInterpolation(): bool
     {
-        return is_a($this->field, Raw::class) || is_a($this->field, JsonSelector::class);
+        return is_a($this->table, Raw::class);
     }
 
     /**
      * Allows the passing in of a closure to interpolate the statement.
      *
      * @psalm-immutable
-     * @param \Closure(string|Raw|JsonSelector $field): string $callback
-     * @return SelectStatement
+     * @param \Closure(string|Raw $table): string $callback
+     * @return TableStatement
      */
-    public function interpolateField(\Closure $callback): SelectStatement
+    public function interpolateField(\Closure $callback): TableStatement
     {
-        $field = $callback($this->field);
-        return new self($field, $this->alias);
+        $table = $callback($this->table);
+        return new self($table, $this->alias);
     }
 
     /**
-     * Gets the field.
+     * Gets the table.
      *
-     * @return string|Raw|JsonSelector
+     * @return string|Raw
      */
-    public function getField()
+    public function getTable()
     {
-        return $this->field;
+        return $this->table;
     }
 
     /**
