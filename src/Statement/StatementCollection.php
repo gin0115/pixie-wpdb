@@ -26,16 +26,29 @@ declare(strict_types=1);
 
 namespace Pixie\Statement;
 
+use Pixie\Statement\TableStatement;
+
 class StatementCollection
 {
     /**
      * Holds all the statements
-     * @var array{select:SelectStatement[]}
+     *
+     * @var array{select:SelectStatement[],table:TableStatement[]}
      */
     protected $statements = [
         Statement::SELECT => [],
         Statement::TABLE => [],
     ];
+
+    /**
+     * Get all the statements
+     *
+     * @return array{select:SelectStatement[],table:TableStatement[]}
+     */
+    public function getStatements(): array
+    {
+        return $this->statements;
+    }
 
     /**
      * Adds a select statement to the collection.
@@ -67,5 +80,37 @@ class StatementCollection
     public function hasSelect(): bool
     {
         return 0 < count($this->getSelect());
+    }
+
+    /**
+     * Adds a select statement to the collection.
+     *
+     * @param TableStatement $statement
+     * @return self
+     */
+    public function addTable(TableStatement $statement): self
+    {
+        $this->statements[Statement::TABLE][] = $statement;
+        return $this;
+    }
+
+    /**
+     * Get all Table Statements
+     *
+     * @return TableStatement[]
+     */
+    public function getTable(): array
+    {
+        return $this->statements[Statement::TABLE];
+    }
+
+    /**
+     * Table statements exist.
+     *
+     * @return bool
+     */
+    public function hasTable(): bool
+    {
+        return 0 < count($this->getTable());
     }
 }
