@@ -17,7 +17,7 @@ declare(strict_types=1);
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * @since 0.0.2
+ * @since 0.2.0
  * @author Glynn Quelch <glynn.quelch@gmail.com>
  * @license http://www.opensource.org/licenses/mit-license.html  MIT License
  * @package Gin0115\Pixie
@@ -28,13 +28,13 @@ namespace Pixie\QueryBuilder\Statement;
 
 class StatementCollection
 {
-
     /**
      * Holds all the statements
      * @var array{select:SelectStatement[]}
      */
     protected $statements = [
-        Statement::SELECT => []
+        Statement::SELECT => [],
+        Statement::TABLE => [],
     ];
 
     /**
@@ -57,5 +57,15 @@ class StatementCollection
     public function getSelect(): array
     {
         return $this->statements[Statement::SELECT];
+    }
+
+    /**
+     * Select statements exist.
+     *
+     * @return bool
+     */
+    public function hasSelect(): bool
+    {
+        return 0 < count($this->getSelect());
     }
 }

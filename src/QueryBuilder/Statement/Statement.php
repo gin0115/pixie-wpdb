@@ -32,6 +32,7 @@ interface Statement
      * Statement Types.
      */
     public const SELECT = 'select';
+    public const TABLE = 'table';
 
     /**
      * Get the statement type
