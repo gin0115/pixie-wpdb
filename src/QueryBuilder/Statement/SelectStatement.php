@@ -47,6 +47,12 @@ class SelectStatement implements Statement
      */
     protected $alias = null;
 
+    /**
+     * Creates a Select Statement
+     *
+     * @param string|Raw|JsonSelector $field
+     * @param string|null             $alias
+     */
     public function __construct($field, ?string $alias = null)
     {
         // Verify valid field type.
