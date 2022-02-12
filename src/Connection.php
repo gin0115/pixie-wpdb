@@ -4,7 +4,6 @@ namespace Pixie;
 
 use wpdb;
 use Exception;
-use Viocon\Container;
 use Pixie\AliasFacade;
 use Pixie\EventHandler;
 use Pixie\QueryBuilder\QueryBuilderHandler;
@@ -16,11 +15,6 @@ class Connection
     public const PREFIX            = 'prefix';
     public const SHOW_ERRORS       = 'show_errors';
     public const USE_WPDB_PREFIX   = 'use_wpdb_prefix';
-
-    /**
-     * @var Container
-     */
-    protected $container;
 
     /**
      * @var string
@@ -51,20 +45,16 @@ class Connection
      * @param wpdb                 $wpdb
      * @param array<string, mixed>  $adapterConfig
      * @param string|null           $alias
-     * @param Container|null        $container
      */
     public function __construct(
         wpdb $wpdb,
         array $adapterConfig = [],
-        ?string $alias = null,
-        ?Container $container = null
+        ?string $alias = null
     ) {
         $this->setAdapterConfig($adapterConfig);
         $this->dbInstance = $this->configureWpdb($wpdb);
 
-        $this->container    = $container ?? new Container();
-        $this->eventHandler = $this->container->build(EventHandler::class);
-
+        $this->eventHandler = new EventHandler();
         if ($alias) {
             $this->createAlias($alias);
         }
@@ -122,7 +112,7 @@ class Connection
     public function createAlias(string $alias): void
     {
         class_alias(AliasFacade::class, $alias);
-        $builder = $this->container->build(QueryBuilderHandler::class, [$this]);
+        $builder = new QueryBuilderHandler($this);
         AliasFacade::setQueryBuilderInstance($builder);
     }
 
@@ -131,7 +121,7 @@ class Connection
      */
     public function getQueryBuilder(): QueryBuilderHandler
     {
-        return $this->container->build(QueryBuilderHandler::class, [$this]);
+        return new QueryBuilderHandler($this);
     }
 
     /**
@@ -172,14 +162,6 @@ class Connection
     public function getAdapterConfig()
     {
         return $this->adapterConfig;
-    }
-
-    /**
-     * @return Container
-     */
-    public function getContainer()
-    {
-        return $this->container;
     }
 
     /**

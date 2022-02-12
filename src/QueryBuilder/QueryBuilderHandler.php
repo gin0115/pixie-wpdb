@@ -29,11 +29,6 @@ class QueryBuilderHandler implements HasConnection
     use TablePrefixer;
 
     /**
-     * @var \Viocon\Container
-     */
-    protected $container;
-
-    /**
      * @var Connection
      */
     protected $connection;
@@ -104,7 +99,6 @@ class QueryBuilderHandler implements HasConnection
 
         // Set all dependencies from connection.
         $this->connection = $connection;
-        $this->container  = $this->connection->getContainer();
         $this->dbInstance = $this->connection->getDbInstance();
         $this->setAdapterConfig($this->connection->getAdapterConfig());
 
@@ -113,10 +107,7 @@ class QueryBuilderHandler implements HasConnection
         $this->hydratorConstructorArgs = $hydratorConstructorArgs;
 
         // Query builder adapter instance
-        $this->adapterInstance = $this->container->build(
-            WPDBAdapter::class,
-            [$this->connection]
-        );
+        $this->adapterInstance = new WPDBAdapter($this->connection);
 
         // Setup JSON Selector handler.
         $this->jsonHandler = new JsonHandler($connection);
@@ -371,6 +362,29 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
+     * Allows the handling of a basic if/else with conditional access.
+     *
+     * @param bool $condition
+     * @param \Closure $if
+     * @param \Closure|null $else
+     * @return self
+     */
+    public function when(bool $condition, \Closure $if, ?\Closure $else = null): self
+    {
+        // If the condition evaluates to true
+        if (true === $condition) {
+            $if($this);
+            return $this;
+        }
+
+        // If false and we have a else closure
+        if (null !== $else) {
+            $else($this);
+        }
+        return $this;
+    }
+
+    /**
      * Used to handle all aggregation method.
      *
      * @see Taken from the pecee-pixie library - https://github.com/skipperbent/pecee-pixie/
@@ -507,10 +521,7 @@ class QueryBuilderHandler implements HasConnection
 
         $queryArr = $this->adapterInstance->$type($this->statements, $dataToBePassed);
 
-        return $this->container->build(
-            QueryObject::class,
-            [$queryArr['sql'], $queryArr['bindings'], $this->dbInstance]
-        );
+        return new QueryObject($queryArr['sql'], $queryArr['bindings'], $this->dbInstance);
     }
 
     /**
@@ -1165,7 +1176,7 @@ class QueryBuilderHandler implements HasConnection
             $this->dbInstance->query('START TRANSACTION');
 
             // Get the Transaction class
-            $transaction = $this->container->build(Transaction::class, [$this->connection]);
+            $transaction = new Transaction($this->connection);
 
             $this->handleTransactionCall($callback, $transaction);
 
@@ -1252,7 +1263,7 @@ class QueryBuilderHandler implements HasConnection
 
         // Build a new JoinBuilder class, keep it by reference so any changes made
         // in the closure should reflect here
-        $joinBuilder = $this->container->build(JoinBuilder::class, [$this->connection]);
+        $joinBuilder =  new JoinBuilder($this->connection);
 
         // Call the closure with our new joinBuilder object
         $key($joinBuilder);

@@ -17,7 +17,8 @@ define('SRC_PATH', dirname(__DIR__, 1) . '/src');
 tests_add_filter(
     'muplugins_loaded',
     function () {
-
+        global $wp_version;
+        echo 'WordPress Version ' . $wp_version . PHP_EOL;
     }
 );
 
