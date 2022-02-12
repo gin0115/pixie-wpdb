@@ -98,7 +98,7 @@ class SelectStatement implements Statement
      * Allows the passing in of a closure to interpolate the statement.
      *
      * @psalm-immutable
-     * @param \Closure(Raw|JsonSelector $field): string $callback
+     * @param \Closure(string|Raw|JsonSelector $field): string $callback
      * @return SelectStatement
      */
     public function interpolateField(\Closure $callback): SelectStatement

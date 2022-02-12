@@ -31,35 +31,11 @@ class StatementCollection
 
     /**
      * Holds all the statements
-     * @var array
+     * @var array{select:SelectStatement[]}
      */
-    protected $statements = [];
-
-    /**
-     * Adds a statement to the collection
-     *
-     * @param string $type
-     * @param Statement $statement
-     * @return self
-     */
-    protected function add(string $type, Statement $statement): self
-    {
-        $this->statements[$type][] = $statement;
-        return $this;
-    }
-
-    /**
-     * Get all Statements of a certain type.
-     *
-     * @param mixed $name
-     * @return Statement[]
-     */
-    protected function get(string $type): array
-    {
-        return \array_key_exists($type, $this->statements)
-            ? $this->statements[$type]
-            : [];
-    }
+    protected $statements = [
+        Statement::SELECT => []
+    ];
 
     /**
      * Adds a select statement to the collection.
@@ -69,7 +45,8 @@ class StatementCollection
      */
     public function addSelect(SelectStatement $statement): self
     {
-        return $this->add(Statement::SELECT, $statement);
+        $this->statements[Statement::SELECT][] = $statement;
+        return $this;
     }
 
     /**
@@ -79,6 +56,6 @@ class StatementCollection
      */
     public function getSelect(): array
     {
-        return $this->get(Statement::SELECT);
+        return $this->statements[Statement::SELECT];
     }
 }

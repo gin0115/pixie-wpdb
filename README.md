@@ -32,9 +32,9 @@ $thing = QB::table('someTable')->where('something','=', 'something else')->first
 
 ## Perquisites
 
-* WordPress 5.7+ (tested upto 5.9)
-* PHP 7.1+ (includes support for PHP8)
-* MySql 5.7+ or MariaDB 10.2+
+* WordPress 5.6+ `(tested on 5.6, 5.7, 5.8, 5.9)`
+* PHP 7.1+ `(tested on 7.1, 7.2, 7.3, 7.4, 8.0, 8.1)`
+* MySql 5.7+ `(tested on 5.7)` or MariaDB 10.2+ `(tested on 10.2, 10.3, 10.4, 10.5, 10.6, 10.7)`
 * Composer (optional)
 
 ## Using Composer
