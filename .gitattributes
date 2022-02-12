@@ -1,0 +1,8 @@
+/tests                      export-ignore
+/phpunit.xml.dist           export-ignore
+/.scrutinizer.yml           export-ignore
+/.php-cs-fixer.php          export-ignore
+/codecov.yml                export-ignore
+/phpstan.neon.dist          export-ignore
+/static-loader-creator.php  export-ignore
+/src/loader.php             export-ignore
