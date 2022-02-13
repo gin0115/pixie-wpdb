@@ -8,18 +8,20 @@ use Throwable;
 use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
+
+use function mb_strlen;
+
 use Pixie\HasConnection;
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
-use Pixie\JSON\JsonSelectorHandler;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
+use Pixie\Statement\SelectStatement;
 use Pixie\QueryBuilder\TablePrefixer;
-
-use function mb_strlen;
+use Pixie\Statement\StatementCollection;
 
 class QueryBuilderHandler implements HasConnection
 {
@@ -37,6 +39,9 @@ class QueryBuilderHandler implements HasConnection
      * @var array<string, mixed[]|mixed>
      */
     protected $statements = [];
+
+    /** @var StatementCollection */
+    protected $statementCollection;
 
     /**
      * @var wpdb
@@ -111,6 +116,9 @@ class QueryBuilderHandler implements HasConnection
 
         // Setup JSON Selector handler.
         $this->jsonHandler = new JsonHandler($connection);
+
+        // Setup statement collection.
+        $this->statementCollection = new StatementCollection();
     }
 
     /**
@@ -519,6 +527,10 @@ class QueryBuilderHandler implements HasConnection
             throw new Exception($type . ' is not a known type.', 2);
         }
 
+        if ('select' === $type) {
+            $queryArr = $this->adapterInstance->selectCol($this->statementCollection, [], $this->statements);
+        }
+
         $queryArr = $this->adapterInstance->$type($this->statements, $dataToBePassed);
 
         return new QueryObject($queryArr['sql'], $queryArr['bindings'], $this->dbInstance);
@@ -702,7 +714,7 @@ class QueryBuilderHandler implements HasConnection
     public function table(...$tables)
     {
         $instance =  $this->constructCurrentBuilderClass($this->connection);
-        $this->setFetchMode($this->getFetchMode(), $this->hydratorConstructorArgs);
+        $instance->setFetchMode($this->getFetchMode(), $this->hydratorConstructorArgs);
         $tables = $this->addTablePrefix($tables, false);
         $instance->addStatement('tables', $tables);
 
@@ -723,6 +735,8 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
+     * Select which fields should be returned in the results.
+     *
      * @param string|string[]|Raw[]|array<string, string> $fields
      *
      * @return static
@@ -734,23 +748,34 @@ class QueryBuilderHandler implements HasConnection
         }
 
         foreach ($fields as $field => $alias) {
-            // If we have a JSON expression
-            if ($this->jsonHandler->isJsonSelector($field)) {
-                $field = $this->jsonHandler->extractAndUnquoteFromJsonSelector($field);
-            }
-
             // If no alias passed, but field is for JSON. thrown an exception.
             if (is_numeric($field) && is_string($alias) && $this->jsonHandler->isJsonSelector($alias)) {
                 throw new Exception("An alias must be used if you wish to select from JSON Object", 1);
             }
+
+            /** V0.2 */
+            $statement = is_numeric($field)
+                ? new SelectStatement($alias)
+                : new SelectStatement($field, $alias);
+            $this->statementCollection->addSelect($statement);
+
+            /**    REMOVE BELOW IN V0.2 */
+            // If we have a JSON expression
+            if ($this->jsonHandler->isJsonSelector($field)) {
+
+                /** @var string $field */
+                $field = $this->jsonHandler->extractAndUnquoteFromJsonSelector($field); // @phpstan-ignore-line
+            }
+            $field = $this->addTablePrefix($field);
 
             // Treat each array as a single table, to retain order added
             $field = is_numeric($field)
                 ? $field = $alias // If single colum
                 : $field = [$field => $alias]; // Has alias
 
-            $field = $this->addTablePrefix($field);
+
             $this->addStatement('selects', $field);
+            /**    REMOVE ABOVE IN V0.2 */
         }
 
         return $this;

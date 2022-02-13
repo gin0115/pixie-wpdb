@@ -18,7 +18,7 @@ class JsonHandler
     public function __construct(Connection $connection)
     {
         $this->connection = $connection;
-        $this->jsonSelectorHandler = new JsonSelectorHandler($connection);
+        $this->jsonSelectorHandler = new JsonSelectorHandler();
         $this->jsonExpressionFactory = new JsonExpressionFactory($connection);
     }
 

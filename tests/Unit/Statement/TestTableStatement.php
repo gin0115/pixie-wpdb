@@ -15,7 +15,6 @@ use stdClass;
 use TypeError;
 use WP_UnitTestCase;
 use Pixie\QueryBuilder\Raw;
-use Pixie\JSON\JsonSelector;
 use Pixie\Statement\Statement;
 use Pixie\Statement\TableStatement;
 

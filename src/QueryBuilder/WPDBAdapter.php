@@ -5,10 +5,16 @@ namespace Pixie\QueryBuilder;
 use Closure;
 use Pixie\Binding;
 use Pixie\Exception;
-use Pixie\Connection;
-use Pixie\QueryBuilder\Raw;
-use Pixie\QueryBuilder\NestedCriteria;
 
+use Pixie\Connection;
+
+use Pixie\QueryBuilder\Raw;
+
+use Pixie\Parser\StatementParser;
+
+use Pixie\Statement\SelectStatement;
+use Pixie\QueryBuilder\NestedCriteria;
+use Pixie\Statement\StatementCollection;
 use function is_bool;
 use function is_float;
 
@@ -28,6 +34,88 @@ class WPDBAdapter
     public function __construct(Connection $connection)
     {
         $this->connection = $connection;
+    }
+
+    /** This is a mock for the new parser based select method. */
+    public function selectCol(StatementCollection $col, $data, $statements) // @phpstan-ignore-line
+    {
+        if (!array_key_exists('tables', $statements)) {
+            throw new Exception('No table specified.', 3);
+        } elseif (!array_key_exists('selects', $statements)) {
+            $statements['selects'][] = '*';
+        }
+
+        $parser = new StatementParser($this->connection);
+        if (!$col->hasSelect()) {
+            $col->addSelect(new SelectStatement('*'));
+        }
+        $_selects = $parser->parseSelect($col->getSelect());
+
+
+
+        // From
+        $tables = $this->arrayStr($statements['tables'], ', ');
+        // Select
+        $selects = $this->arrayStr($statements['selects'], ', ');
+
+        // Wheres
+        list($whereCriteria, $whereBindings) = $this->buildCriteriaWithType($statements, 'wheres', 'WHERE');
+
+        // Group bys
+        $groupBys = '';
+        if (isset($statements['groupBys']) && $groupBys = $this->arrayStr($statements['groupBys'], ', ')) {
+            $groupBys = 'GROUP BY ' . $groupBys;
+        }
+
+        // Order bys
+        $orderBys = '';
+        if (isset($statements['orderBys']) && is_array($statements['orderBys'])) {
+            foreach ($statements['orderBys'] as $orderBy) {
+                $field = $this->wrapSanitizer($orderBy['field']);
+                if ($field instanceof Closure) {
+                    continue;
+                }
+                $orderBys .= $field . ' ' . $orderBy['type'] . ', ';
+            }
+
+            if ($orderBys = trim($orderBys, ', ')) {
+                $orderBys = 'ORDER BY ' . $orderBys;
+            }
+        }
+
+        // Limit and offset
+        $limit  = isset($statements['limit']) ? 'LIMIT ' . (int) $statements['limit'] : '';
+        $offset = isset($statements['offset']) ? 'OFFSET ' . (int) $statements['offset'] : '';
+
+        // Having
+        list($havingCriteria, $havingBindings) = $this->buildCriteriaWithType($statements, 'havings', 'HAVING');
+
+        // Joins
+        $joinString = $this->buildJoin($statements);
+
+        /** @var string[] */
+        $sqlArray = [
+            'SELECT' . (isset($statements['distinct']) ? ' DISTINCT' : ''),
+            $selects,
+            'FROM',
+            $tables,
+            $joinString,
+            $whereCriteria,
+            $groupBys,
+            $havingCriteria,
+            $orderBys,
+            $limit,
+            $offset,
+        ];
+
+        $sql = $this->concatenateQuery($sqlArray);
+
+        $bindings = array_merge(
+            $whereBindings,
+            $havingBindings
+        );
+
+        return compact('sql', 'bindings');
     }
 
     /**

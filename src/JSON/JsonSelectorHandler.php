@@ -3,32 +3,9 @@
 namespace Pixie\JSON;
 
 use Pixie\Exception;
-use Pixie\Connection;
-use Pixie\HasConnection;
-use Pixie\QueryBuilder\TablePrefixer;
 
-class JsonSelectorHandler implements HasConnection
+class JsonSelectorHandler
 {
-    use TablePrefixer;
-
-    /** @var Connection */
-    protected $connection;
-
-    public function __construct(Connection $connection)
-    {
-        $this->connection = $connection;
-    }
-
-    /**
-     * Returns the current connection instance.
-     *
-     * @return connection
-     */
-    public function getConnection(): Connection
-    {
-        return $this->connection;
-    }
-
     /**
      * Checks if the passed expression is for JSON
      * this->denotes->json

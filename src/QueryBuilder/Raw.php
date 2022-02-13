@@ -46,6 +46,16 @@ class Raw
     }
 
     /**
+     * Checks if any bindings defined.
+     *
+     * @return bool
+     */
+    public function hasBindings(): bool
+    {
+        return 0 !== count($this->bindings);
+    }
+
+    /**
      * Returns the current value held.
      *
      * @return string

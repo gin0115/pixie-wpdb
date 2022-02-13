@@ -54,6 +54,7 @@ trait TablePrefixer
                 !$tableFieldMix
                 || (
                     is_string($target) // Must be a string
+                    && strpos($target, $this->getTablePrefix()) !== 0 // Inst already added.
                     && (bool) preg_match('/^[A-Za-z0-9_.]+$/', $target) // Can only contain letters, numbers, underscore and full stops
                     && 1 === \substr_count($target, '.') // Contains a single full stop ONLY.
                 )

@@ -18,14 +18,6 @@ use Pixie\JSON\JsonSelectorHandler;
 
 class TestJsonSelectorHandler extends WP_UnitTestCase
 {
-    /** @testdox It should be possible to access the Connection used in the Handler. [ALSO MEETS REQUIREMENTS OF THE TablePrefixer TRAIT] */
-    public function testCanGetConnection(): void
-    {
-        $connection = $this->createMock(Connection::class);
-        $handler = new JsonSelectorHandler($connection);
-        $this->assertSame($connection, $handler->getConnection());
-    }
-
     /** @testdox It should be possible to check if a value is a valid JSON selector */
     public function testIsJsonSelector(): void
     {
@@ -41,7 +33,7 @@ class TestJsonSelectorHandler extends WP_UnitTestCase
             ['three->deep->eep', true],
         ];
 
-        $handler = new JsonSelectorHandler($this->createMock(Connection::class));
+        $handler = new JsonSelectorHandler();
 
         foreach ($cases as list($val,$result)) {
             $this->assertTrue(
@@ -54,7 +46,7 @@ class TestJsonSelectorHandler extends WP_UnitTestCase
     /** @testdox It should be possible to create an instance of a JsonSelector model from an expression. */
     public function testAsSelector(): void
     {
-        $handler = new JsonSelectorHandler($this->createMock(Connection::class));
+        $handler = new JsonSelectorHandler();
         $selector = $handler->toJsonSelector('column->node1->node2');
         $this->assertEquals('column', $selector->getColumn());
         $this->assertEquals(['node1','node2'], $selector->getNodes());
@@ -63,7 +55,7 @@ class TestJsonSelectorHandler extends WP_UnitTestCase
     /** @testdox It should be possible to get the column from a JSON selector */
     public function testGetColumn(): void
     {
-        $handler = new JsonSelectorHandler($this->createMock(Connection::class));
+        $handler = new JsonSelectorHandler();
         $this->assertSame('column', $handler->getColumn('column->node'));
     }
 
@@ -71,21 +63,21 @@ class TestJsonSelectorHandler extends WP_UnitTestCase
     public function testGetColumnException(): void
     {
         $this->expectExceptionMessage('JSON expression must contain at least 2 values, the table column and at least 1 node.');
-        (new JsonSelectorHandler($this->createMock(Connection::class)))->getColumn('missing');
+        (new JsonSelectorHandler())->getColumn('missing');
     }
 
     /** @testdox It should be possible to get the nodes from a JSON selector */
     public function testGetNodes(): void
     {
-        $handler = new JsonSelectorHandler($this->createMock(Connection::class));
+        $handler = new JsonSelectorHandler();
         $this->assertSame(['node'], $handler->getNodes('column->node'));
         $this->assertSame(['node', 'second'], $handler->getNodes('column->node->second'));
     }
 
-    /** @testdox Attemping to get the nodes of an invalid expression should result in an exception */
+    /** @testdox Attempting to get the nodes of an invalid expression should result in an exception */
     public function testGetNodesException(): void
     {
         $this->expectExceptionMessage('JSON expression must contain at least 2 values, the table column and at least 1 node.');
-        (new JsonSelectorHandler($this->createMock(Connection::class)))->getNodes('missing');
+        (new JsonSelectorHandler())->getNodes('missing');
     }
 }
