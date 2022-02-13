@@ -44,14 +44,24 @@ class StatementParser
     public function __construct(Connection $connection)
     {
         $this->connection = $connection;
+        $this->normalizer = $this->createNormalizer($connection);
+    }
 
+    /**
+     * Creates a full populated instance of the normalizer
+     *
+     * @param Connection $connection
+     * @return Normalizer
+     */
+    private function createNormalizer($connection): Normalizer
+    {
         // Create the table prefixer.
         $adapterConfig = $connection->getAdapterConfig();
         $prefix = isset($adapterConfig[Connection::PREFIX])
             ? $adapterConfig[Connection::PREFIX]
             : null;
 
-        $this->normalizer = new Normalizer(
+        return new Normalizer(
             $connection,
             new TablePrefixer($prefix)
         );
