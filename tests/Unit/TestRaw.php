@@ -40,4 +40,13 @@ class TestRaw extends \WP_UnitTestCase
         $this->assertContains(2, $raw->getBindings());
         $this->assertContains(3, $raw->getBindings());
     }
+
+    /** @testdox It should be possible to quickly check if a raw statement has bindings applied. */
+    public function testHasBindings(): void
+    {
+        $without = new Raw('a');
+        $with = new Raw('b', [1,2,3]);
+        $this->assertFalse($without->hasBindings());
+        $this->assertTrue($with->hasBindings());
+    }
 }
