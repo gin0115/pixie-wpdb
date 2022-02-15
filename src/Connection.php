@@ -15,6 +15,7 @@ class Connection
     public const PREFIX            = 'prefix';
     public const SHOW_ERRORS       = 'show_errors';
     public const USE_WPDB_PREFIX   = 'use_wpdb_prefix';
+    public const THROW_ERRORS      = 'throw_errors';
 
     /**
      * @var string

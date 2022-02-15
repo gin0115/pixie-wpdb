@@ -50,7 +50,7 @@ class WPDBAdapter
             $col->addSelect(new SelectStatement('*'));
         }
         $_selects = $parser->parseSelect($col->getSelect());
-
+        $_tables = $parser->parseTable($col->getTable());
 
 
         // From

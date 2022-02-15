@@ -18,6 +18,7 @@ use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
+use Pixie\Statement\TableStatement;
 use Pixie\Statement\SelectStatement;
 use Pixie\QueryBuilder\TablePrefixer;
 use Pixie\Statement\StatementCollection;
@@ -715,8 +716,15 @@ class QueryBuilderHandler implements HasConnection
     {
         $instance =  $this->constructCurrentBuilderClass($this->connection);
         $instance->setFetchMode($this->getFetchMode(), $this->hydratorConstructorArgs);
+
+        foreach ($tables as $table) {
+            $instance->getStatementCollection()->addTable(new TableStatement($table));
+        }
+
+        /** REMOVE BELOW HERE IN V0.2 */
         $tables = $this->addTablePrefix($tables, false);
         $instance->addStatement('tables', $tables);
+        /** REMOVE ABOVE HERE IN V0.2 */
 
         return $instance;
     }
@@ -1561,5 +1569,14 @@ class QueryBuilderHandler implements HasConnection
     public function jsonBuilder(): JsonQueryBuilder
     {
         return new JsonQueryBuilder($this->getConnection(), $this->getFetchMode(), $this->hydratorConstructorArgs);
+    }
+
+    /**
+     * Get the value of statementCollection
+     * @return StatementCollection
+     */
+    public function getStatementCollection(): StatementCollection
+    {
+        return $this->statementCollection;
     }
 }

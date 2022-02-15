@@ -26,26 +26,28 @@ declare(strict_types=1);
 
 namespace Pixie\Parser;
 
-use Pixie\Connection;
-use Pixie\HasConnection;
+use Pixie\WpdbHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\JSON\JsonSelector;
 use Pixie\Parser\TablePrefixer;
 use Pixie\JSON\JsonSelectorHandler;
+use Pixie\Statement\TableStatement;
 use Pixie\Statement\SelectStatement;
 use Pixie\JSON\JsonExpressionFactory;
 
 class Normalizer
 {
     /**
-     * @var Connection
+     * @var WpdbHandler
+     * @since 0.2.0
      */
-    protected $connection;
+    protected $wpdbHandler;
 
     /**
      * Handler for JSON selectors
      *
      * @var JsonSelectorHandler
+     * @since 0.2.0
      */
     protected $jsonSelectors;
 
@@ -53,6 +55,7 @@ class Normalizer
      * JSON expression factory
      *
      * @var JsonExpressionFactory
+     * @since 0.2.0
      */
     protected $jsonExpressions;
 
@@ -60,34 +63,31 @@ class Normalizer
      * Access to the table prefixer.
      *
      * @var TablePrefixer
+     * @since 0.2.0
      */
     protected $tablePrefixer;
 
-    public function __construct(Connection $connection, TablePrefixer $tablePrefixer)
-    {
-        $this->connection = $connection;
+    public function __construct(
+        WpdbHandler $wpdbHandler,
+        TablePrefixer $tablePrefixer,
+        JsonSelectorHandler $jsonSelectors,
+        JsonExpressionFactory $jsonExpressions
+    ) {
+        $this->wpdbHandler = $wpdbHandler;
         $this->tablePrefixer = $tablePrefixer;
-        $this->jsonSelectors = new JsonSelectorHandler();
-        $this->jsonExpressions = new JsonExpressionFactory($connection);
-
-        // Create table prefixer.
+        $this->jsonSelectors = $jsonSelectors;
+        $this->jsonExpressions = $jsonExpressions;
     }
 
     /**
-     * Access to the connection.
+     * Normalize all select statements into strings
      *
-     * @return \Pixie\Connection
-     */
-    public function getConnection(): Connection
-    {
-        return $this->connection;
-    }
-
-    /**
-     *
+     * Accepts string or (string) JSON Arrow Selectors,
+     * JsonSelector Objects and Raw Objects as fields.
      *
      * @param \Pixie\Statement\SelectStatement $statement
      * @return string
+     * @since 0.2.0
      */
     public function selectStatement(SelectStatement $statement): string
     {
@@ -95,32 +95,79 @@ class Normalizer
         switch (true) {
             // Is JSON Arrow Selector.
             case is_string($field) && $this->jsonSelectors->isJsonSelector($field):
-                // Cast as JsonSelector
-                $field = $this->jsonSelectors->toJsonSelector($field);
-                // Get & Return SQL Expression as RAW
-                return $this->jsonExpressions->extractAndUnquote(
-                    $this->tablePrefixer->field($field->getColumn()),
-                    $field->getNodes()
-                )->getValue();
+                return $this->normalizeJsonArrowSelector($field);
 
             // If JSON selector
             case is_a($field, JsonSelector::class):
-                // Get & Return SQL Expression as RAW
-                return $this->jsonExpressions->extractAndUnquote(
-                    $this->tablePrefixer->field($field->getColumn()),
-                    $field->getNodes()
-                )->getValue();
+                return $this->normalizeJsonSelector($field);
 
             // RAW
             case is_a($field, Raw::class):
-                // Return the extrapolated Raw expression.
-                return ! $field->hasBindings()
-                    ? $this->tablePrefixer->field($field->getValue())
-                    : sprintf($field->getValue(), ...$field->getBindings());
+                return $this->normalizeRaw($field);
 
             // Assume fallback as string.
             default:
                 return $this->tablePrefixer->field($field);
         }
+    }
+
+    /**
+     * Normalize all table states into strings
+     *
+     * Accepts either string or RAW expression.
+     *
+     * @param \Pixie\Statement\TableStatement $statement
+     * @return string
+     */
+    public function tableStatement(TableStatement $statement): string
+    {
+        $table = $statement->getTable();
+        return is_a($table, Raw::class)
+            ? $this->normalizeRaw($table)
+            : $this->tablePrefixer->table($table) ?? $table;
+    }
+
+    /**
+     * Interpolates a raw expression
+     *
+     * @param \Pixie\QueryBuilder\Raw $raw
+     * @return string
+     */
+    private function normalizeRaw(Raw $raw): string
+    {
+        return $this->wpdbHandler->interpolateQuery(
+            $raw->getValue(),
+            $raw->getBindings()
+        );
+    }
+
+    /**
+     * Extract from JSON Arrow selector to string representation.
+     *
+     * @param string $selector
+     * @param bool $isField If set to true with apply table prefix as a field (false for table)
+     * @return string
+     */
+    private function normalizeJsonArrowSelector(string $selector, bool $isField = true): string
+    {
+        $selector = $this->jsonSelectors->toJsonSelector($selector);
+        return $this->normalizeJsonSelector($selector);
+    }
+
+    /**
+     * Extract from JSON Selector to string representation
+     *
+     * @param \Pixie\JSON\JsonSelector $selector
+     * @param bool $isField If set to true with apply table prefix as a field (false for table)
+     * @return string
+     */
+    private function normalizeJsonSelector(JsonSelector $selector, bool $isField = true): string
+    {
+        $column = $isField === \true
+            ? $this->tablePrefixer->field($selector->getColumn())
+            : $this->tablePrefixer->table($selector->getColumn()) ?? $selector->getColumn();
+
+        return $this->jsonExpressions->extractAndUnquote($column, $selector->getNodes())
+            ->getValue();
     }
 }

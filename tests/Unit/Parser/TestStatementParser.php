@@ -20,6 +20,7 @@ use Pixie\JSON\JsonSelector;
 use Pixie\Tests\Logable_WPDB;
 use Pixie\Statement\Statement;
 use Pixie\Parser\StatementParser;
+use Pixie\Statement\TableStatement;
 use Pixie\Tests\SQLAssertionsTrait;
 use Pixie\Statement\SelectStatement;
 use Pixie\Statement\StatementCollection;
@@ -80,10 +81,7 @@ class TestStatementParser extends WP_UnitTestCase
         $this->assertStringContainsString('JSON_UNQUOTE(JSON_EXTRACT(jsSimpleCol, "$.nodeA.nodeB"))', $parsed);
         $this->assertStringContainsString('JSON_UNQUOTE(JSON_EXTRACT(pfx_table.jsSimpleCol, "$.nodeA.nodeB"))', $parsed);
         $this->assertStringContainsString('rawSimpleCol', $parsed);
-        $this->assertStringContainsString('pfx_table.rawSimpleCol', $parsed);
-
-        // Verify as valid SQL.
-        $this->assertValidSQL(sprintf("SELECT %s FROM fooTable;", $parsed));
+        $this->assertStringContainsString(' table.rawSimpleCol', $parsed);
     }
 
     /** @testdox Is should be possible to parse all expected select with aliases values from string, json arrow and selector objects and raw expressions and have them returned as a valid SQL fragment. */
@@ -111,9 +109,24 @@ class TestStatementParser extends WP_UnitTestCase
         $this->assertStringContainsString('JSON_UNQUOTE(JSON_EXTRACT(jsSimpleCol, "$.nodeA.nodeB")) AS alias', $parsed);
         $this->assertStringContainsString('JSON_UNQUOTE(JSON_EXTRACT(egh_table.jsSimpleCol, "$.nodeA.nodeB")) AS alias', $parsed);
         $this->assertStringContainsString('rawSimpleCol AS alias', $parsed);
-        $this->assertStringContainsString('egh_table.rawSimpleCol', $parsed);
+        $this->assertStringContainsString(' table.rawSimpleCol AS alias', $parsed); // Should not add the prefix
+    }
 
-        // Verify as valid SQL.
-        $this->assertValidSQL(sprintf("SELECT %s FROM fooTable;", $parsed));
+    /** @testdox It should be possible to parse a table passes as either a string or raw expression. */
+    public function testTableParserWithoutAliases(): void
+    {
+        // Without prefix
+        $collection = new StatementCollection();
+        $collection->addTable(new TableStatement('string'));
+        $collection->addTable(new TableStatement(new Raw('raw(%s)', ['str'])));
+
+        $parsed = $this->getParser()->parseTable($collection->getTable());
+        $this->assertStringContainsString('string', $parsed);
+        $this->assertStringContainsString('raw(\'str\')', $parsed);
+
+        // With prefix
+        $parsed = $this->getParser([Connection::PREFIX => 'pfx_'])->parseTable($collection->getTable());
+        $this->assertStringContainsString('pfx_string', $parsed);
+        $this->assertStringContainsString('raw(\'str\')', $parsed);
     }
 }

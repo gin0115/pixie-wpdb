@@ -27,7 +27,11 @@ declare(strict_types=1);
 namespace Pixie\Parser;
 
 use Pixie\Connection;
+use Pixie\WpdbHandler;
+use Pixie\JSON\JsonSelectorHandler;
+use Pixie\Statement\TableStatement;
 use Pixie\Statement\SelectStatement;
+use Pixie\JSON\JsonExpressionFactory;
 
 class StatementParser
 {
@@ -62,8 +66,10 @@ class StatementParser
             : null;
 
         return new Normalizer(
-            $connection,
-            new TablePrefixer($prefix)
+            new WpdbHandler($connection),
+            new TablePrefixer($prefix),
+            new JsonSelectorHandler(),
+            new JsonExpressionFactory($connection)
         );
     }
 
@@ -90,5 +96,25 @@ class StatementParser
         }, $select);
 
         return join(', ', $select);
+    }
+
+    /**
+     * Normalizes and Parsers an array of TableStatements
+     *
+     * @param TableStatement[] $tables
+     * @return string
+     */
+    public function parseTable(array $tables): string
+    {
+        // Remove any none TableStatement
+        $tables = array_filter($tables, function ($statement): bool {
+            return is_a($statement, TableStatement::class);
+        });
+
+        $tables = array_map(function (TableStatement $table): string {
+            return $this->normalizer->tableStatement($table);
+        }, $tables);
+
+        return join(', ', $tables);
     }
 }
