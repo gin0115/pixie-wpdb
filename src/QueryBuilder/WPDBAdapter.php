@@ -6,17 +6,17 @@ use Closure;
 use Pixie\Binding;
 use Pixie\Exception;
 
+use function is_bool;
+
 use Pixie\Connection;
 
+use function is_float;
+
 use Pixie\QueryBuilder\Raw;
-
 use Pixie\Parser\StatementParser;
-
 use Pixie\Statement\SelectStatement;
 use Pixie\QueryBuilder\NestedCriteria;
 use Pixie\Statement\StatementCollection;
-use function is_bool;
-use function is_float;
 
 class WPDBAdapter
 {
@@ -62,10 +62,10 @@ class WPDBAdapter
         list($whereCriteria, $whereBindings) = $this->buildCriteriaWithType($statements, 'wheres', 'WHERE');
 
         // Group bys
-        $groupBys = '';
-        if (isset($statements['groupBys']) && $groupBys = $this->arrayStr($statements['groupBys'], ', ')) {
-            $groupBys = 'GROUP BY ' . $groupBys;
-        }
+        // $groupBys = '';
+        // if (isset($statements['groupBys']) && $groupBys = $this->arrayStr($statements['groupBys'], ', ')) {
+        //     $groupBys = 'GROUP BY ' . $groupBys;
+        // }
 
 
         // Limit and offset
@@ -80,7 +80,7 @@ class WPDBAdapter
 
         /** @var string[] */
         $sqlArray = [
-            'SELECT' . (isset($statements['distinct']) ? ' DISTINCT' : ''),
+            'SELECT' . ($col->hasDistinctSelect() ? ' DISTINCT' : ''),
             $parser->parseSelect($col->getSelect()),
             'FROM',
             $parser->parseTable($col->getTable()),
@@ -94,7 +94,6 @@ class WPDBAdapter
         ];
 
         $sql = $this->concatenateQuery($sqlArray);
-
         $bindings = array_merge(
             $whereBindings,
             $havingBindings

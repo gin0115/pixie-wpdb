@@ -1059,7 +1059,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $builder = $this->queryBuilderProvider();
 
         $avgSubQuery = $builder->table('orders')->selectDistinct("customerNumber");
-
+        
         $builder->table('customers')
         ->select('customerName')
         ->whereNotIn('customerNumber', $builder->subQuery($avgSubQuery))

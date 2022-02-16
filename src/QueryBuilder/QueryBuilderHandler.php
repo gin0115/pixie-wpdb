@@ -9,8 +9,9 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use Pixie\HasConnection;
+use function mb_strlen;
 
+use Pixie\HasConnection;
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\JSON\JsonSelector;
@@ -25,7 +26,6 @@ use Pixie\QueryBuilder\TablePrefixer;
 use Pixie\Statement\GroupByStatement;
 use Pixie\Statement\OrderByStatement;
 use Pixie\Statement\StatementCollection;
-use function mb_strlen;
 
 class QueryBuilderHandler implements HasConnection
 {
@@ -533,9 +533,11 @@ class QueryBuilderHandler implements HasConnection
 
         if ('select' === $type) {
             $queryArr = $this->adapterInstance->selectCol($this->statementCollection, [], $this->statements);
+        } else {
+            $queryArr = $this->adapterInstance->$type($this->statements, $dataToBePassed);
+
         }
 
-        $queryArr = $this->adapterInstance->$type($this->statements, $dataToBePassed);
 
         return new QueryObject($queryArr['sql'], $queryArr['bindings'], $this->dbInstance);
     }
@@ -749,26 +751,66 @@ class QueryBuilderHandler implements HasConnection
      * Select which fields should be returned in the results.
      *
      * @param string|string[]|Raw[]|array<string, string> $fields
-     *
      * @return static
      */
     public function select($fields): self
     {
-        if (!is_array($fields)) {
-            $fields = func_get_args();
-        }
+        // if (!is_array($fields)) {
+        //     $fields = func_get_args();
+        // }
+        $this->selectHandler(!is_array($fields) ? func_get_args() : $fields);
+        return $this;
+    }
 
-        foreach ($fields as $field => $alias) {
+    /**
+     * @param string|string[]|Raw[]|array<string, string> $fields
+     *
+     * @return static
+     */
+    public function selectDistinct($fields)
+    {
+        // $this->select($fields, true);
+        // $this->addStatement('distinct', true);
+        $this->selectHandler(
+            !is_array($fields) ? func_get_args() : $fields,
+            true
+        );
+        return $this;
+    }
+
+    private function selectHandler(array $selects, bool $isDistinct = false): void
+    {
+        $selects2 = $this->maybeFlipArrayValues($selects);
+        foreach ($selects2 as ["key" => $field, "value" => $alias]) {
             // If no alias passed, but field is for JSON. thrown an exception.
             if (is_numeric($field) && is_string($alias) && $this->jsonHandler->isJsonSelector($alias)) {
                 throw new Exception("An alias must be used if you wish to select from JSON Object", 1);
             }
 
             /** V0.2 */
-            $statement = is_numeric($field)
-                ? new SelectStatement($alias)
+            $statement = is_numeric($alias)
+                ? new SelectStatement($field)
                 : new SelectStatement($field, $alias);
-            $this->statementCollection->addSelect($statement);
+            $this->statementCollection->addSelect(
+                $statement->setIsDistinct($isDistinct)
+            );
+        }
+
+
+
+        foreach ($selects as $field => $alias) {
+            // If no alias passed, but field is for JSON. thrown an exception.
+            if (is_numeric($field) && is_string($alias) && $this->jsonHandler->isJsonSelector($alias)) {
+                throw new Exception("An alias must be used if you wish to select from JSON Object", 1);
+            }
+
+            // /** V0.2 */
+            // $statement = is_numeric($field)
+            //     ? new SelectStatement($alias)
+            //     : new SelectStatement($field, $alias);
+            // $this->statementCollection->addSelect(
+            //     $statement/* ->setIsDistinct($isDistinct) */
+            // );
 
             /**    REMOVE BELOW IN V0.2 */
             // If we have a JSON expression
@@ -788,21 +830,6 @@ class QueryBuilderHandler implements HasConnection
             $this->addStatement('selects', $field);
             /**    REMOVE ABOVE IN V0.2 */
         }
-
-        return $this;
-    }
-
-    /**
-     * @param string|string[]|Raw[]|array<string, string> $fields
-     *
-     * @return static
-     */
-    public function selectDistinct($fields)
-    {
-        $this->select($fields);
-        $this->addStatement('distinct', true);
-
-        return $this;
     }
 
     /**

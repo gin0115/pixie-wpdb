@@ -90,6 +90,23 @@ class StatementCollection
     }
 
     /**
+     * Check if any defined select queries are distinct.
+     *
+     * @return bool
+     */
+    public function hasDistinctSelect(): bool
+    {
+        $distinctSelects = array_filter(
+            $this->getSelect(),
+            function (SelectStatement $select): bool {
+                return $select->getIsDistinct();
+            }
+        );
+
+        return 0 < count($distinctSelects);
+    }
+
+    /**
      * Adds a table statement to the collection.
      *
      * @param TableStatement $statement

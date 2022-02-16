@@ -48,6 +48,13 @@ class SelectStatement implements Statement
     protected $alias = null;
 
     /**
+     * Denotes if the select is distinct.
+     *
+     * @var bool
+     */
+    protected $isDistinct = false;
+
+    /**
      * Creates a Select Statement
      *
      * @param string|Raw|JsonSelector $field
@@ -137,5 +144,27 @@ class SelectStatement implements Statement
     public function getAlias(): ?string
     {
         return $this->hasAlias() ? $this->alias : null;
+    }
+
+    /**
+     * Get denotes if the select is distinct.
+     *
+     * @return bool
+     */
+    public function getIsDistinct(): bool
+    {
+        return $this->isDistinct;
+    }
+
+    /**
+     * Set denotes if the select is distinct.
+     *
+     * @param bool $isDistinct  Denotes if the select is distinct.
+     * @return self
+     */
+    public function setIsDistinct(bool $isDistinct = true): self
+    {
+        $this->isDistinct = $isDistinct;
+        return $this;
     }
 }
