@@ -943,9 +943,13 @@ class QueryBuilderHandler implements HasConnection
                 'value' => $direction]
 
         ) {
+            // To please static analysis due to limited generics
+            if (is_int($column)) {
+                continue;
+            }
             $this->statementCollection->addOrderBy(
                 new OrderByStatement(
-                    $column, // @phpstan-ignore-line
+                    $column,
                     ! is_string($direction) ? $defaultDirection : (string) $direction
                 )
             );
