@@ -14,6 +14,7 @@ use function mb_strlen;
 use Pixie\HasConnection;
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
+use Pixie\JSON\JsonSelector;
 use Pixie\Hydration\Hydrator;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
@@ -846,11 +847,11 @@ class QueryBuilderHandler implements HasConnection
      * [
      *  ['key' => 'columnA', value => 'aliasA'],
      *  ['key' => Raw::val('count(foo)'), value => 'aliasB'],
-     *  ['key' => 'noAlias', 'value'=> 2 ]
+     *  ['key' => 'noAlias', 'value'=> 0 ]
      * ]
      *
-     * @param array<int|string, string|object|int>
-     * @return array{key:string|object|int,value:string|object|int}
+     * @param array<int|string, string|object|int> $data
+     * @return array{key:string|object|int,value:string|object|int}[]
      */
     public function maybeFlipArrayValues(array $data): array
     {
@@ -883,8 +884,8 @@ class QueryBuilderHandler implements HasConnection
             as ["key" => $column, "value" => $direction]
         ) {
             $this->statementCollection->addOrderBy(new OrderByStatement(
-                $column,
-                is_int($direction) ? $defaultDirection : $direction
+                $column, // @phpstan-ignore-line
+                is_int($direction) ? $defaultDirection : (string) $direction
             ));
         }
 
@@ -898,11 +899,11 @@ class QueryBuilderHandler implements HasConnection
             }
 
             if ($this->jsonHandler->isJsonSelector($field)) {
-                $field = $this->jsonHandler->extractAndUnquoteFromJsonSelector($field);
+                $field = $this->jsonHandler->extractAndUnquoteFromJsonSelector($field); // @phpstan-ignore-line
             }
 
             if (!$field instanceof Raw) {
-                $field = $this->addTablePrefix($field);
+                $field = $this->addTablePrefix($field); // @phpstan-ignore-line
             }
             $this->statements['orderBys'][] = compact('field', 'type');
             /** REMOVE ABOVE HERE IN v0.2 */

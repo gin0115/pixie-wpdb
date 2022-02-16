@@ -113,7 +113,7 @@ class OrderByStatement implements Statement
     public function getDirection(): ?string
     {
         return $this->hasDirection()
-            ? \strtoupper($this->direction)
+            ? \strtoupper($this->direction ?? '')
             : null;
     }
 }

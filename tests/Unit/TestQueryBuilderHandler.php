@@ -279,17 +279,21 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
         $this->assertSame($inital->getFetchMode(), $json->getFetchMode());
     }
 
+    /** @testdox It should be possible to cast an array to VALUE with ADDITIONAL as [VALUE => ADDITIONAL], but reversed if the value is an object [ADDITIONAL => VALUE{}] or no key used [VALUE] */
     public function testMaybeFlipArrayValues(): void
     {
         $builder = $this->queryBuilderProvider();
-             $columns = ['columnA' => 'aliasA', 'aliasB' => Raw::val('count(foo)'), 'noAlias'];
-        $flipped = array_map([$builder, 'maybeFlipArrayValues'], array_keys($columns), array_values($columns));
-        // dump($flipped);
-    //  [
-    //   ['key' => 'columnA', value => 'aliasA'],
-    //   ['key' => Raw::val('count(foo)'), value => 'aliasB'],
-    //   ['key' => 'noAlias', 'value'=> 2 ]
-    //  ]
+        $raw = Raw::val('count(foo)');
+        $columns = [
+            'columnA' => 'aliasA',
+            'aliasB' => $raw,
+            'noAlias'
+        ];
+        $flipped = $builder->maybeFlipArrayValues($columns);
+
+        $this->assertContains(['key' => 'columnA', 'value' => 'aliasA'], $flipped);
+        $this->assertContains(['key' => $raw, 'value' => 'aliasB'], $flipped);
+        $this->assertContains(['key' => 'noAlias', 'value' => 0 ], $flipped);
     }
 
     /** @testdox When creating an orderby statement, they could be passed as [COLUMN{string} => DIRECTION] but as [DIRECTION => COLUMN{object}] */
@@ -302,7 +306,6 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
         $builder->orderBy(['DESC' => new JsonSelector('col', ['nod1', 'nod2'])]);
 
         $statements = $builder->getStatementCollection()->getOrderBy();
-        dump($statements);
         $this->assertEquals('column', $statements[0]->getField());
         $this->assertEquals('ASC', $statements[0]->getDirection());
 
