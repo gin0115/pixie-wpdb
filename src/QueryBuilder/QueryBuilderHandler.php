@@ -8,9 +8,7 @@ use Throwable;
 use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
-
 use Pixie\HasConnection;
-
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\JSON\JsonSelector;
@@ -24,7 +22,7 @@ use Pixie\Statement\SelectStatement;
 use Pixie\QueryBuilder\TablePrefixer;
 use Pixie\Statement\GroupByStatement;
 use Pixie\Statement\OrderByStatement;
-use Pixie\Statement\StatementCollection;
+use Pixie\Statement\StatementBuilder;
 use function mb_strlen;
 
 class QueryBuilderHandler implements HasConnection
@@ -44,8 +42,8 @@ class QueryBuilderHandler implements HasConnection
      */
     protected $statements = array();
 
-    /** @var StatementCollection */
-    protected $statementCollection;
+    /** @var StatementBuilder */
+    protected $StatementBuilder;
 
     /**
      * @var wpdb
@@ -122,7 +120,7 @@ class QueryBuilderHandler implements HasConnection
         $this->jsonHandler = new JsonHandler($connection);
 
         // Setup statement collection.
-        $this->statementCollection = new StatementCollection();
+        $this->StatementBuilder = new StatementBuilder();
     }
 
     /**
@@ -531,7 +529,7 @@ class QueryBuilderHandler implements HasConnection
         }
 
         if ('select' === $type) {
-            $queryArr = $this->adapterInstance->selectCol($this->statementCollection, array(), $this->statements);
+            $queryArr = $this->adapterInstance->selectCol($this->StatementBuilder, array(), $this->statements);
         } else {
             $queryArr = $this->adapterInstance->$type($this->statements, $dataToBePassed);
         }
@@ -720,7 +718,7 @@ class QueryBuilderHandler implements HasConnection
         $instance->setFetchMode($this->getFetchMode(), $this->hydratorConstructorArgs);
 
         foreach ($tables as $table) {
-            $instance->getStatementCollection()->addTable(new TableStatement($table));
+            $instance->getStatementBuilder()->addTable(new TableStatement($table));
         }
 
         /** REMOVE BELOW HERE IN V0.2 */
@@ -739,7 +737,7 @@ class QueryBuilderHandler implements HasConnection
     public function from(...$tables): self
     {
         foreach ($tables as $table) {
-            $this->getStatementCollection()->addTable(new TableStatement($table));
+            $this->getStatementBuilder()->addTable(new TableStatement($table));
         }
         $tables = $this->addTablePrefix($tables, false);
         $this->addStatement('tables', $tables);
@@ -803,7 +801,7 @@ class QueryBuilderHandler implements HasConnection
             $statement =  ! is_string($alias)
                 ? new SelectStatement($field)
                 : new SelectStatement($field, $alias);
-            $this->statementCollection->addSelect(
+            $this->StatementBuilder->addSelect(
                 $statement->setIsDistinct($isDistinct)
             );
         }
@@ -818,7 +816,7 @@ class QueryBuilderHandler implements HasConnection
             // $statement = is_numeric($field)
             //     ? new SelectStatement($alias)
             //     : new SelectStatement($field, $alias);
-            // $this->statementCollection->addSelect(
+            // $this->StatementBuilder->addSelect(
             //     $statement/* ->setIsDistinct($isDistinct) */
             // );
 
@@ -850,7 +848,7 @@ class QueryBuilderHandler implements HasConnection
     {
         $groupBys = is_array($field) ? $field : array( $field );
         foreach (array_filter($groupBys, 'is_string') as $groupBy) {
-            $this->statementCollection->addGroupBy(new GroupByStatement($groupBy));
+            $this->StatementBuilder->addGroupBy(new GroupByStatement($groupBy));
         }
 
         /** REMOVE BELOW IN V0.2 */
@@ -947,7 +945,7 @@ class QueryBuilderHandler implements HasConnection
             if (is_int($column)) {
                 continue;
             }
-            $this->statementCollection->addOrderBy(
+            $this->StatementBuilder->addOrderBy(
                 new OrderByStatement(
                     $column,
                     ! is_string($direction) ? $defaultDirection : (string) $direction
@@ -1702,11 +1700,11 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * Get the value of statementCollection
-     * @return StatementCollection
+     * Get the value of StatementBuilder
+     * @return StatementBuilder
      */
-    public function getStatementCollection(): StatementCollection
+    public function getStatementBuilder(): StatementBuilder
     {
-        return $this->statementCollection;
+        return $this->StatementBuilder;
     }
 }

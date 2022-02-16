@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Unit tests for the StatementCollection
+ * Unit tests for the StatementBuilder
  *
  * @since 0.2.0
  * @author GLynn Quelch <glynn.quelch@gmail.com>
@@ -15,20 +15,20 @@ use WP_UnitTestCase;
 use Pixie\Statement\Statement;
 use Pixie\Statement\TableStatement;
 use Pixie\Statement\SelectStatement;
-use Pixie\Statement\StatementCollection;
+use Pixie\Statement\StatementBuilder;
 
 /**
  * @group v0.2
  * @group unit
  * @group statement
  */
-class TestStatementCollection extends WP_UnitTestCase
+class TestStatementBuilder extends WP_UnitTestCase
 {
 
     /** @testdox It should be possible to get the contents of the collection */
     public function testGetCollectionItems(): void
     {
-        $collection = new StatementCollection();
+        $collection = new StatementBuilder();
         $array = $collection->getStatements();
 
         // Check all keys exist
@@ -48,7 +48,7 @@ class TestStatementCollection extends WP_UnitTestCase
     /** @testdox It should be possible to add, fetch select statements and check if any set. */
     public function testSelectStatement(): void
     {
-        $collection = new StatementCollection();
+        $collection = new StatementBuilder();
 
         // Should be empty
         $this->assertFalse($collection->hasSelect());
@@ -65,7 +65,7 @@ class TestStatementCollection extends WP_UnitTestCase
     /** @testdox It should be possible to add, fetch table statements and check if any set. */
     public function testTableStatement(): void
     {
-        $collection = new StatementCollection();
+        $collection = new StatementBuilder();
 
         // Should be empty
         $this->assertFalse($collection->hasTable());

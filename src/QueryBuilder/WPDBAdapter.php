@@ -14,7 +14,7 @@ use Pixie\Parser\StatementParser;
 
 use Pixie\Statement\SelectStatement;
 use Pixie\QueryBuilder\NestedCriteria;
-use Pixie\Statement\StatementCollection;
+use Pixie\Statement\StatementBuilder;
 use function is_bool;
 use function is_float;
 
@@ -37,7 +37,7 @@ class WPDBAdapter
     }
 
     /** This is a mock for the new parser based select method. */
-    public function selectCol(StatementCollection $col, $data, $statements) // @phpstan-ignore-line
+    public function selectCol(StatementBuilder $col, $data, $statements) // @phpstan-ignore-line
     {
         if (!array_key_exists('tables', $statements)) {
             throw new Exception('No table specified.', 3);

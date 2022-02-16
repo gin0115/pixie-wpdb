@@ -23,7 +23,7 @@ use Pixie\Parser\StatementParser;
 use Pixie\Statement\TableStatement;
 use Pixie\Tests\SQLAssertionsTrait;
 use Pixie\Statement\SelectStatement;
-use Pixie\Statement\StatementCollection;
+use Pixie\Statement\StatementBuilder;
 
 /**
  * @group v0.2
@@ -59,7 +59,7 @@ class TestStatementParser extends WP_UnitTestCase
     /** @testdox Is should be possible to parse all expected select values from string, json arrow and selector objects and raw expressions and have them returned as a valid SQL fragment. */
     public function testSelectParserWithAcceptTypes(): void
     {
-        $collection = new StatementCollection();
+        $collection = new StatementBuilder();
         // Expected user inputs
         $collection->addSelect(new SelectStatement('simpleCol'));
         $collection->addSelect(new SelectStatement('table.simpleCol'));
@@ -87,7 +87,7 @@ class TestStatementParser extends WP_UnitTestCase
     /** @testdox Is should be possible to parse all expected select with aliases values from string, json arrow and selector objects and raw expressions and have them returned as a valid SQL fragment. */
     public function testSelectParserWithAcceptTypesWithAliases(): void
     {
-        $collection = new StatementCollection();
+        $collection = new StatementBuilder();
         // Expected user inputs
         $collection->addSelect(new SelectStatement('simpleCol', 'alias'));
         $collection->addSelect(new SelectStatement('table.simpleCol', 'alias'));
@@ -116,7 +116,7 @@ class TestStatementParser extends WP_UnitTestCase
     public function testTableParserWithoutAliases(): void
     {
         // Without prefix
-        $collection = new StatementCollection();
+        $collection = new StatementBuilder();
         $collection->addTable(new TableStatement('string'));
         $collection->addTable(new TableStatement(new Raw('raw(%s)', ['str'])));
 

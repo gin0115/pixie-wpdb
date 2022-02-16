@@ -28,7 +28,7 @@ namespace Pixie\Statement;
 
 use Pixie\Statement\TableStatement;
 
-class StatementCollection
+class StatementBuilder
 {
     /**
      * Holds all the statements

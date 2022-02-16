@@ -9,6 +9,7 @@
 		"phpcbf.standard": "PSR12",
 		"files.associations": {
 			"*.yaml": "home-assistant"
-		}
+		},
+		"phpstan.path": "vendor/phpstan/phpstan/phpstan"
 	}
 }

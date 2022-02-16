@@ -305,7 +305,7 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
         $builder->orderBy(['ASC' => Raw::val('test')]);
         $builder->orderBy(['DESC' => new JsonSelector('col', ['nod1', 'nod2'])]);
 
-        $statements = $builder->getStatementCollection()->getOrderBy();
+        $statements = $builder->getStatementBuilder()->getOrderBy();
         $this->assertEquals('column', $statements[0]->getField());
         $this->assertEquals('ASC', $statements[0]->getDirection());
 
