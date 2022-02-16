@@ -9,9 +9,8 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use function mb_strlen;
-
 use Pixie\HasConnection;
+
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\JSON\JsonSelector;
@@ -26,6 +25,7 @@ use Pixie\QueryBuilder\TablePrefixer;
 use Pixie\Statement\GroupByStatement;
 use Pixie\Statement\OrderByStatement;
 use Pixie\Statement\StatementCollection;
+use function mb_strlen;
 
 class QueryBuilderHandler implements HasConnection
 {
@@ -42,7 +42,7 @@ class QueryBuilderHandler implements HasConnection
     /**
      * @var array<string, mixed[]|mixed>
      */
-    protected $statements = [];
+    protected $statements = array();
 
     /** @var StatementCollection */
     protected $statementCollection;
@@ -134,8 +134,8 @@ class QueryBuilderHandler implements HasConnection
      */
     protected function setAdapterConfig(array $adapterConfig): void
     {
-        if (isset($adapterConfig[Connection::PREFIX])) {
-            $this->tablePrefix = $adapterConfig[Connection::PREFIX];
+        if (isset($adapterConfig[ Connection::PREFIX ])) {
+            $this->tablePrefix = $adapterConfig[ Connection::PREFIX ];
         }
     }
 
@@ -205,7 +205,7 @@ class QueryBuilderHandler implements HasConnection
      * @param array<mixed> $bindings
      * @return string
      */
-    public function interpolateQuery(string $query, array $bindings = []): string
+    public function interpolateQuery(string $query, array $bindings = array()): string
     {
         return $this->adapterInstance->interpolateQuery($query, $bindings);
     }
@@ -216,7 +216,7 @@ class QueryBuilderHandler implements HasConnection
      *
      * @return static
      */
-    public function query($sql, $bindings = []): self
+    public function query($sql, $bindings = array()): self
     {
         list($this->sqlStatement) = $this->statement($sql, $bindings);
 
@@ -229,16 +229,16 @@ class QueryBuilderHandler implements HasConnection
      *
      * @return array{0:string, 1:float}
      */
-    public function statement(string $sql, $bindings = []): array
+    public function statement(string $sql, $bindings = array()): array
     {
         $start        = microtime(true);
         $sqlStatement = empty($bindings) ? $sql : $this->interpolateQuery($sql, $bindings);
 
-        if (!is_string($sqlStatement)) {
+        if (! is_string($sqlStatement)) {
             throw new Exception('Could not interpolate query', 1);
         }
 
-        return [$sqlStatement, microtime(true) - $start];
+        return array( $sqlStatement, microtime(true) - $start );
     }
 
     /**
@@ -251,7 +251,7 @@ class QueryBuilderHandler implements HasConnection
     public function get()
     {
         $eventResult = $this->fireEvents('before-select');
-        if (!is_null($eventResult)) {
+        if (! is_null($eventResult)) {
             return $eventResult;
         }
         $executionTime = 0;
@@ -272,12 +272,12 @@ class QueryBuilderHandler implements HasConnection
             // If we are using the hydrator, return as OBJECT and let the hydrator map the correct model.
             $this->useHydrator() ? OBJECT : $this->getFetchMode()
         );
-        $executionTime += microtime(true) - $start;
+        $executionTime     += microtime(true) - $start;
         $this->sqlStatement = null;
 
         // Ensure we have an array of results.
-        if (!is_array($result) && null !== $result) {
-            $result = [$result];
+        if (! is_array($result) && null !== $result) {
+            $result = array( $result );
         }
 
         // Maybe hydrate the results.
@@ -297,7 +297,7 @@ class QueryBuilderHandler implements HasConnection
      */
     protected function getHydrator(): Hydrator /* @phpstan-ignore-line */
     {
-        $hydrator = new Hydrator($this->getFetchMode(), $this->hydratorConstructorArgs ?? []); /* @phpstan-ignore-line */
+        $hydrator = new Hydrator($this->getFetchMode(), $this->hydratorConstructorArgs ?? array()); /* @phpstan-ignore-line */
 
         return $hydrator;
     }
@@ -309,7 +309,7 @@ class QueryBuilderHandler implements HasConnection
      */
     protected function useHydrator(): bool
     {
-        return !in_array($this->getFetchMode(), [\ARRAY_A, \ARRAY_N, \OBJECT, \OBJECT_K]);
+        return ! in_array($this->getFetchMode(), array( \ARRAY_A, \ARRAY_N, \OBJECT, \OBJECT_K ));
     }
 
     /**
@@ -423,17 +423,16 @@ class QueryBuilderHandler implements HasConnection
             throw new \Exception(sprintf('Failed %s query - the column %s hasn\'t been selected in the query.', $type, $field));
         }
 
-
         if (false === isset($this->statements['tables'])) {
             throw new Exception('No table selected');
         }
 
         $count = $this
             ->table($this->subQuery($this, 'count'))
-            ->select([$this->raw(sprintf('%s(%s) AS field', strtoupper($type), $field))])
+            ->select(array( $this->raw(sprintf('%s(%s) AS field', strtoupper($type), $field)) ))
             ->first();
 
-        return true === isset($count->field) ? (float)$count->field : 0;
+        return true === isset($count->field) ? (float) $count->field : 0;
     }
 
     /**
@@ -449,7 +448,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function count($field = '*'): int
     {
-        return (int)$this->aggregate('count', $field);
+        return (int) $this->aggregate('count', $field);
     }
 
     /**
@@ -524,20 +523,18 @@ class QueryBuilderHandler implements HasConnection
      *
      * @throws Exception
      */
-    public function getQuery(string $type = 'select', $dataToBePassed = [])
+    public function getQuery(string $type = 'select', $dataToBePassed = array())
     {
-        $allowedTypes = ['select', 'insert', 'insertignore', 'replace', 'delete', 'update', 'criteriaonly'];
-        if (!in_array(strtolower($type), $allowedTypes)) {
+        $allowedTypes = array( 'select', 'insert', 'insertignore', 'replace', 'delete', 'update', 'criteriaonly' );
+        if (! in_array(strtolower($type), $allowedTypes)) {
             throw new Exception($type . ' is not a known type.', 2);
         }
 
         if ('select' === $type) {
-            $queryArr = $this->adapterInstance->selectCol($this->statementCollection, [], $this->statements);
+            $queryArr = $this->adapterInstance->selectCol($this->statementCollection, array(), $this->statements);
         } else {
             $queryArr = $this->adapterInstance->$type($this->statements, $dataToBePassed);
-
         }
-
 
         return new QueryObject($queryArr['sql'], $queryArr['bindings'], $this->dbInstance);
     }
@@ -569,12 +566,12 @@ class QueryBuilderHandler implements HasConnection
     private function doInsert(array $data, string $type)
     {
         $eventResult = $this->fireEvents('before-insert');
-        if (!is_null($eventResult)) {
+        if (! is_null($eventResult)) {
             return $eventResult;
         }
 
         // If first value is not an array () not a batch insert)
-        if (!is_array(current($data))) {
+        if (! is_array(current($data))) {
             $queryObject = $this->getQuery($type, $data);
 
             list($preparedQuery, $executionTime) = $this->statement($queryObject->getSql(), $queryObject->getBindings());
@@ -584,7 +581,7 @@ class QueryBuilderHandler implements HasConnection
             $return = 1 === $this->dbInstance->rows_affected ? $this->dbInstance->insert_id : null;
         } else {
             // Its a batch insert
-            $return        = [];
+            $return        = array();
             $executionTime = 0;
             foreach ($data as $subData) {
                 $queryObject = $this->getQuery($type, $subData);
@@ -644,11 +641,11 @@ class QueryBuilderHandler implements HasConnection
     public function update(array $data): ?int
     {
         $eventResult = $this->fireEvents('before-update');
-        if (!is_null($eventResult)) {
+        if (! is_null($eventResult)) {
             return $eventResult;
         }
         $queryObject                         = $this->getQuery('update', $data);
-        $r = $this->statement($queryObject->getSql(), $queryObject->getBindings());
+        $r                                   = $this->statement($queryObject->getSql(), $queryObject->getBindings());
         list($preparedQuery, $executionTime) = $r;
         $this->dbInstance()->get_results($preparedQuery);
         $this->fireEvents('after-update', $queryObject, $executionTime);
@@ -666,7 +663,7 @@ class QueryBuilderHandler implements HasConnection
      *
      * @return int|int[]|null will return row id(s) for insert and null for success/fail on update
      */
-    public function updateOrInsert(array $attributes, array $values = [])
+    public function updateOrInsert(array $attributes, array $values = array())
     {
         // Check if existing post exists.
         $query = clone $this;
@@ -697,7 +694,7 @@ class QueryBuilderHandler implements HasConnection
     public function delete()
     {
         $eventResult = $this->fireEvents('before-delete');
-        if (!is_null($eventResult)) {
+        if (! is_null($eventResult)) {
             return $eventResult;
         }
 
@@ -719,7 +716,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function table(...$tables)
     {
-        $instance =  $this->constructCurrentBuilderClass($this->connection);
+        $instance = $this->constructCurrentBuilderClass($this->connection);
         $instance->setFetchMode($this->getFetchMode(), $this->hydratorConstructorArgs);
 
         foreach ($tables as $table) {
@@ -741,6 +738,9 @@ class QueryBuilderHandler implements HasConnection
      */
     public function from(...$tables): self
     {
+        foreach ($tables as $table) {
+            $this->getStatementCollection()->addTable(new TableStatement($table));
+        }
         $tables = $this->addTablePrefix($tables, false);
         $this->addStatement('tables', $tables);
 
@@ -758,7 +758,7 @@ class QueryBuilderHandler implements HasConnection
         // if (!is_array($fields)) {
         //     $fields = func_get_args();
         // }
-        $this->selectHandler(!is_array($fields) ? func_get_args() : $fields);
+        $this->selectHandler(! is_array($fields) ? func_get_args() : $fields);
         return $this;
     }
 
@@ -772,23 +772,35 @@ class QueryBuilderHandler implements HasConnection
         // $this->select($fields, true);
         // $this->addStatement('distinct', true);
         $this->selectHandler(
-            !is_array($fields) ? func_get_args() : $fields,
+            ! is_array($fields) ? func_get_args() : $fields,
             true
         );
         return $this;
     }
 
+    /**
+     * Handles an mixed array of selects and creates the statements based on being DISTINCT or not.
+     *
+     * @param array<int|string, string|Raw|JsonSelector> $selects
+     * @param bool $isDistinct
+     * @return void
+     */
     private function selectHandler(array $selects, bool $isDistinct = false): void
     {
         $selects2 = $this->maybeFlipArrayValues($selects);
-        foreach ($selects2 as ["key" => $field, "value" => $alias]) {
+        foreach ($selects2 as ['key' => $field, 'value' => $alias]) {
             // If no alias passed, but field is for JSON. thrown an exception.
             if (is_numeric($field) && is_string($alias) && $this->jsonHandler->isJsonSelector($alias)) {
-                throw new Exception("An alias must be used if you wish to select from JSON Object", 1);
+                throw new Exception('An alias must be used if you wish to select from JSON Object', 1);
             }
 
+            if (is_int($field)) {
+                continue;
+            }
+
+
             /** V0.2 */
-            $statement = is_numeric($alias)
+            $statement =  ! is_string($alias)
                 ? new SelectStatement($field)
                 : new SelectStatement($field, $alias);
             $this->statementCollection->addSelect(
@@ -796,12 +808,10 @@ class QueryBuilderHandler implements HasConnection
             );
         }
 
-
-
         foreach ($selects as $field => $alias) {
             // If no alias passed, but field is for JSON. thrown an exception.
             if (is_numeric($field) && is_string($alias) && $this->jsonHandler->isJsonSelector($alias)) {
-                throw new Exception("An alias must be used if you wish to select from JSON Object", 1);
+                throw new Exception('An alias must be used if you wish to select from JSON Object', 1);
             }
 
             // /** V0.2 */
@@ -822,10 +832,9 @@ class QueryBuilderHandler implements HasConnection
             $field = $this->addTablePrefix($field);
 
             // Treat each array as a single table, to retain order added
-            $field = is_numeric($field)
+            $field       = is_numeric($field)
                 ? $field = $alias // If single colum
-                : $field = [$field => $alias]; // Has alias
-
+                : $field = array( $field => $alias ); // Has alias
 
             $this->addStatement('selects', $field);
             /**    REMOVE ABOVE IN V0.2 */
@@ -839,7 +848,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function groupBy($field): self
     {
-        $groupBys = is_array($field) ? $field : [$field];
+        $groupBys = is_array($field) ? $field : array( $field );
         foreach (array_filter($groupBys, 'is_string') as $groupBy) {
             $this->statementCollection->addGroupBy(new GroupByStatement($groupBy));
         }
@@ -870,8 +879,14 @@ class QueryBuilderHandler implements HasConnection
     public function _maybeFlipArrayValues($key, $value): array
     {
         return is_object($value) || is_int($key)
-            ? ['key' => $value, 'value' => $key]
-            : ['key' => $key, 'value' => $value];
+            ? array(
+                'key'   => $value,
+                'value' => $key,
+            )
+            : array(
+                'key'   => $key,
+                'value' => $value,
+            );
     }
 
     /**
@@ -884,17 +899,24 @@ class QueryBuilderHandler implements HasConnection
      *  ['key' => Raw::val('count(foo)'), value => 'aliasB'],
      *  ['key' => 'noAlias', 'value'=> 0 ]
      * ]
-     *
-     * @param array<int|string, string|object|int> $data
-     * @return array{key:string|object|int,value:string|object|int}[]
+     * @template K The key
+     * @template V The value
+     * @param array<K, V> $data
+     * @return array<int, array{key:V,value:K}|array{key:K,value:V}>
      */
     public function maybeFlipArrayValues(array $data): array
     {
         return array_map(
             function ($key, $value): array {
                 return is_object($value) || is_int($key)
-                ? ['key' => $value, 'value' => $key]
-                : ['key' => $key, 'value' => $value];
+                    ? array(
+                        'key'   => $value,
+                        'value' => $key,
+                    )
+                    : array(
+                        'key'   => $key,
+                        'value' => $value,
+                    );
             },
             array_keys($data),
             array_values($data)
@@ -909,19 +931,24 @@ class QueryBuilderHandler implements HasConnection
      */
     public function orderBy($fields, string $defaultDirection = 'ASC'): self
     {
-        if (!is_array($fields)) {
-            $fields = [$fields];
+        if (! is_array($fields)) {
+            $fields = array( $fields );
         }
 
         foreach (
             // Key = Column && Value = Direction
             $this->maybeFlipArrayValues($fields)
-            as ["key" => $column, "value" => $direction]
+            as
+                ['key'   => $column,
+                'value' => $direction]
+
         ) {
-            $this->statementCollection->addOrderBy(new OrderByStatement(
-                $column, // @phpstan-ignore-line
-                is_int($direction) ? $defaultDirection : (string) $direction
-            ));
+            $this->statementCollection->addOrderBy(
+                new OrderByStatement(
+                    $column, // @phpstan-ignore-line
+                    ! is_string($direction) ? $defaultDirection : (string) $direction
+                )
+            );
         }
 
         /** REMOVE BELOW HERE IN v0.2 */
@@ -937,7 +964,7 @@ class QueryBuilderHandler implements HasConnection
                 $field = $this->jsonHandler->extractAndUnquoteFromJsonSelector($field); // @phpstan-ignore-line
             }
 
-            if (!$field instanceof Raw) {
+            if (! $field instanceof Raw) {
                 $field = $this->addTablePrefix($field); // @phpstan-ignore-line
             }
             $this->statements['orderBys'][] = compact('field', 'type');
@@ -1136,7 +1163,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function whereBetween($key, $valueFrom, $valueTo): self
     {
-        return $this->whereHandler($key, 'BETWEEN', [$valueFrom, $valueTo], 'AND');
+        return $this->whereHandler($key, 'BETWEEN', array( $valueFrom, $valueTo ), 'AND');
     }
 
     /**
@@ -1148,7 +1175,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function orWhereBetween($key, $valueFrom, $valueTo): self
     {
-        return $this->whereHandler($key, 'BETWEEN', [$valueFrom, $valueTo], 'OR');
+        return $this->whereHandler($key, 'BETWEEN', array( $valueFrom, $valueTo ), 'OR');
     }
 
     /**
@@ -1387,7 +1414,7 @@ class QueryBuilderHandler implements HasConnection
             $value = $this->jsonHandler->extractAndUnquoteFromJsonSelector($value);
         }
 
-        if (!$key instanceof Closure) {
+        if (! $key instanceof Closure) {
             $key = function (JoinBuilder $joinBuilder) use ($key, $operator, $value) {
                 $joinBuilder->on($key, $operator, $value);
             };
@@ -1395,7 +1422,7 @@ class QueryBuilderHandler implements HasConnection
 
         // Build a new JoinBuilder class, keep it by reference so any changes made
         // in the closure should reflect here
-        $joinBuilder =  new JoinBuilder($this->connection);
+        $joinBuilder = new JoinBuilder($this->connection);
 
         // Call the closure with our new joinBuilder object
         $key($joinBuilder);
@@ -1483,8 +1510,8 @@ class QueryBuilderHandler implements HasConnection
      */
     public function joinUsing(string $table, string $key, string $type = 'INNER'): self
     {
-        if (!array_key_exists('tables', $this->statements) || count($this->statements['tables']) !== 1) {
-            throw new Exception("JoinUsing can only be used with a single table set as the base of the query", 1);
+        if (! array_key_exists('tables', $this->statements) || count($this->statements['tables']) !== 1) {
+            throw new Exception('JoinUsing can only be used with a single table set as the base of the query', 1);
         }
         $baseTable = end($this->statements['tables']);
 
@@ -1494,7 +1521,7 @@ class QueryBuilderHandler implements HasConnection
         }
 
         $remoteKey = $table = $this->addTablePrefix("{$table}.{$key}", true);
-        $localKey = $table = $this->addTablePrefix("{$baseTable}.{$key}", true);
+        $localKey  = $table = $this->addTablePrefix("{$baseTable}.{$key}", true);
         return $this->join($table, $remoteKey, '=', $localKey, $type);
     }
 
@@ -1506,7 +1533,7 @@ class QueryBuilderHandler implements HasConnection
      *
      * @return Raw
      */
-    public function raw($value, $bindings = []): Raw
+    public function raw($value, $bindings = array()): Raw
     {
         return new Raw($value, $bindings);
     }
@@ -1574,14 +1601,14 @@ class QueryBuilderHandler implements HasConnection
      */
     protected function addStatement($key, $value)
     {
-        if (!is_array($value)) {
-            $value = [$value];
+        if (! is_array($value)) {
+            $value = array( $value );
         }
 
-        if (!array_key_exists($key, $this->statements)) {
-            $this->statements[$key] = $value;
+        if (! array_key_exists($key, $this->statements)) {
+            $this->statements[ $key ] = $value;
         } else {
-            $this->statements[$key] = array_merge($this->statements[$key], $value);
+            $this->statements[ $key ] = array_merge($this->statements[ $key ], $value);
         }
     }
 
@@ -1639,7 +1666,7 @@ class QueryBuilderHandler implements HasConnection
         $params = func_get_args(); // @todo Replace this with an easier to read alteratnive
         array_unshift($params, $this);
 
-        return call_user_func_array([$this->connection->getEventHandler(), 'fireEvents'], $params);
+        return call_user_func_array(array( $this->connection->getEventHandler(), 'fireEvents' ), $params);
     }
 
     /**

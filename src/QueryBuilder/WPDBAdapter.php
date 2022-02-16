@@ -6,17 +6,17 @@ use Closure;
 use Pixie\Binding;
 use Pixie\Exception;
 
-use function is_bool;
-
 use Pixie\Connection;
 
-use function is_float;
-
 use Pixie\QueryBuilder\Raw;
+
 use Pixie\Parser\StatementParser;
+
 use Pixie\Statement\SelectStatement;
 use Pixie\QueryBuilder\NestedCriteria;
 use Pixie\Statement\StatementCollection;
+use function is_bool;
+use function is_float;
 
 class WPDBAdapter
 {
