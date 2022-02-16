@@ -34,6 +34,7 @@ use Pixie\JSON\JsonSelectorHandler;
 use Pixie\Statement\TableStatement;
 use Pixie\Statement\SelectStatement;
 use Pixie\JSON\JsonExpressionFactory;
+use Pixie\Statement\OrderByStatement;
 
 class Normalizer
 {
@@ -90,6 +91,38 @@ class Normalizer
      * @since 0.2.0
      */
     public function selectStatement(SelectStatement $statement): string
+    {
+        $field = $statement->getField();
+        switch (true) {
+            // Is JSON Arrow Selector.
+            case is_string($field) && $this->jsonSelectors->isJsonSelector($field):
+                return $this->normalizeJsonArrowSelector($field);
+
+            // If JSON selector
+            case is_a($field, JsonSelector::class):
+                return $this->normalizeJsonSelector($field);
+
+            // RAW
+            case is_a($field, Raw::class):
+                return $this->normalizeRaw($field);
+
+            // Assume fallback as string.
+            default:
+                return $this->tablePrefixer->field($field);
+        }
+    }
+
+    /**
+     * Normalize all orderBy statements into strings
+     *
+     * Accepts string or (string) JSON Arrow Selectors,
+     * JsonSelector Objects and Raw Objects as fields.
+     *
+     * @param \Pixie\Statement\OrderByStatement $statement
+     * @return string
+     * @since 0.2.0
+     */
+    public function orderByStatement(OrderByStatement $statement): string
     {
         $field = $statement->getField();
         switch (true) {

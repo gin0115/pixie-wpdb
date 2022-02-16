@@ -33,11 +33,16 @@ class StatementCollection
     /**
      * Holds all the statements
      *
-     * @var array{select:SelectStatement[],table:TableStatement[]}
+     * @var array{
+     *  select: SelectStatement[],
+     *  table: TableStatement[],
+     *  orderby: OrderByStatement[]
+     * }
      */
     protected $statements = [
-        Statement::SELECT => [],
-        Statement::TABLE => [],
+        Statement::SELECT  => [],
+        Statement::TABLE   => [],
+        Statement::ORDERBY => []
     ];
 
     /**
@@ -112,5 +117,37 @@ class StatementCollection
     public function hasTable(): bool
     {
         return 0 < count($this->getTable());
+    }
+
+    /**
+    * Adds a select statement to the collection.
+    *
+    * @param OrderByStatement $statement
+    * @return self
+    */
+    public function addOrderBy(OrderByStatement $statement): self
+    {
+        $this->statements[Statement::ORDERBY][] = $statement;
+        return $this;
+    }
+
+    /**
+     * Get all OrderBy Statements
+     *
+     * @return OrderByStatement[]
+     */
+    public function getOrderBy(): array
+    {
+        return $this->statements[Statement::ORDERBY];
+    }
+
+    /**
+     * OrderBy statements exist.
+     *
+     * @return bool
+     */
+    public function hasOrderBy(): bool
+    {
+        return 0 < count($this->getOrderBy());
     }
 }

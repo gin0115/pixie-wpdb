@@ -9,8 +9,9 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use Pixie\HasConnection;
+use function mb_strlen;
 
+use Pixie\HasConnection;
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
@@ -21,8 +22,8 @@ use Pixie\QueryBuilder\WPDBAdapter;
 use Pixie\Statement\TableStatement;
 use Pixie\Statement\SelectStatement;
 use Pixie\QueryBuilder\TablePrefixer;
+use Pixie\Statement\OrderByStatement;
 use Pixie\Statement\StatementCollection;
-use function mb_strlen;
 
 class QueryBuilderHandler implements HasConnection
 {
@@ -816,7 +817,56 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|array<string|int, mixed> $fields
+     * Will flip and array where the key should be an object.
+     *
+     * $columns = ['columnA' => 'aliasA', 'aliasB' => Raw::val('count(foo)'), 'noAlias'];
+     * $flipped = array_map([$this, 'maybeFlipArrayValues'], $columns);
+     * [
+     *  ['key' => 'columnA', value => 'aliasA'],
+     *  ['key' => Raw::val('count(foo)'), value => 'aliasB'],
+     *  ['key' => 'noAlias', 'value'=> 2 ]
+     * ]
+     *
+     * @param string|int $key
+     * @param string|object|int $value
+     * @return array{key:string|object|int,value:string|object|int}
+     */
+    public function _maybeFlipArrayValues($key, $value): array
+    {
+        return is_object($value) || is_int($key)
+            ? ['key' => $value, 'value' => $key]
+            : ['key' => $key, 'value' => $value];
+    }
+
+    /**
+     * Will flip and array where the key should be an object.
+     *
+     * $columns = ['columnA' => 'aliasA', 'aliasB' => Raw::val('count(foo)'), 'noAlias'];
+     * $flipped = array_map([$this, 'maybeFlipArrayValues'], $columns);
+     * [
+     *  ['key' => 'columnA', value => 'aliasA'],
+     *  ['key' => Raw::val('count(foo)'), value => 'aliasB'],
+     *  ['key' => 'noAlias', 'value'=> 2 ]
+     * ]
+     *
+     * @param array<int|string, string|object|int>
+     * @return array{key:string|object|int,value:string|object|int}
+     */
+    public function maybeFlipArrayValues(array $data): array
+    {
+        return array_map(
+            function ($key, $value): array {
+                return is_object($value) || is_int($key)
+                ? ['key' => $value, 'value' => $key]
+                : ['key' => $key, 'value' => $value];
+            },
+            array_keys($data),
+            array_values($data)
+        );
+    }
+
+    /**
+     * @param string|Raw|JsonSelector|array<string|int, string|Raw|JsonSelector> $fields
      * @param string          $defaultDirection
      *
      * @return static
@@ -827,6 +877,18 @@ class QueryBuilderHandler implements HasConnection
             $fields = [$fields];
         }
 
+        foreach (
+            // Key = Column && Value = Direction
+            $this->maybeFlipArrayValues($fields)
+            as ["key" => $column, "value" => $direction]
+        ) {
+            $this->statementCollection->addOrderBy(new OrderByStatement(
+                $column,
+                is_int($direction) ? $defaultDirection : $direction
+            ));
+        }
+
+        /** REMOVE BELOW HERE IN v0.2 */
         foreach ($fields as $key => $value) {
             $field = $key;
             $type  = $value;
@@ -843,6 +905,7 @@ class QueryBuilderHandler implements HasConnection
                 $field = $this->addTablePrefix($field);
             }
             $this->statements['orderBys'][] = compact('field', 'type');
+            /** REMOVE ABOVE HERE IN v0.2 */
         }
 
         return $this;

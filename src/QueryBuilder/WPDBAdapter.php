@@ -51,12 +51,13 @@ class WPDBAdapter
         }
         $_selects = $parser->parseSelect($col->getSelect());
         $_tables = $parser->parseTable($col->getTable());
+        // dump($col);
 
 
         // From
-        $tables = $this->arrayStr($statements['tables'], ', ');
-        // Select
-        $selects = $this->arrayStr($statements['selects'], ', ');
+        // $tables = $this->arrayStr($statements['tables'], ', ');
+        // // Select
+        // $selects = $this->arrayStr($statements['selects'], ', ');
 
         // Wheres
         list($whereCriteria, $whereBindings) = $this->buildCriteriaWithType($statements, 'wheres', 'WHERE');
@@ -67,21 +68,6 @@ class WPDBAdapter
             $groupBys = 'GROUP BY ' . $groupBys;
         }
 
-        // Order bys
-        $orderBys = '';
-        if (isset($statements['orderBys']) && is_array($statements['orderBys'])) {
-            foreach ($statements['orderBys'] as $orderBy) {
-                $field = $this->wrapSanitizer($orderBy['field']);
-                if ($field instanceof Closure) {
-                    continue;
-                }
-                $orderBys .= $field . ' ' . $orderBy['type'] . ', ';
-            }
-
-            if ($orderBys = trim($orderBys, ', ')) {
-                $orderBys = 'ORDER BY ' . $orderBys;
-            }
-        }
 
         // Limit and offset
         $limit  = isset($statements['limit']) ? 'LIMIT ' . (int) $statements['limit'] : '';
@@ -96,14 +82,14 @@ class WPDBAdapter
         /** @var string[] */
         $sqlArray = [
             'SELECT' . (isset($statements['distinct']) ? ' DISTINCT' : ''),
-            $selects,
+            $parser->parseSelect($col->getSelect()),
             'FROM',
-            $tables,
+            $parser->parseTable($col->getTable()),
             $joinString,
             $whereCriteria,
             $groupBys,
             $havingCriteria,
-            $orderBys,
+            $parser->parseOrderBy($col->getOrderBy()),
             $limit,
             $offset,
         ];

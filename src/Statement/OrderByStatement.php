@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Select statement model.
+ * Order By statement model.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -31,40 +31,40 @@ use Pixie\QueryBuilder\Raw;
 use Pixie\JSON\JsonSelector;
 use Pixie\Statement\Statement;
 
-class SelectStatement implements Statement
+class OrderByStatement implements Statement
 {
     /**
-     * The field which is being selected
+     * The field which is being order by
      *
      * @var string|Raw|JsonSelector
      */
     protected $field;
 
     /**
-     * The alias for the selected field
+     * The direction for the order by field
      *
      * @var string|null
      */
-    protected $alias = null;
+    protected $direction = null;
 
     /**
      * Creates a Select Statement
      *
      * @param string|Raw|JsonSelector $field
-     * @param string|null             $alias
+     * @param string|null             $direction
      */
-    public function __construct($field, ?string $alias = null)
+    public function __construct($field, ?string $direction = null)
     {
         // Verify valid field type.
         $this->verifyField($field);
         $this->field = $field;
-        $this->alias = $alias;
+        $this->direction = $direction;
     }
 
     /** @inheritDoc */
     public function getType(): string
     {
-        return Statement::SELECT;
+        return Statement::ORDERBY;
     }
 
     /**
@@ -75,40 +75,15 @@ class SelectStatement implements Statement
      */
     protected function verifyField($field): void
     {
+        dump($field);
         if (
             !is_string($field)
             && ! is_a($field, Raw::class)
             && !is_a($field, JsonSelector::class)
         ) {
-            throw new TypeError("Only string, Raw and JsonSelectors may be used as select fields");
+            throw new TypeError("Only string, Raw and JsonSelectors may be used as orderBy fields");
         }
     }
-
-    /**
-     * Checks if the passed field needs to be interpolated.
-     *
-     * @return bool TRUE if Raw or JsonSelector, FALSE if string.
-     * @todo REMOVE ME
-     */
-    public function fieldRequiresInterpolation(): bool
-    {
-        return is_a($this->field, Raw::class) || is_a($this->field, JsonSelector::class);
-    }
-
-    /**
-     * Allows the passing in of a closure to interpolate the statement.
-     *
-     * @psalm-immutable
-     * @param \Closure(string|Raw|JsonSelector $field): string $callback
-     * @return SelectStatement
-     * @todo REMOVE ME
-     */
-    public function interpolateField(\Closure $callback): SelectStatement
-    {
-        $field = $callback($this->field);
-        return new self($field, $this->alias);
-    }
-
     /**
      * Gets the field.
      *
@@ -120,22 +95,25 @@ class SelectStatement implements Statement
     }
 
     /**
-     * Checks if we have a valid (is string, not empty) alias.
+     * Checks if we have a defined direction
      *
      * @return bool
      */
-    public function hasAlias(): bool
+    public function hasDirection(): bool
     {
-        return is_string($this->alias) && 0 !== \mb_strlen($this->alias);
+        return is_string($this->direction)
+        && in_array(strtoupper($this->direction), ['ASC', 'DESC']);
     }
 
     /**
-     * Gets the alias
+     * Gets the direction
      *
      * @return string|null
      */
-    public function getAlias(): ?string
+    public function getDirection(): ?string
     {
-        return $this->hasAlias() ? $this->alias : null;
+        return $this->hasDirection()
+            ? \strtoupper($this->direction)
+            : null;
     }
 }

@@ -33,6 +33,7 @@ interface Statement
      */
     public const SELECT = 'select';
     public const TABLE = 'table';
+    public const ORDERBY = 'orderby';
 
     /**
      * Get the statement type

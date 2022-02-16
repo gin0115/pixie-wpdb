@@ -15,6 +15,7 @@ use Exception;
 use WP_UnitTestCase;
 use Pixie\Connection;
 use Pixie\QueryBuilder\Raw;
+use Pixie\JSON\JsonSelector;
 use Pixie\Tests\Logable_WPDB;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\Exception as PixieException;
@@ -276,5 +277,42 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
 
         $this->assertSame($inital->getConnection(), $json->getConnection());
         $this->assertSame($inital->getFetchMode(), $json->getFetchMode());
+    }
+
+    public function testMaybeFlipArrayValues(): void
+    {
+        $builder = $this->queryBuilderProvider();
+             $columns = ['columnA' => 'aliasA', 'aliasB' => Raw::val('count(foo)'), 'noAlias'];
+        $flipped = array_map([$builder, 'maybeFlipArrayValues'], array_keys($columns), array_values($columns));
+        // dump($flipped);
+    //  [
+    //   ['key' => 'columnA', value => 'aliasA'],
+    //   ['key' => Raw::val('count(foo)'), value => 'aliasB'],
+    //   ['key' => 'noAlias', 'value'=> 2 ]
+    //  ]
+    }
+
+    /** @testdox When creating an orderby statement, they could be passed as [COLUMN{string} => DIRECTION] but as [DIRECTION => COLUMN{object}] */
+    public function testOrderByFlipValuesAsOrderBys(): void
+    {
+        $builder = $this->queryBuilderProvider();
+        $builder->orderBy(['column' => 'ASC']);
+        $builder->orderBy(Raw::val('no dire'), 'DESC');
+        $builder->orderBy(['ASC' => Raw::val('test')]);
+        $builder->orderBy(['DESC' => new JsonSelector('col', ['nod1', 'nod2'])]);
+
+        $statements = $builder->getStatementCollection()->getOrderBy();
+        dump($statements);
+        $this->assertEquals('column', $statements[0]->getField());
+        $this->assertEquals('ASC', $statements[0]->getDirection());
+
+        $this->assertInstanceOf(Raw::class, $statements[1]->getField());
+        $this->assertEquals('DESC', $statements[1]->getDirection());
+
+        $this->assertInstanceOf(Raw::class, $statements[2]->getField());
+        $this->assertEquals('ASC', $statements[2]->getDirection());
+
+        $this->assertInstanceOf(JsonSelector::class, $statements[3]->getField());
+        $this->assertEquals('DESC', $statements[3]->getDirection());
     }
 }

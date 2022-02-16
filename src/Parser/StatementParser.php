@@ -32,10 +32,12 @@ use Pixie\JSON\JsonSelectorHandler;
 use Pixie\Statement\TableStatement;
 use Pixie\Statement\SelectStatement;
 use Pixie\JSON\JsonExpressionFactory;
+use Pixie\Statement\OrderByStatement;
 
 class StatementParser
 {
     protected const TEMPLATE_AS = "%s AS %s";
+    protected const TEMPLATE_ORDERBY = "ORDER BY %s";
 
     /**
      * @var Connection
@@ -116,5 +118,32 @@ class StatementParser
         }, $tables);
 
         return join(', ', $tables);
+    }
+
+    /**
+     * Normalizes and Parsers an array of OrderByStatements.
+     *
+     * @param OrderByStatement[]|mixed[] $orderBy
+     * @return string
+     */
+    public function parseOrderBy(array $orderBy): string
+    {
+        // Remove any none OrderByStatements
+        $orderBy = array_filter($orderBy, function ($statement): bool {
+            return is_a($statement, OrderByStatement::class);
+        });
+
+        // Cast to string, with or without alias,
+        $orderBy = array_map(function (OrderByStatement $value): string {
+            return  sprintf(
+                "%s %s",
+                $this->normalizer->orderByStatement($value),
+                $value->getDirection()
+            );
+        }, $orderBy);
+
+        return 0 === count($orderBy)
+            ? ''
+            : sprintf(self::TEMPLATE_ORDERBY, join(', ', $orderBy));
     }
 }
