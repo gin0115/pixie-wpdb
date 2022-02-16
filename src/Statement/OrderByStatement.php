@@ -64,7 +64,7 @@ class OrderByStatement implements Statement
     /** @inheritDoc */
     public function getType(): string
     {
-        return Statement::ORDERBY;
+        return Statement::ORDER_BY;
     }
 
     /**

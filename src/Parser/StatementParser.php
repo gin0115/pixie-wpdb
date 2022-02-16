@@ -32,12 +32,14 @@ use Pixie\JSON\JsonSelectorHandler;
 use Pixie\Statement\TableStatement;
 use Pixie\Statement\SelectStatement;
 use Pixie\JSON\JsonExpressionFactory;
+use Pixie\Statement\GroupByStatement;
 use Pixie\Statement\OrderByStatement;
 
 class StatementParser
 {
     protected const TEMPLATE_AS = "%s AS %s";
-    protected const TEMPLATE_ORDERBY = "ORDER BY %s";
+    protected const TEMPLATE_ORDER_BY = "ORDER BY %s";
+    protected const TEMPLATE_GROUP_BY = "GROUP BY %s";
 
     /**
      * @var Connection
@@ -144,6 +146,29 @@ class StatementParser
 
         return 0 === count($orderBy)
             ? ''
-            : sprintf(self::TEMPLATE_ORDERBY, join(', ', $orderBy));
+            : sprintf(self::TEMPLATE_ORDER_BY, join(', ', $orderBy));
+    }
+
+    /**
+     * Normalizes and Parsers an array of GroupByStatements.
+     *
+     * @param GroupByStatement[]|mixed[] $orderBy
+     * @return string
+     */
+    public function parseGroupBy(array $orderBy): string
+    {
+        // Remove any none GroupByStatements
+        $orderBy = array_filter($orderBy, function ($statement): bool {
+            return is_a($statement, GroupByStatement::class);
+        });
+
+        // Get the array of columns.
+        $orderBy = array_map(function (GroupByStatement $value): string {
+            return  $value->getField();
+        }, $orderBy);
+
+        return 0 === count($orderBy)
+            ? ''
+            : sprintf(self::TEMPLATE_GROUP_BY, join(', ', $orderBy));
     }
 }

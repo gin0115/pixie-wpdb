@@ -22,6 +22,7 @@ use Pixie\QueryBuilder\WPDBAdapter;
 use Pixie\Statement\TableStatement;
 use Pixie\Statement\SelectStatement;
 use Pixie\QueryBuilder\TablePrefixer;
+use Pixie\Statement\GroupByStatement;
 use Pixie\Statement\OrderByStatement;
 use Pixie\Statement\StatementCollection;
 use function mb_strlen;
@@ -811,8 +812,15 @@ class QueryBuilderHandler implements HasConnection
      */
     public function groupBy($field): self
     {
+        $groupBys = is_array($field) ? $field : [$field];
+        foreach (array_filter($groupBys, 'is_string') as $groupBy) {
+            $this->statementCollection->addGroupBy(new GroupByStatement($groupBy));
+        }
+
+        /** REMOVE BELOW IN V0.2 */
         $field = $this->addTablePrefix($field);
         $this->addStatement('groupBys', $field);
+        /** REMOVE ABOVE IN V0.2 */
 
         return $this;
     }

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Interface for all statements.
+ * Group By statement model.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -26,20 +26,58 @@ declare(strict_types=1);
 
 namespace Pixie\Statement;
 
-interface Statement
+use TypeError;
+use Pixie\Statement\Statement;
+
+class GroupByStatement implements Statement
 {
     /**
-     * Statement Types.
+     * The field which is being group by
+     *
+     * @var string
      */
-    public const SELECT = 'select';
-    public const TABLE = 'table';
-    public const ORDER_BY = 'orderby';
-    public const GROUP_BY = 'groupby';
+    protected $field;
+
 
     /**
-     * Get the statement type
+     * Creates a Select Statement
+     *
+     * @param string $field
+     */
+    public function __construct(string $field)
+    {
+        // Verify valid field type.
+        $this->verifyField($field);
+        $this->field = $field;
+    }
+
+    /** @inheritDoc */
+    public function getType(): string
+    {
+        return Statement::ORDER_BY;
+    }
+
+    /**
+     * Verifies if the passed filed is of a valid type.
+     *
+     * @param mixed $field
+     * @return void
+     */
+    protected function verifyField($field): void
+    {
+        if (
+            !is_string($field)
+        ) {
+            throw new TypeError("Only string may be used as group by fields");
+        }
+    }
+    /**
+     * Gets the field.
      *
      * @return string
      */
-    public function getType(): string;
+    public function getField(): string
+    {
+        return $this->field;
+    }
 }

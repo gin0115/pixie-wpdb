@@ -86,7 +86,7 @@ class WPDBAdapter
             $parser->parseTable($col->getTable()),
             $joinString,
             $whereCriteria,
-            $groupBys,
+            $parser->parseGroupBy($col->getGroupBy()),
             $havingCriteria,
             $parser->parseOrderBy($col->getOrderBy()),
             $limit,

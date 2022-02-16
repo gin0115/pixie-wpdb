@@ -36,13 +36,15 @@ class StatementCollection
      * @var array{
      *  select: SelectStatement[],
      *  table: TableStatement[],
-     *  orderby: OrderByStatement[]
+     *  orderby: OrderByStatement[],
+     *  groupby: GroupByStatement[]
      * }
      */
     protected $statements = [
         Statement::SELECT  => [],
         Statement::TABLE   => [],
-        Statement::ORDERBY => []
+        Statement::ORDER_BY => [],
+        Statement::GROUP_BY => [],
     ];
 
     /**
@@ -88,7 +90,7 @@ class StatementCollection
     }
 
     /**
-     * Adds a select statement to the collection.
+     * Adds a table statement to the collection.
      *
      * @param TableStatement $statement
      * @return self
@@ -120,14 +122,14 @@ class StatementCollection
     }
 
     /**
-    * Adds a select statement to the collection.
+    * Adds a OrderBy statement to the collection.
     *
     * @param OrderByStatement $statement
     * @return self
     */
     public function addOrderBy(OrderByStatement $statement): self
     {
-        $this->statements[Statement::ORDERBY][] = $statement;
+        $this->statements[Statement::ORDER_BY][] = $statement;
         return $this;
     }
 
@@ -138,7 +140,7 @@ class StatementCollection
      */
     public function getOrderBy(): array
     {
-        return $this->statements[Statement::ORDERBY];
+        return $this->statements[Statement::ORDER_BY];
     }
 
     /**
@@ -149,5 +151,37 @@ class StatementCollection
     public function hasOrderBy(): bool
     {
         return 0 < count($this->getOrderBy());
+    }
+
+    /**
+    * Adds a GroupBy statement to the collection.
+    *
+    * @param GroupByStatement $statement
+    * @return self
+    */
+    public function addGroupBy(GroupByStatement $statement): self
+    {
+        $this->statements[Statement::GROUP_BY][] = $statement;
+        return $this;
+    }
+
+    /**
+     * Get all GroupBy Statements
+     *
+     * @return GroupByStatement[]
+     */
+    public function getGroupBy(): array
+    {
+        return $this->statements[Statement::GROUP_BY];
+    }
+
+    /**
+     * GroupBy statements exist.
+     *
+     * @return bool
+     */
+    public function hasGroupBy(): bool
+    {
+        return 0 < count($this->getGroupBy());
     }
 }
