@@ -9,9 +9,8 @@ use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
 
-use function mb_strlen;
-
 use Pixie\HasConnection;
+
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\JSON\JsonSelector;
@@ -25,6 +24,7 @@ use Pixie\Statement\SelectStatement;
 use Pixie\QueryBuilder\TablePrefixer;
 use Pixie\Statement\OrderByStatement;
 use Pixie\Statement\StatementCollection;
+use function mb_strlen;
 
 class QueryBuilderHandler implements HasConnection
 {

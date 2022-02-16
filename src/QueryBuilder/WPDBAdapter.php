@@ -51,7 +51,6 @@ class WPDBAdapter
         }
         $_selects = $parser->parseSelect($col->getSelect());
         $_tables = $parser->parseTable($col->getTable());
-        // dump($col);
 
 
         // From

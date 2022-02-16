@@ -75,7 +75,6 @@ class OrderByStatement implements Statement
      */
     protected function verifyField($field): void
     {
-        dump($field);
         if (
             !is_string($field)
             && ! is_a($field, Raw::class)
