@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Interface for all statements.
+ * Exception for errors during WPDB operations.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -21,26 +21,14 @@ declare(strict_types=1);
  * @author Glynn Quelch <glynn.quelch@gmail.com>
  * @license http://www.opensource.org/licenses/mit-license.html  MIT License
  * @package Gin0115\Pixie
- * @subpackage QueryBuilder\Statement
+ * @subpackage Exception
  */
 
-namespace Pixie\Statement;
+namespace Pixie\Exception;
 
-interface Statement
+use Pixie\Exception;
+
+class WpdbException extends Exception
 {
-    /**
-     * Statement Types.
-     */
-    public const SELECT = 'select';
-    public const TABLE = 'table';
-    public const ORDER_BY = 'orderby';
-    public const GROUP_BY = 'groupby';
-    public const WHERE = 'where';
 
-    /**
-     * Get the statement type
-     *
-     * @return string
-     */
-    public function getType(): string;
 }

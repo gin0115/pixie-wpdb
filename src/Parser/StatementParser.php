@@ -28,6 +28,7 @@ namespace Pixie\Parser;
 
 use Pixie\Connection;
 use Pixie\WpdbHandler;
+use Pixie\Parser\Normalizer;
 use Pixie\JSON\JsonSelectorHandler;
 use Pixie\Statement\TableStatement;
 use Pixie\Statement\SelectStatement;
@@ -40,6 +41,8 @@ class StatementParser
     protected const TEMPLATE_AS = "%s AS %s";
     protected const TEMPLATE_ORDER_BY = "ORDER BY %s";
     protected const TEMPLATE_GROUP_BY = "GROUP BY %s";
+    protected const TEMPLATE_LIMIT = "LIMIT %d";
+    protected const TEMPLATE_OFFSET = "OFFSET %d";
 
     /**
      * @var Connection
@@ -170,5 +173,36 @@ class StatementParser
         return 0 === count($orderBy)
             ? ''
             : sprintf(self::TEMPLATE_GROUP_BY, join(', ', $orderBy));
+    }
+
+    /**
+     * Parses a limit statement based on the passed value not being null.
+     *
+     * @param int|null $limit
+     * @return string
+     */
+    public function parseLimit(?int $limit): string
+    {
+        return is_int($limit)
+            ? \sprintf(self::TEMPLATE_LIMIT, $limit)
+            : '';
+    }
+
+    /**
+     * Parses a offset statement based on the passed value not being null.
+     *
+     * @param int|null $offset
+     * @return string
+     */
+    public function parseOffset(?int $offset): string
+    {
+        return is_int($offset)
+            ? \sprintf(self::TEMPLATE_OFFSET, $offset)
+            : '';
+    }
+
+    public function parseWhere(array $where): string
+    {
+        # code...
     }
 }

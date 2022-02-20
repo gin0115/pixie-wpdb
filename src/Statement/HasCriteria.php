@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Interface for all statements.
+ * Interface for statements that are used for building criteria.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -26,21 +26,44 @@ declare(strict_types=1);
 
 namespace Pixie\Statement;
 
-interface Statement
+interface HasCriteria
 {
-    /**
-     * Statement Types.
-     */
-    public const SELECT = 'select';
-    public const TABLE = 'table';
-    public const ORDER_BY = 'orderby';
-    public const GROUP_BY = 'groupby';
-    public const WHERE = 'where';
+
+    public const WHERE_CRITERIA = 'WHERE';
+    public const JOIN_CRITERIA = 'JOIN';
 
     /**
-     * Get the statement type
+     * Returns the type of criteria (JOIN, WHERE, HAVING)
      *
      * @return string
      */
-    public function getType(): string;
+    public function getCriteriaType(): string;
+
+    /**
+     * Gets the field.
+     *
+     * @return string|\Closure(QueryBuilderHandler $query):void|Raw|JsonSelector
+     */
+    public function getField();
+
+    /**
+     * Get the operator
+     *
+     * @return string
+     */
+    public function getOperator(): string;
+
+    /**
+     * Get value for expression
+     *
+     * @return string|int|float|bool|string[]|int[]|float[]|bool[]|null
+     */
+    public function getValue();
+
+    /**
+     * Get joiner
+     *
+     * @return string
+     */
+    public function getJoiner(): string;
 }

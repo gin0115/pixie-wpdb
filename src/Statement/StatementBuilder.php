@@ -37,7 +37,8 @@ class StatementBuilder
      *  select: SelectStatement[],
      *  table: TableStatement[],
      *  orderby: OrderByStatement[],
-     *  groupby: GroupByStatement[]
+     *  groupby: GroupByStatement[],
+     *  where: WhereStatement[],
      * }
      */
     protected $statements = [
@@ -45,12 +46,36 @@ class StatementBuilder
         Statement::TABLE   => [],
         Statement::ORDER_BY => [],
         Statement::GROUP_BY => [],
+        Statement::WHERE => [],
     ];
+
+    /**
+     * Denotes if a DISTINCT SELECT
+     *
+     * @var bool
+     */
+    protected $distinctSelect = false;
+
+    /**
+     * @var int|null
+     */
+    protected $limit = null;
+
+    /**
+     * @var int|null
+     */
+    protected $offset = null;
 
     /**
      * Get all the statements
      *
-     * @return array{select:SelectStatement[],table:TableStatement[]}
+     * @return array{
+     *  select: SelectStatement[],
+     *  table: TableStatement[],
+     *  orderby: OrderByStatement[],
+     *  groupby: GroupByStatement[],
+     *  where: WhereStatement[],
+     *}
      */
     public function getStatements(): array
     {
@@ -87,23 +112,6 @@ class StatementBuilder
     public function hasSelect(): bool
     {
         return 0 < count($this->getSelect());
-    }
-
-    /**
-     * Check if any defined select queries are distinct.
-     *
-     * @return bool
-     */
-    public function hasDistinctSelect(): bool
-    {
-        $distinctSelects = array_filter(
-            $this->getSelect(),
-            function (SelectStatement $select): bool {
-                return $select->getIsDistinct();
-            }
-        );
-
-        return 0 < count($distinctSelects);
     }
 
     /**
@@ -200,5 +208,105 @@ class StatementBuilder
     public function hasGroupBy(): bool
     {
         return 0 < count($this->getGroupBy());
+    }
+
+        /**
+     * Adds a select statement to the collection.
+     *
+     * @param WhereStatement $statement
+     * @return self
+     */
+    public function addWhere(WhereStatement $statement): self
+    {
+        $this->statements[Statement::WHERE][] = $statement;
+        return $this;
+    }
+
+    /**
+     * Get all WhereStatements
+     *
+     * @return WhereStatement[]
+     */
+    public function getWhere(): array
+    {
+        return $this->statements[Statement::WHERE];
+    }
+
+    /**
+     * Where statements exist.
+     *
+     * @return bool
+     */
+    public function hasWhere(): bool
+    {
+        return 0 < count($this->getWhere());
+    }
+
+    /**
+     * Set denotes if a DISTINCT SELECT
+     *
+     * @param bool $distinctSelect Denotes if a DISTINCT SELECT
+     *
+     * @return static
+     */
+    public function setDistinctSelect(bool $distinctSelect): self
+    {
+        $this->distinctSelect = $distinctSelect;
+
+        return $this;
+    }
+
+    /**
+     * Get denotes if a DISTINCT SELECT
+     *
+     * @return bool
+     */
+    public function getDistinctSelect(): bool
+    {
+        return $this->distinctSelect;
+    }
+
+    /**
+     * Get the value of limit
+     *
+     * @return int|null
+     */
+    public function getLimit(): ?int
+    {
+        return $this->limit;
+    }
+
+    /**
+     * Set the value of limit
+     *
+     * @param int|null $limit
+     * @return static
+     */
+    public function setLimit(?int $limit): self
+    {
+        $this->limit = $limit;
+        return $this;
+    }
+
+    /**
+     * Get the value of offset
+     *
+     * @return int|null
+     */
+    public function getOffset(): ?int
+    {
+        return $this->offset;
+    }
+
+    /**
+     * Set the value of offset
+     *
+     * @param int|null $offset
+     * @return static
+     */
+    public function setOffset(?int $offset): self
+    {
+        $this->offset = $offset;
+        return $this;
     }
 }

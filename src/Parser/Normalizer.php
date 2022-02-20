@@ -26,6 +26,8 @@ declare(strict_types=1);
 
 namespace Pixie\Parser;
 
+use Pixie\Binding;
+use Pixie\Exception;
 use Pixie\WpdbHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\JSON\JsonSelector;
@@ -202,5 +204,68 @@ class Normalizer
 
         return $this->jsonExpressions->extractAndUnquote($column, $selector->getNodes())
             ->getValue();
+    }
+
+    /**
+     * Normalizes a values to either a bindings or raw statement.
+     *
+     * @param Raw|Binding|string|float|int|bool|null $value
+     * @return void
+     */
+    public function normalizeValue($value)
+    {
+        switch (true) {
+            case $value instanceof Binding && Binding::RAW === $value->getType():
+                /** @var Raw */
+                $value = $value->getValue();
+                break;
+
+            case is_string($value):
+                $value = Binding::asString($value);
+                break;
+
+            case is_int($value):
+            case is_bool($value):
+                $value = Binding::asInt($value);
+                break;
+
+            case is_float($value):
+                $value = Binding::asFloat($value);
+                break;
+
+            case $value instanceof Binding || $value instanceof Raw:
+                $value = $value;
+                break;
+
+            default:
+                // dump($value);
+                throw new Exception(\sprintf("Unexpected type :: %s", print_r($value, true)), 1);
+        }
+
+        return $value;
+    }
+
+        /**
+     * Attempts to parse a raw query, if bindings are defined then they will be bound first.
+     *
+     * @param Raw $raw
+     * @requires string
+     */
+    public function parseRaw(Raw $raw): string
+    {
+        $bindings = $raw->getBindings();
+        return 0 === count($bindings)
+            ? (string) $raw
+            : $this->wpdbHandler->interpolateQuery($raw->getValue(), $bindings);
+    }
+
+    /**
+     * Get access to the table prefixer.
+     *
+     * @return TablePrefixer
+     */
+    public function getTablePrefixer(): TablePrefixer
+    {
+        return $this->tablePrefixer;
     }
 }

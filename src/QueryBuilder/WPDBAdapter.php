@@ -6,17 +6,18 @@ use Closure;
 use Pixie\Binding;
 use Pixie\Exception;
 
+use function is_bool;
+
 use Pixie\Connection;
 
-use Pixie\QueryBuilder\Raw;
-
-use Pixie\Parser\StatementParser;
-
-use Pixie\Statement\SelectStatement;
-use Pixie\QueryBuilder\NestedCriteria;
-use Pixie\Statement\StatementBuilder;
-use function is_bool;
 use function is_float;
+
+use Pixie\QueryBuilder\Raw;
+use Pixie\Parser\StatementParser;
+use Pixie\Criteria\CriteriaBuilder;
+use Pixie\Statement\SelectStatement;
+use Pixie\Statement\StatementBuilder;
+use Pixie\QueryBuilder\NestedCriteria;
 
 class WPDBAdapter
 {
@@ -59,7 +60,12 @@ class WPDBAdapter
         // $selects = $this->arrayStr($statements['selects'], ', ');
 
         // Wheres
+        $criteriaWhere = new CriteriaBuilder($this->connection);
+        $criteriaWhere->fromStatements($col->getWhere());
+
         list($whereCriteria, $whereBindings) = $this->buildCriteriaWithType($statements, 'wheres', 'WHERE');
+        dump([$criteriaWhere->getCriteria()->getStatement(),$whereCriteria]);
+        dump([$criteriaWhere->getCriteria()->getBindings(), $whereBindings]);
 
         // Group bys
         // $groupBys = '';
@@ -69,18 +75,18 @@ class WPDBAdapter
 
 
         // Limit and offset
-        $limit  = isset($statements['limit']) ? 'LIMIT ' . (int) $statements['limit'] : '';
-        $offset = isset($statements['offset']) ? 'OFFSET ' . (int) $statements['offset'] : '';
+        // $limit  = isset($statements['limit']) ? 'LIMIT ' . (int) $statements['limit'] : '';
+        // $offset = isset($statements['offset']) ? 'OFFSET ' . (int) $statements['offset'] : '';
 
         // Having
         list($havingCriteria, $havingBindings) = $this->buildCriteriaWithType($statements, 'havings', 'HAVING');
 
         // Joins
         $joinString = $this->buildJoin($statements);
-
+// dump($col->getWhere());
         /** @var string[] */
         $sqlArray = [
-            'SELECT' . ($col->hasDistinctSelect() ? ' DISTINCT' : ''),
+            'SELECT' . ($col->getDistinctSelect() ? ' DISTINCT' : ''),
             $parser->parseSelect($col->getSelect()),
             'FROM',
             $parser->parseTable($col->getTable()),
@@ -89,8 +95,8 @@ class WPDBAdapter
             $parser->parseGroupBy($col->getGroupBy()),
             $havingCriteria,
             $parser->parseOrderBy($col->getOrderBy()),
-            $limit,
-            $offset,
+            $parser->parseLimit($col->getLimit()),
+            $parser->parseOffset($col->getOffset()),
         ];
 
         $sql = $this->concatenateQuery($sqlArray);
@@ -452,7 +458,7 @@ class WPDBAdapter
         list($whereCriteria, $whereBindings) = $this->buildCriteriaWithType($statements, 'wheres', 'WHERE');
 
         // Limit
-        $limit = isset($statements['limit']) ? 'LIMIT ' . $statements['limit'] : '';
+        // $limit = isset($statements['limit']) ? 'LIMIT ' . $statements['limit'] : '';
 
         $sqlArray = ['DELETE FROM', $table, $whereCriteria];
         $sql      = $this->concatenateQuery($sqlArray);
@@ -593,6 +599,9 @@ class WPDBAdapter
                 $queryObject = $nestedCriteria->getQuery('criteriaOnly', true);
                 // Merge the bindings we get from nestedCriteria object
                 $bindings = array_merge($bindings, $queryObject->getBindings());
+
+                // dump($statement['joiner'], $statement);
+
                 // Append the sql we get from the nestedCriteria object
                 $criteria .= $statement['joiner'] . ' (' . $queryObject->getSql() . ') ';
             } elseif (is_array($value)) {
@@ -646,6 +655,7 @@ class WPDBAdapter
             } else {
                 // Usual where like criteria
                 if (!$bindValues) {
+                    dump(7878789798798798798987);
                     // Specially for joins
                     // We are not binding values, lets sanitize then
                     $value = $this->stringifyValue($this->wrapSanitizer($value)) ?? '';

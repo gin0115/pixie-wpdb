@@ -8,6 +8,7 @@ use Throwable;
 use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
+use function mb_strlen;
 use Pixie\HasConnection;
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
@@ -18,12 +19,12 @@ use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
 use Pixie\Statement\TableStatement;
+use Pixie\Statement\WhereStatement;
 use Pixie\Statement\SelectStatement;
 use Pixie\QueryBuilder\TablePrefixer;
 use Pixie\Statement\GroupByStatement;
 use Pixie\Statement\OrderByStatement;
 use Pixie\Statement\StatementBuilder;
-use function mb_strlen;
 
 class QueryBuilderHandler implements HasConnection
 {
@@ -737,7 +738,7 @@ class QueryBuilderHandler implements HasConnection
     public function from(...$tables): self
     {
         foreach ($tables as $table) {
-            $this->getStatementBuilder()->addTable(new TableStatement($table));
+            $this->StatementBuilder->addTable(new TableStatement($table));
         }
         $tables = $this->addTablePrefix($tables, false);
         $this->addStatement('tables', $tables);
@@ -753,40 +754,11 @@ class QueryBuilderHandler implements HasConnection
      */
     public function select($fields): self
     {
-        // if (!is_array($fields)) {
-        //     $fields = func_get_args();
-        // }
-        $this->selectHandler(! is_array($fields) ? func_get_args() : $fields);
-        return $this;
-    }
-
-    /**
-     * @param string|string[]|Raw[]|array<string, string> $fields
-     *
-     * @return static
-     */
-    public function selectDistinct($fields)
-    {
-        // $this->select($fields, true);
-        // $this->addStatement('distinct', true);
-        $this->selectHandler(
-            ! is_array($fields) ? func_get_args() : $fields,
-            true
-        );
-        return $this;
-    }
-
-    /**
-     * Handles an mixed array of selects and creates the statements based on being DISTINCT or not.
-     *
-     * @param array<int|string, string|Raw|JsonSelector> $selects
-     * @param bool $isDistinct
-     * @return void
-     */
-    private function selectHandler(array $selects, bool $isDistinct = false): void
-    {
-        $selects2 = $this->maybeFlipArrayValues($selects);
-        foreach ($selects2 as ['key' => $field, 'value' => $alias]) {
+        if (!is_array($fields)) {
+            $fields = func_get_args();
+        }
+        $fields2 = $this->maybeFlipArrayValues($fields);
+        foreach ($fields2 as ['key' => $field, 'value' => $alias]) {
             // If no alias passed, but field is for JSON. thrown an exception.
             if (is_numeric($field) && is_string($alias) && $this->jsonHandler->isJsonSelector($alias)) {
                 throw new Exception('An alias must be used if you wish to select from JSON Object', 1);
@@ -796,17 +768,14 @@ class QueryBuilderHandler implements HasConnection
                 continue;
             }
 
-
             /** V0.2 */
             $statement =  ! is_string($alias)
                 ? new SelectStatement($field)
                 : new SelectStatement($field, $alias);
-            $this->StatementBuilder->addSelect(
-                $statement->setIsDistinct($isDistinct)
-            );
+            $this->StatementBuilder->addSelect($statement);
         }
 
-        foreach ($selects as $field => $alias) {
+        foreach ($fields as $field => $alias) {
             // If no alias passed, but field is for JSON. thrown an exception.
             if (is_numeric($field) && is_string($alias) && $this->jsonHandler->isJsonSelector($alias)) {
                 throw new Exception('An alias must be used if you wish to select from JSON Object', 1);
@@ -825,7 +794,7 @@ class QueryBuilderHandler implements HasConnection
             if ($this->jsonHandler->isJsonSelector($field)) {
 
                 /** @var string $field */
-                $field = $this->jsonHandler->extractAndUnquoteFromJsonSelector($field); // @phpstan-ignore-line
+                $field = $this->jsonHandler->extractAndUnquoteFromJsonSelector($field); 
             }
             $field = $this->addTablePrefix($field);
 
@@ -837,6 +806,21 @@ class QueryBuilderHandler implements HasConnection
             $this->addStatement('selects', $field);
             /**    REMOVE ABOVE IN V0.2 */
         }
+        return $this;
+    }
+
+    /**
+     * @param string|string[]|Raw[]|array<string, string> $fields
+     *
+     * @return static
+     */
+    public function selectDistinct($fields)
+    {
+        // $this->select($fields, true);
+        // $this->addStatement('distinct', true);
+        $this->StatementBuilder->setDistinctSelect(true);
+        $this->select(!is_array($fields) ? func_get_args() : $fields);
+        return $this;
     }
 
     /**
@@ -996,7 +980,7 @@ class QueryBuilderHandler implements HasConnection
     public function limit(int $limit): self
     {
         $this->statements['limit'] = $limit;
-
+        $this->StatementBuilder->setLimit($limit);
         return $this;
     }
 
@@ -1008,7 +992,7 @@ class QueryBuilderHandler implements HasConnection
     public function offset(int $offset): self
     {
         $this->statements['offset'] = $offset;
-
+        $this->StatementBuilder->setOffset($offset);
         return $this;
     }
 
@@ -1055,6 +1039,8 @@ class QueryBuilderHandler implements HasConnection
             $operator = '=';
         }
 
+        $this->StatementBuilder->addWhere(new WhereStatement($key, $operator, $value, 'AND'));
+
         return $this->whereHandler($key, $operator, $value);
     }
 
@@ -1073,6 +1059,7 @@ class QueryBuilderHandler implements HasConnection
             $operator = '=';
         }
 
+        $this->StatementBuilder->addWhere(new WhereStatement($key, $operator, $value, 'OR'));
         return $this->whereHandler($key, $operator, $value, 'OR');
     }
 
@@ -1091,6 +1078,7 @@ class QueryBuilderHandler implements HasConnection
             $operator = '=';
         }
 
+        $this->StatementBuilder->addWhere(new WhereStatement($key, $operator, $value, 'AND NOT'));
         return $this->whereHandler($key, $operator, $value, 'AND NOT');
     }
 
@@ -1109,6 +1097,7 @@ class QueryBuilderHandler implements HasConnection
             $operator = '=';
         }
 
+        $this->StatementBuilder->addWhere(new WhereStatement($key, $operator, $value, 'OR NOT'));
         return $this->whereHandler($key, $operator, $value, 'OR NOT');
     }
 
@@ -1120,6 +1109,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function whereIn($key, $values): self
     {
+        $this->StatementBuilder->addWhere(new WhereStatement($key, 'IN', $values, 'AND'));
         return $this->whereHandler($key, 'IN', $values, 'AND');
     }
 
@@ -1131,6 +1121,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function whereNotIn($key, $values): self
     {
+        $this->StatementBuilder->addWhere(new WhereStatement($key, 'NOT IN', $values, 'AND'));
         return $this->whereHandler($key, 'NOT IN', $values, 'AND');
     }
 
@@ -1142,6 +1133,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function orWhereIn($key, $values): self
     {
+        $this->StatementBuilder->addWhere(new WhereStatement($key, 'IN', $values, 'OR'));
         return $this->whereHandler($key, 'IN', $values, 'OR');
     }
 
@@ -1153,6 +1145,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function orWhereNotIn($key, $values): self
     {
+        $this->StatementBuilder->addWhere(new WhereStatement($key, 'NOT IN', $values, 'OR'));
         return $this->whereHandler($key, 'NOT IN', $values, 'OR');
     }
 
@@ -1590,6 +1583,7 @@ class QueryBuilderHandler implements HasConnection
         }
 
         $this->statements['wheres'][] = compact('key', 'operator', 'value', 'joiner');
+        // dump($this->statements['wheres']);
         return $this;
     }
 
