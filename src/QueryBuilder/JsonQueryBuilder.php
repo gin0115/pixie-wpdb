@@ -2,6 +2,9 @@
 
 namespace Pixie\QueryBuilder;
 
+use Pixie\JSON\JsonSelector;
+use Pixie\Statement\WhereStatement;
+
 class JsonQueryBuilder extends QueryBuilderHandler
 {
     /**
@@ -254,11 +257,18 @@ class JsonQueryBuilder extends QueryBuilderHandler
     {
         // Handle potential raw values.
         if ($column instanceof Raw) {
-            $column = $this->adapterInstance->parseRaw($column);
+            $column = (string) $this->adapterInstance->parseRaw($column);
         }
         if ($nodes instanceof Raw) {
-            $nodes = $this->adapterInstance->parseRaw($nodes);
+            $nodes = (array) $this->adapterInstance->parseRaw($nodes);
         }
+
+        $this->statementBuilder->addWhere(new WhereStatement(
+            new JsonSelector($column, (array) $nodes),
+            $operator,
+            $value,
+            $joiner
+        ));
 
         return $this->whereHandler(
             $this->jsonHandler->jsonExpressionFactory()->extractAndUnquote($column, $nodes),

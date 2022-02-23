@@ -28,9 +28,12 @@ namespace Pixie\Parser;
 
 use Pixie\Connection;
 use Pixie\WpdbHandler;
+use Pixie\Criteria\Criteria;
 use Pixie\Parser\Normalizer;
+use Pixie\Criteria\CriteriaBuilder;
 use Pixie\JSON\JsonSelectorHandler;
 use Pixie\Statement\TableStatement;
+use Pixie\Statement\WhereStatement;
 use Pixie\Statement\SelectStatement;
 use Pixie\JSON\JsonExpressionFactory;
 use Pixie\Statement\GroupByStatement;
@@ -201,8 +204,20 @@ class StatementParser
             : '';
     }
 
-    public function parseWhere(array $where): string
+    /**
+     * Parses an array of where statements into a Criteria model
+     *
+     * @param WhereStatement[]|mixed[] $where
+     * @return Criteria
+     */
+    public function parseWhere(array $where): Criteria
     {
-        # code...
+        // Remove any none GroupByStatements
+        $where = array_filter($where, function ($statement): bool {
+            return is_a($statement, WhereStatement::class);
+        });
+        $criteriaWhere = new CriteriaBuilder($this->connection);
+        $criteriaWhere->fromStatements($where);
+        return $criteriaWhere->getCriteria();
     }
 }

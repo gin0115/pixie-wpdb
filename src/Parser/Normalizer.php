@@ -209,8 +209,8 @@ class Normalizer
     /**
      * Normalizes a values to either a bindings or raw statement.
      *
-     * @param Raw|Binding|string|float|int|bool|null $value
-     * @return void
+     * @param Raw|Binding|JsonSelector|string|float|int|bool|null $value
+     * @return Raw|Binding
      */
     public function normalizeValue($value)
     {
@@ -218,6 +218,10 @@ class Normalizer
             case $value instanceof Binding && Binding::RAW === $value->getType():
                 /** @var Raw */
                 $value = $value->getValue();
+                break;
+
+            case is_string($value) && $this->jsonSelectors->isJsonSelector($value):
+                $value = Raw::val($this->normalizeJsonArrowSelector($value, false));
                 break;
 
             case is_string($value):
@@ -237,15 +241,54 @@ class Normalizer
                 $value = $value;
                 break;
 
+            case $value instanceof JsonSelector:
+                $value = Raw::val($this->normalizeJsonSelector($value, false));
+                break;
+
+            case is_null($value):
+                $value = Raw::val('NULL');
+                break;
+
+
+
             default:
-                // dump($value);
-                throw new Exception(\sprintf("Unexpected type :: %s", print_r($value, true)), 1);
+                throw new Exception(\sprintf("Unexpected type :: %s", json_encode($value)), 1);
         }
 
         return $value;
     }
 
-        /**
+    /**
+     * Normalizes a values to either a bindings or raw statement.
+     *
+     * @param Raw|\Closure|JsonSelector|string|null $value
+     * @return Raw|string|\Closure|null
+     */
+    public function normalizeField($value)
+    {
+        switch (true) {
+            case is_string($value) && $this->jsonSelectors->isJsonSelector($value):
+                $value = Raw::val($this->normalizeJsonArrowSelector($value, true));
+                break;
+            case $value instanceof JsonSelector:
+                $value = Raw::val($this->normalizeJsonSelector($value, true));
+                break;
+
+            case is_null($value):
+            case $value instanceof \Closure:
+            case $value instanceof Raw:
+            case is_string($value):
+                $value = $value;
+                break;
+
+            default:
+                throw new Exception(\sprintf("Unexpected type :: %s", json_encode($value)), 1);
+        }
+
+        return $value;
+    }
+
+    /**
      * Attempts to parse a raw query, if bindings are defined then they will be bound first.
      *
      * @param Raw $raw
@@ -260,6 +303,38 @@ class Normalizer
     }
 
     /**
+     * Returns a closure for parsing potential raw statements.
+     */
+    public function parseRawCallback(): \Closure
+    {
+        /**
+         * @template M
+         * @param M|Raw $datum
+         * @return M
+         */
+        return function ($datum) {
+            return $datum instanceof Raw ? $this->parseRaw($datum) : $datum;
+        };
+    }
+
+    /**
+     * Parses a valid type
+     *
+     * @param string|Raw|\Closure|null $value
+     * @return string
+     */
+    public function normalizeForSQL($value): string
+    {
+        if ($value instanceof Raw) {
+            $value = $this->parseRaw($value);
+        }
+        if ($value instanceof \Closure || is_null($value)) {
+            throw new Exception(\sprintf("Field must be a valid type, %s supplied", json_encode($value)), 1);
+        }
+        return $value;
+    }
+
+    /**
      * Get access to the table prefixer.
      *
      * @return TablePrefixer
@@ -267,5 +342,15 @@ class Normalizer
     public function getTablePrefixer(): TablePrefixer
     {
         return $this->tablePrefixer;
+    }
+
+    /**
+     * Removes the operator (AND|OR) from a statement.
+     * @param string $statement
+     * @return string
+     */
+    public function removeInitialOperator(string $statement): string
+    {
+        return (string) (preg_replace(['#(?:AND|OR)#is', '/\s+/'], ' ', $statement, 1) ?: '');
     }
 }

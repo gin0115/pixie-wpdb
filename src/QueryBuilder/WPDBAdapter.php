@@ -6,18 +6,18 @@ use Closure;
 use Pixie\Binding;
 use Pixie\Exception;
 
-use function is_bool;
-
 use Pixie\Connection;
 
-use function is_float;
-
 use Pixie\QueryBuilder\Raw;
+
 use Pixie\Parser\StatementParser;
+
 use Pixie\Criteria\CriteriaBuilder;
 use Pixie\Statement\SelectStatement;
 use Pixie\Statement\StatementBuilder;
 use Pixie\QueryBuilder\NestedCriteria;
+use function is_bool;
+use function is_float;
 
 class WPDBAdapter
 {
@@ -60,12 +60,13 @@ class WPDBAdapter
         // $selects = $this->arrayStr($statements['selects'], ', ');
 
         // Wheres
-        $criteriaWhere = new CriteriaBuilder($this->connection);
-        $criteriaWhere->fromStatements($col->getWhere());
+        // $where = $parser->parseWhere($col->getWhere());
+        $criteriaWhere = $parser->parseWhere($col->getWhere());
+        // $criteriaWhere->fromStatements($col->getWhere());
 
         list($whereCriteria, $whereBindings) = $this->buildCriteriaWithType($statements, 'wheres', 'WHERE');
-        dump([$criteriaWhere->getCriteria()->getStatement(),$whereCriteria]);
-        dump([$criteriaWhere->getCriteria()->getBindings(), $whereBindings]);
+        // dump(['new' => $criteriaWhere->getStatement(),'old' => $whereCriteria]);
+        // dump(['new' => $criteriaWhere->getBindings(), 'old' => $whereBindings]);
 
         // Group bys
         // $groupBys = '';
@@ -80,10 +81,10 @@ class WPDBAdapter
 
         // Having
         list($havingCriteria, $havingBindings) = $this->buildCriteriaWithType($statements, 'havings', 'HAVING');
-
+        dump($criteriaWhere->getBindings());
         // Joins
         $joinString = $this->buildJoin($statements);
-// dump($col->getWhere());
+        // dump($col->getWhere());
         /** @var string[] */
         $sqlArray = [
             'SELECT' . ($col->getDistinctSelect() ? ' DISTINCT' : ''),
@@ -91,7 +92,7 @@ class WPDBAdapter
             'FROM',
             $parser->parseTable($col->getTable()),
             $joinString,
-            $whereCriteria,
+            $criteriaWhere->getStatement(),
             $parser->parseGroupBy($col->getGroupBy()),
             $havingCriteria,
             $parser->parseOrderBy($col->getOrderBy()),
@@ -101,7 +102,7 @@ class WPDBAdapter
 
         $sql = $this->concatenateQuery($sqlArray);
         $bindings = array_merge(
-            $whereBindings,
+            $criteriaWhere->getBindings(),
             $havingBindings
         );
 
@@ -655,7 +656,7 @@ class WPDBAdapter
             } else {
                 // Usual where like criteria
                 if (!$bindValues) {
-                    dump(7878789798798798798987);
+                    // dump(7878789798798798798987);
                     // Specially for joins
                     // We are not binding values, lets sanitize then
                     $value = $this->stringifyValue($this->wrapSanitizer($value)) ?? '';

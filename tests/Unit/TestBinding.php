@@ -157,7 +157,10 @@ class TestBinding extends WP_UnitTestCase
 
         /** USING BINDING OBJECT */
 
-    /** @testdox It should be possible to define both the value and its expected type, when creating a query using a Binding object. */
+    /** @testdox It should be possible to define both the value and its expected type, when creating a query using a Binding object.
+     * @group where
+     * @group binding
+     */
     public function testUsingBindingOnWhere(): void
     {
         $this->queryBuilderProvider()

@@ -28,7 +28,6 @@ namespace Pixie\Criteria;
 
 class Criteria
 {
-
     /**
      * The SQL statement
      *
@@ -66,7 +65,7 @@ class Criteria
     /**
      * Get the bindings
      *
-     * @returm array<int, string|int|float|bool|null>
+     * @return array<int, string|int|float|bool|null>
      */
     public function getBindings(): array
     {

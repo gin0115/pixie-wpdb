@@ -39,7 +39,7 @@ class WhereStatement implements Statement, HasCriteria
     /**
      * The field which is being group by
      *
-     * @var string|\Closure(QueryBuilderHandler $query):void|Raw
+     * @var string|Raw|JsonSelector|\Closure(QueryBuilderHandler $query):void
      */
     protected $field;
 
@@ -67,7 +67,7 @@ class WhereStatement implements Statement, HasCriteria
     /**
      * Creates a Select Statement
      *
-     * @param string|\Closure(QueryBuilderHandler $query):void|Raw|JsonSelector $field
+     * @param string|Raw|JsonSelector|\Closure(QueryBuilderHandler $query):void $field
      * @param string $operator
      * @param string|int|float|bool|string[]|int[]|float[]|bool[] $value
      * @param string $joiner

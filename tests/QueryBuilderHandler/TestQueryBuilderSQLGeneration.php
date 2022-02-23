@@ -461,7 +461,9 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     ##   GROUP, ORDER BY, LIMIT/OFFSET & HAVING   ##
     ################################################
 
-    /** @testdox It should be possible to create a grouped where condition */
+    /** @testdox It should be possible to create a grouped where condition
+     * @group nested
+     */
     public function testGroupedWhere(): void
     {
         $builder = $this->queryBuilderProvider()

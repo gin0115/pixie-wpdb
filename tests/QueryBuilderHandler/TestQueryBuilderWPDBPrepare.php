@@ -123,7 +123,7 @@ class TestQueryBuilderUsesWPDBPrepare extends TestCase
         $prepared = $this->wpdb->usage_log['prepare'][0];
 
         // Check that the query is passed to prepare.
-        $this->assertEquals('SELECT * FROM foo WHERE key in (%d, %f, %s)', $prepared['query']);
+        $this->assertEquals('SELECT * FROM foo WHERE key IN (%d, %f, %s)', $prepared['query']);
 
         // Check values are used in order passed
         $this->assertEquals(2, $prepared['args'][0]);
@@ -141,7 +141,7 @@ class TestQueryBuilderUsesWPDBPrepare extends TestCase
         $prepared = $this->wpdb->usage_log['prepare'][0];
 
         // Check that the query is passed to prepare.
-        $this->assertEquals('SELECT * FROM foo WHERE key between (%d, %f)', $prepared['query']);
+        $this->assertEquals('SELECT * FROM foo WHERE key BETWEEN (%d, %f)', $prepared['query']);
 
         // Check values are used in order passed
         $this->assertEquals(2, $prepared['args'][0]);
@@ -163,7 +163,7 @@ class TestQueryBuilderUsesWPDBPrepare extends TestCase
         $prepared = $this->wpdb->usage_log['prepare'][0];
 
         // Check that the query is passed to prepare.
-        $this->assertEquals('SELECT * FROM foo WHERE key between (%d, %f) AND status != %s', $prepared['query']);
+        $this->assertEquals('SELECT * FROM foo WHERE key BETWEEN (%d, %f) AND status != %s', $prepared['query']);
 
         // Check values are used in order passed
         $this->assertEquals(2, $prepared['args'][0]);

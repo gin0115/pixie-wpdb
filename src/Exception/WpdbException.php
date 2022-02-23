@@ -30,5 +30,4 @@ use Pixie\Exception;
 
 class WpdbException extends Exception
 {
-
 }

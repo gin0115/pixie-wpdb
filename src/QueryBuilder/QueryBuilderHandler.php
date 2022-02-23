@@ -8,7 +8,6 @@ use Throwable;
 use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
-use function mb_strlen;
 use Pixie\HasConnection;
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
@@ -25,6 +24,7 @@ use Pixie\QueryBuilder\TablePrefixer;
 use Pixie\Statement\GroupByStatement;
 use Pixie\Statement\OrderByStatement;
 use Pixie\Statement\StatementBuilder;
+use function mb_strlen;
 
 class QueryBuilderHandler implements HasConnection
 {
@@ -44,7 +44,7 @@ class QueryBuilderHandler implements HasConnection
     protected $statements = array();
 
     /** @var StatementBuilder */
-    protected $StatementBuilder;
+    protected $statementBuilder;
 
     /**
      * @var wpdb
@@ -121,7 +121,7 @@ class QueryBuilderHandler implements HasConnection
         $this->jsonHandler = new JsonHandler($connection);
 
         // Setup statement collection.
-        $this->StatementBuilder = new StatementBuilder();
+        $this->statementBuilder = new StatementBuilder();
     }
 
     /**
@@ -530,7 +530,7 @@ class QueryBuilderHandler implements HasConnection
         }
 
         if ('select' === $type) {
-            $queryArr = $this->adapterInstance->selectCol($this->StatementBuilder, array(), $this->statements);
+            $queryArr = $this->adapterInstance->selectCol($this->statementBuilder, array(), $this->statements);
         } else {
             $queryArr = $this->adapterInstance->$type($this->statements, $dataToBePassed);
         }
@@ -738,7 +738,7 @@ class QueryBuilderHandler implements HasConnection
     public function from(...$tables): self
     {
         foreach ($tables as $table) {
-            $this->StatementBuilder->addTable(new TableStatement($table));
+            $this->statementBuilder->addTable(new TableStatement($table));
         }
         $tables = $this->addTablePrefix($tables, false);
         $this->addStatement('tables', $tables);
@@ -772,7 +772,7 @@ class QueryBuilderHandler implements HasConnection
             $statement =  ! is_string($alias)
                 ? new SelectStatement($field)
                 : new SelectStatement($field, $alias);
-            $this->StatementBuilder->addSelect($statement);
+            $this->statementBuilder->addSelect($statement);
         }
 
         foreach ($fields as $field => $alias) {
@@ -785,7 +785,7 @@ class QueryBuilderHandler implements HasConnection
             // $statement = is_numeric($field)
             //     ? new SelectStatement($alias)
             //     : new SelectStatement($field, $alias);
-            // $this->StatementBuilder->addSelect(
+            // $this->statementBuilder->addSelect(
             //     $statement/* ->setIsDistinct($isDistinct) */
             // );
 
@@ -794,7 +794,7 @@ class QueryBuilderHandler implements HasConnection
             if ($this->jsonHandler->isJsonSelector($field)) {
 
                 /** @var string $field */
-                $field = $this->jsonHandler->extractAndUnquoteFromJsonSelector($field); 
+                $field = $this->jsonHandler->extractAndUnquoteFromJsonSelector($field);
             }
             $field = $this->addTablePrefix($field);
 
@@ -818,7 +818,7 @@ class QueryBuilderHandler implements HasConnection
     {
         // $this->select($fields, true);
         // $this->addStatement('distinct', true);
-        $this->StatementBuilder->setDistinctSelect(true);
+        $this->statementBuilder->setDistinctSelect(true);
         $this->select(!is_array($fields) ? func_get_args() : $fields);
         return $this;
     }
@@ -832,7 +832,7 @@ class QueryBuilderHandler implements HasConnection
     {
         $groupBys = is_array($field) ? $field : array( $field );
         foreach (array_filter($groupBys, 'is_string') as $groupBy) {
-            $this->StatementBuilder->addGroupBy(new GroupByStatement($groupBy));
+            $this->statementBuilder->addGroupBy(new GroupByStatement($groupBy));
         }
 
         /** REMOVE BELOW IN V0.2 */
@@ -929,7 +929,7 @@ class QueryBuilderHandler implements HasConnection
             if (is_int($column)) {
                 continue;
             }
-            $this->StatementBuilder->addOrderBy(
+            $this->statementBuilder->addOrderBy(
                 new OrderByStatement(
                     $column,
                     ! is_string($direction) ? $defaultDirection : (string) $direction
@@ -980,7 +980,7 @@ class QueryBuilderHandler implements HasConnection
     public function limit(int $limit): self
     {
         $this->statements['limit'] = $limit;
-        $this->StatementBuilder->setLimit($limit);
+        $this->statementBuilder->setLimit($limit);
         return $this;
     }
 
@@ -992,7 +992,7 @@ class QueryBuilderHandler implements HasConnection
     public function offset(int $offset): self
     {
         $this->statements['offset'] = $offset;
-        $this->StatementBuilder->setOffset($offset);
+        $this->statementBuilder->setOffset($offset);
         return $this;
     }
 
@@ -1039,7 +1039,14 @@ class QueryBuilderHandler implements HasConnection
             $operator = '=';
         }
 
-        $this->StatementBuilder->addWhere(new WhereStatement($key, $operator, $value, 'AND'));
+        $this->statementBuilder->addWhere(
+            new WhereStatement(
+                $this->jsonHandler->isJsonSelector($key) ? $this->jsonHandler->extractAndUnquoteFromJsonSelector($key) : $key,
+                $operator,
+                $value,
+                'AND'
+            )
+        );
 
         return $this->whereHandler($key, $operator, $value);
     }
@@ -1059,7 +1066,7 @@ class QueryBuilderHandler implements HasConnection
             $operator = '=';
         }
 
-        $this->StatementBuilder->addWhere(new WhereStatement($key, $operator, $value, 'OR'));
+        $this->statementBuilder->addWhere(new WhereStatement($key, $operator, $value, 'OR'));
         return $this->whereHandler($key, $operator, $value, 'OR');
     }
 
@@ -1078,7 +1085,7 @@ class QueryBuilderHandler implements HasConnection
             $operator = '=';
         }
 
-        $this->StatementBuilder->addWhere(new WhereStatement($key, $operator, $value, 'AND NOT'));
+        $this->statementBuilder->addWhere(new WhereStatement($key, $operator, $value, 'AND NOT'));
         return $this->whereHandler($key, $operator, $value, 'AND NOT');
     }
 
@@ -1097,7 +1104,7 @@ class QueryBuilderHandler implements HasConnection
             $operator = '=';
         }
 
-        $this->StatementBuilder->addWhere(new WhereStatement($key, $operator, $value, 'OR NOT'));
+        $this->statementBuilder->addWhere(new WhereStatement($key, $operator, $value, 'OR NOT'));
         return $this->whereHandler($key, $operator, $value, 'OR NOT');
     }
 
@@ -1109,7 +1116,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function whereIn($key, $values): self
     {
-        $this->StatementBuilder->addWhere(new WhereStatement($key, 'IN', $values, 'AND'));
+        $this->statementBuilder->addWhere(new WhereStatement($key, 'IN', $values, 'AND'));
         return $this->whereHandler($key, 'IN', $values, 'AND');
     }
 
@@ -1121,7 +1128,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function whereNotIn($key, $values): self
     {
-        $this->StatementBuilder->addWhere(new WhereStatement($key, 'NOT IN', $values, 'AND'));
+        $this->statementBuilder->addWhere(new WhereStatement($key, 'NOT IN', $values, 'AND'));
         return $this->whereHandler($key, 'NOT IN', $values, 'AND');
     }
 
@@ -1133,7 +1140,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function orWhereIn($key, $values): self
     {
-        $this->StatementBuilder->addWhere(new WhereStatement($key, 'IN', $values, 'OR'));
+        $this->statementBuilder->addWhere(new WhereStatement($key, 'IN', $values, 'OR'));
         return $this->whereHandler($key, 'IN', $values, 'OR');
     }
 
@@ -1145,7 +1152,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function orWhereNotIn($key, $values): self
     {
-        $this->StatementBuilder->addWhere(new WhereStatement($key, 'NOT IN', $values, 'OR'));
+        $this->statementBuilder->addWhere(new WhereStatement($key, 'NOT IN', $values, 'OR'));
         return $this->whereHandler($key, 'NOT IN', $values, 'OR');
     }
 
@@ -1158,6 +1165,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function whereBetween($key, $valueFrom, $valueTo): self
     {
+        $this->statementBuilder->addWhere(new WhereStatement($key, 'BETWEEN', array( $valueFrom, $valueTo ), 'AND'));
         return $this->whereHandler($key, 'BETWEEN', array( $valueFrom, $valueTo ), 'AND');
     }
 
@@ -1170,6 +1178,7 @@ class QueryBuilderHandler implements HasConnection
      */
     public function orWhereBetween($key, $valueFrom, $valueTo): self
     {
+        $this->statementBuilder->addWhere(new WhereStatement($key, 'BETWEEN', array( $valueFrom, $valueTo ), 'OR'));
         return $this->whereHandler($key, 'BETWEEN', array( $valueFrom, $valueTo ), 'OR');
     }
 
@@ -1583,7 +1592,6 @@ class QueryBuilderHandler implements HasConnection
         }
 
         $this->statements['wheres'][] = compact('key', 'operator', 'value', 'joiner');
-        // dump($this->statements['wheres']);
         return $this;
     }
 
@@ -1699,6 +1707,6 @@ class QueryBuilderHandler implements HasConnection
      */
     public function getStatementBuilder(): StatementBuilder
     {
-        return $this->StatementBuilder;
+        return $this->statementBuilder;
     }
 }

@@ -210,7 +210,7 @@ class StatementBuilder
         return 0 < count($this->getGroupBy());
     }
 
-        /**
+    /**
      * Adds a select statement to the collection.
      *
      * @param WhereStatement $statement

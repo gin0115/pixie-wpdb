@@ -134,8 +134,11 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         return new QueryBuilderHandler($connection);
     }
 
-    /** @testdox [WPDB] It should be possible to do various simple SELECT queries using WHERE conditions using a live instance of WPDB (WHERE, WHERE NOT, WHERE AND, WHERE IN, WHERE BETWEEN) */
-    public function testWhere()
+    /**
+     * @testdox [WPDB] It should be possible to do various simple SELECT queries using WHERE conditions using a live instance of WPDB (WHERE, WHERE NOT, WHERE AND, WHERE IN, WHERE BETWEEN)
+     * @group where
+     */
+    public function testWhereIntegration()
     {
         $this->wpdb->insert('mock_foo', ['string' => 'a', 'number' => 1], ['%s', '%d']);
         $this->wpdb->insert('mock_foo', ['string' => 'a', 'number' => 2], ['%s', '%d']);
@@ -195,7 +198,10 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals('3', $between[1]->number);
     }
 
-    /** @testdox [WPDB] It should be possible to do various Aggregation (COUNT, MIN, MAX, SUM, AVERAGE) for results, using WPDB*/
+    /** 
+     * @testdox [WPDB] It should be possible to do various Aggregation (COUNT, MIN, MAX, SUM, AVERAGE) for results, using WPDB
+     * @group where
+     */
     public function testAggregation(): void
     {
         $this->wpdb->insert('mock_foo', ['string' => 'a', 'number' => 1], ['%s', '%d']);

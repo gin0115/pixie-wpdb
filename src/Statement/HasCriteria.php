@@ -26,9 +26,12 @@ declare(strict_types=1);
 
 namespace Pixie\Statement;
 
+use Pixie\QueryBuilder\Raw;
+use Pixie\JSON\JsonSelector;
+use Pixie\QueryBuilder\QueryBuilderHandler;
+
 interface HasCriteria
 {
-
     public const WHERE_CRITERIA = 'WHERE';
     public const JOIN_CRITERIA = 'JOIN';
 
@@ -56,7 +59,7 @@ interface HasCriteria
     /**
      * Get value for expression
      *
-     * @return string|int|float|bool|string[]|int[]|float[]|bool[]|null
+     * @return Raw|string|int|float|bool|Raw[]|string[]|int[]|float[]|bool[]|null
      */
     public function getValue();
 
