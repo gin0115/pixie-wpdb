@@ -50,41 +50,13 @@ class WPDBAdapter
         if (!$col->hasSelect()) {
             $col->addSelect(new SelectStatement('*'));
         }
-        $_selects = $parser->parseSelect($col->getSelect());
-        $_tables = $parser->parseTable($col->getTable());
 
+        $where = $parser->parseWhere($col->getWhere());
+        $having = $parser->parseHaving($col->getHaving());
 
-        // From
-        // $tables = $this->arrayStr($statements['tables'], ', ');
-        // // Select
-        // $selects = $this->arrayStr($statements['selects'], ', ');
-
-        // Wheres
-        // $where = $parser->parseWhere($col->getWhere());
-        $criteriaWhere = $parser->parseWhere($col->getWhere());
-        // $criteriaWhere->fromStatements($col->getWhere());
-
-        list($whereCriteria, $whereBindings) = $this->buildCriteriaWithType($statements, 'wheres', 'WHERE');
-        // dump(['new' => $criteriaWhere->getStatement(),'old' => $whereCriteria]);
-        // dump(['new' => $criteriaWhere->getBindings(), 'old' => $whereBindings]);
-
-        // Group bys
-        // $groupBys = '';
-        // if (isset($statements['groupBys']) && $groupBys = $this->arrayStr($statements['groupBys'], ', ')) {
-        //     $groupBys = 'GROUP BY ' . $groupBys;
-        // }
-
-
-        // Limit and offset
-        // $limit  = isset($statements['limit']) ? 'LIMIT ' . (int) $statements['limit'] : '';
-        // $offset = isset($statements['offset']) ? 'OFFSET ' . (int) $statements['offset'] : '';
-
-        // Having
-        list($havingCriteria, $havingBindings) = $this->buildCriteriaWithType($statements, 'havings', 'HAVING');
-        dump($criteriaWhere->getBindings());
         // Joins
         $joinString = $this->buildJoin($statements);
-        // dump($col->getWhere());
+
         /** @var string[] */
         $sqlArray = [
             'SELECT' . ($col->getDistinctSelect() ? ' DISTINCT' : ''),
@@ -92,9 +64,9 @@ class WPDBAdapter
             'FROM',
             $parser->parseTable($col->getTable()),
             $joinString,
-            $criteriaWhere->getStatement(),
+            $where->getStatement(),
             $parser->parseGroupBy($col->getGroupBy()),
-            $havingCriteria,
+            $having->getStatement(),
             $parser->parseOrderBy($col->getOrderBy()),
             $parser->parseLimit($col->getLimit()),
             $parser->parseOffset($col->getOffset()),
@@ -102,8 +74,8 @@ class WPDBAdapter
 
         $sql = $this->concatenateQuery($sqlArray);
         $bindings = array_merge(
-            $criteriaWhere->getBindings(),
-            $havingBindings
+            $where->getBindings(),
+            $having->getBindings()
         );
 
         return compact('sql', 'bindings');

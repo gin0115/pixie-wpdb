@@ -36,6 +36,7 @@ interface Statement
     public const ORDER_BY = 'orderby';
     public const GROUP_BY = 'groupby';
     public const WHERE = 'where';
+    public const HAVING = 'having';
 
     /**
      * Get the statement type

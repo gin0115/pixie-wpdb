@@ -39,6 +39,7 @@ class StatementBuilder
      *  orderby: OrderByStatement[],
      *  groupby: GroupByStatement[],
      *  where: WhereStatement[],
+     *  having: HavingStatement[],
      * }
      */
     protected $statements = [
@@ -47,6 +48,7 @@ class StatementBuilder
         Statement::ORDER_BY => [],
         Statement::GROUP_BY => [],
         Statement::WHERE => [],
+        Statement::HAVING => []
     ];
 
     /**
@@ -75,6 +77,7 @@ class StatementBuilder
      *  orderby: OrderByStatement[],
      *  groupby: GroupByStatement[],
      *  where: WhereStatement[],
+     *  having: HavingStatement[],
      *}
      */
     public function getStatements(): array
@@ -240,6 +243,38 @@ class StatementBuilder
     public function hasWhere(): bool
     {
         return 0 < count($this->getWhere());
+    }
+
+    /**
+     * Adds a select statement to the collection.
+     *
+     * @param HavingStatement $statement
+     * @return self
+     */
+    public function addHaving(HavingStatement $statement): self
+    {
+        $this->statements[Statement::HAVING][] = $statement;
+        return $this;
+    }
+
+    /**
+     * Get all HavingStatements
+     *
+     * @return HavingStatement[]
+     */
+    public function getHaving(): array
+    {
+        return $this->statements[Statement::HAVING];
+    }
+
+    /**
+     * Having statements exist.
+     *
+     * @return bool
+     */
+    public function hasHaving(): bool
+    {
+        return 0 < count($this->getHaving());
     }
 
     /**

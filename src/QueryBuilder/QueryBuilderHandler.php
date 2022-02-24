@@ -19,6 +19,7 @@ use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
 use Pixie\Statement\TableStatement;
 use Pixie\Statement\WhereStatement;
+use Pixie\Statement\HavingStatement;
 use Pixie\Statement\SelectStatement;
 use Pixie\QueryBuilder\TablePrefixer;
 use Pixie\Statement\GroupByStatement;
@@ -997,7 +998,7 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|string[]|Raw|Raw[]       $key
+     * @param string|Raw|\Closure(QueryBuilderHandler):void       $key
      * @param string $operator
      * @param mixed $value
      * @param string $joiner
@@ -1006,6 +1007,18 @@ class QueryBuilderHandler implements HasConnection
      */
     public function having($key, string $operator, $value, string $joiner = 'AND')
     {
+        // If two params are given then assume operator is =
+        if (2 === func_num_args()) {
+            $value    = $operator;
+            $operator = '=';
+        }
+
+        $this->statementBuilder->addHaving(
+            new HavingStatement($key, $operator, $value, $joiner)
+        );
+
+        // dump($this->statementBuilder);
+
         $key                           = $this->addTablePrefix($key);
         $this->statements['havings'][] = compact('key', 'operator', 'value', 'joiner');
 
@@ -1013,7 +1026,7 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|string[]|Raw|Raw[]       $key
+     * @param string|Raw|\Closure(QueryBuilderHandler):void       $key
      * @param string $operator
      * @param mixed $value
      *
@@ -1025,7 +1038,7 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|Raw $key
+     * @param string|Raw|\Closure(QueryBuilderHandler):void $key
      * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
      * @param mixed|null $value
      *
@@ -1041,7 +1054,7 @@ class QueryBuilderHandler implements HasConnection
 
         $this->statementBuilder->addWhere(
             new WhereStatement(
-                $this->jsonHandler->isJsonSelector($key) ? $this->jsonHandler->extractAndUnquoteFromJsonSelector($key) : $key,
+                is_string($key) && $this->jsonHandler->isJsonSelector($key) ? $this->jsonHandler->extractAndUnquoteFromJsonSelector($key) : $key,
                 $operator,
                 $value,
                 'AND'

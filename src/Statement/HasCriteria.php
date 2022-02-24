@@ -34,6 +34,7 @@ interface HasCriteria
 {
     public const WHERE_CRITERIA = 'WHERE';
     public const JOIN_CRITERIA = 'JOIN';
+    public const HAVING_CRITERIA = 'HAVING';
 
     /**
      * Returns the type of criteria (JOIN, WHERE, HAVING)

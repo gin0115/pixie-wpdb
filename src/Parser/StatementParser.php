@@ -34,6 +34,7 @@ use Pixie\Criteria\CriteriaBuilder;
 use Pixie\JSON\JsonSelectorHandler;
 use Pixie\Statement\TableStatement;
 use Pixie\Statement\WhereStatement;
+use Pixie\Statement\HavingStatement;
 use Pixie\Statement\SelectStatement;
 use Pixie\JSON\JsonExpressionFactory;
 use Pixie\Statement\GroupByStatement;
@@ -219,5 +220,22 @@ class StatementParser
         $criteriaWhere = new CriteriaBuilder($this->connection);
         $criteriaWhere->fromStatements($where);
         return $criteriaWhere->getCriteria();
+    }
+
+    /**
+     * Parses an array of where statements into a Criteria model
+     *
+     * @param HavingStatement[]|mixed[] $having
+     * @return Criteria
+     */
+    public function parseHaving(array $having): Criteria
+    {
+        // Remove any none GroupByStatements
+        $having = array_filter($having, function ($statement): bool {
+            return is_a($statement, HavingStatement::class);
+        });
+        $criteriaHaving = new CriteriaBuilder($this->connection);
+        $criteriaHaving->fromStatements($having);
+        return $criteriaHaving->getCriteria();
     }
 }

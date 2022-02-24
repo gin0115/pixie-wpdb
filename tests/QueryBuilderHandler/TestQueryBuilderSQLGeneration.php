@@ -610,7 +610,10 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertValidSQL($builderDesc->getQuery()->getRawSql());
     }
 
-    /** @testdox It should be possible to set HAVING in queries. */
+    /**
+     * @testdox It should be possible to set HAVING in queries.
+     * @group having
+     */
     public function testHaving(): void
     {
         $builderHaving = $this->queryBuilderProvider()
@@ -1061,7 +1064,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $builder = $this->queryBuilderProvider();
 
         $avgSubQuery = $builder->table('orders')->selectDistinct("customerNumber");
-        
+
         $builder->table('customers')
         ->select('customerName')
         ->whereNotIn('customerNumber', $builder->subQuery($avgSubQuery))
@@ -1208,7 +1211,10 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertValidSQL($sql);
     }
 
-    /** @testdox Examples used in WIKI for having(). */
+    /**
+     * @testdox Examples used in WIKI for having().
+     * @group having
+     */
     public function testHavingExamplesFromWiki(): void
     {
         // Using SUM function
