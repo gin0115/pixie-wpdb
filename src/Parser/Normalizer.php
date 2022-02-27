@@ -32,14 +32,11 @@ use Pixie\WpdbHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\JSON\JsonSelector;
 use Pixie\Parser\TablePrefixer;
-use Pixie\Statement\JoinStatement;
 use Pixie\JSON\JsonSelectorHandler;
-use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\Statement\TableStatement;
 use Pixie\Statement\SelectStatement;
 use Pixie\JSON\JsonExpressionFactory;
 use Pixie\Statement\OrderByStatement;
-use Pixie\QueryBuilder\JsonQueryBuilder;
 
 class Normalizer
 {

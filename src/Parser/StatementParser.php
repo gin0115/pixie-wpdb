@@ -59,33 +59,13 @@ class StatementParser
     /** @var Normalizer */
     protected $normalizer;
 
-    public function __construct(Connection $connection)
+    public function __construct(Connection $connection, Normalizer $normalizer)
     {
         $this->connection = $connection;
-        $this->normalizer = $this->createNormalizer($connection);
+        $this->normalizer = $normalizer;
     }
 
-    /**
-     * Creates a full populated instance of the normalizer
-     *
-     * @param Connection $connection
-     * @return Normalizer
-     */
-    private function createNormalizer($connection): Normalizer
-    {
-        // Create the table prefixer.
-        $adapterConfig = $connection->getAdapterConfig();
-        $prefix = isset($adapterConfig[Connection::PREFIX])
-            ? $adapterConfig[Connection::PREFIX]
-            : null;
 
-        return new Normalizer(
-            new WpdbHandler($connection),
-            new TablePrefixer($prefix),
-            new JsonSelectorHandler(),
-            new JsonExpressionFactory($connection)
-        );
-    }
 
     /**
      * Normalizes and Parsers an array of SelectStatements.

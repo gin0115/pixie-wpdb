@@ -12,10 +12,16 @@ use Pixie\Connection;
 
 use function is_float;
 
+use Pixie\WpdbHandler;
 use Pixie\QueryBuilder\Raw;
+use Pixie\Parser\Normalizer;
+use Pixie\Statement\Statement;
+use Pixie\Parser\TablePrefixer;
 use Pixie\Parser\CriteriaBuilder;
 use Pixie\Parser\StatementParser;
+use Pixie\JSON\JsonSelectorHandler;
 use Pixie\Statement\SelectStatement;
+use Pixie\JSON\JsonExpressionFactory;
 use Pixie\Statement\StatementBuilder;
 use Pixie\QueryBuilder\NestedCriteria;
 
@@ -31,43 +37,72 @@ class WPDBAdapter
      */
     protected $connection;
 
+    /**
+     * @var StatementParser
+     */
+    protected $statementParser;
+
 
     public function __construct(Connection $connection)
     {
         $this->connection = $connection;
+        $this->statementParser = new StatementParser($connection, $this->createNormalizer($connection));
+    }
+
+    /**
+     * Creates a full populated instance of the normalizer
+     *
+     * @param Connection $connection
+     * @return Normalizer
+     */
+    private function createNormalizer($connection): Normalizer
+    {
+        // Create the table prefixer.
+        $adapterConfig = $connection->getAdapterConfig();
+        $prefix = isset($adapterConfig[Connection::PREFIX])
+            ? $adapterConfig[Connection::PREFIX]
+            : null;
+
+        return new Normalizer(
+            new WpdbHandler($connection),
+            new TablePrefixer($prefix),
+            new JsonSelectorHandler(),
+            new JsonExpressionFactory($connection)
+        );
     }
 
     /** This is a mock for the new parser based select method. */
     public function selectCol(StatementBuilder $col, $data, $statements) // @phpstan-ignore-line
     {
-        if (!array_key_exists('tables', $statements)) {
+        if (! $col->has(Statement::TABLE)) {
             throw new Exception('No table specified.', 3);
-        } elseif (!array_key_exists('selects', $statements)) {
-            $statements['selects'][] = '*';
         }
+        // if (!array_key_exists('tables', $statements)) {
+        // } elseif (!array_key_exists('selects', $statements)) {
+        //     $statements['selects'][] = '*';
+        // }
 
-        $parser = new StatementParser($this->connection);
         if (!$col->hasSelect()) {
             $col->addSelect(new SelectStatement('*'));
         }
 
-        $where = $parser->parseWhere($col->getWhere());
-        $having = $parser->parseHaving($col->getHaving());
-        $join = $parser->parseJoin($col->getJoin());
+        $where = $this->statementParser->parseWhere($col->getWhere());
+        $having = $this->statementParser->parseHaving($col->getHaving());
+        $join = $this->statementParser->parseJoin($col->getJoin());
 
         /** @var string[] */
         $sqlArray = [
             'SELECT' . ($col->getDistinctSelect() ? ' DISTINCT' : ''),
-            $parser->parseSelect($col->getSelect()),
+            $this->statementParser->parseSelect($col->getSelect()),
             'FROM',
-            $parser->parseTable($col->getTable()),
-            $parser->parseJoin($col->getJoin()),
+            $this->statementParser->parseTable($col->getTable()),
+            $this->statementParser->parseJoin($col->getJoin()),
             $where->getStatement(),
-            $parser->parseGroupBy($col->getGroupBy()),
+            $this->statementParser->parseGroupBy($col->getGroupBy()),
             $having->getStatement(),
-            $parser->parseOrderBy($col->getOrderBy()),
-            $parser->parseLimit($col->getLimit()),
-            $parser->parseOffset($col->getOffset()),
+            $this->statementParser->parseOrderBy($col->getOrderBy()),
+            $this->statementParser->parseLimit($col->getLimit()),
+            $this->statementParser->parseOffset($col->getOffset()),
         ];
 
         $sql = $this->concatenateQuery($sqlArray);

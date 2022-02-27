@@ -15,14 +15,19 @@ use stdClass;
 use TypeError;
 use WP_UnitTestCase;
 use Pixie\Connection;
+use Pixie\WpdbHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\JSON\JsonSelector;
+use Pixie\Parser\Normalizer;
 use Pixie\Tests\Logable_WPDB;
 use Pixie\Statement\Statement;
+use Pixie\Parser\TablePrefixer;
 use Pixie\Parser\StatementParser;
+use Pixie\JSON\JsonSelectorHandler;
 use Pixie\Statement\TableStatement;
 use Pixie\Tests\SQLAssertionsTrait;
 use Pixie\Statement\SelectStatement;
+use Pixie\JSON\JsonExpressionFactory;
 use Pixie\Statement\StatementBuilder;
 
 /**
@@ -53,7 +58,30 @@ class TestStatementParser extends WP_UnitTestCase
      */
     public function getParser(array $connectionConfig = []): StatementParser
     {
-        return new StatementParser(new Connection($this->wpdb, $connectionConfig));
+        $connection = new Connection($this->wpdb, $connectionConfig);
+        return new StatementParser($connection, $this->createNormalizer($connection));
+    }
+
+        /**
+     * Creates a full populated instance of the normalizer
+     *
+     * @param Connection $connection
+     * @return Normalizer
+     */
+    private function createNormalizer($connection): Normalizer
+    {
+        // Create the table prefixer.
+        $adapterConfig = $connection->getAdapterConfig();
+        $prefix = isset($adapterConfig[Connection::PREFIX])
+            ? $adapterConfig[Connection::PREFIX]
+            : null;
+
+        return new Normalizer(
+            new WpdbHandler($connection),
+            new TablePrefixer($prefix),
+            new JsonSelectorHandler(),
+            new JsonExpressionFactory($connection)
+        );
     }
 
     /** @testdox Is should be possible to parse all expected select values from string, json arrow and selector objects and raw expressions and have them returned as a valid SQL fragment. */
