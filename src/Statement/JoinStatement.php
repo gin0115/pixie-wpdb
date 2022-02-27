@@ -32,13 +32,21 @@ use Pixie\QueryBuilder\Raw;
 use Pixie\JSON\JsonSelector;
 use Pixie\Statement\Statement;
 use Pixie\Statement\HasCriteria;
+use Pixie\QueryBuilder\JoinBuilder;
 
-class JoinStatement implements Statement, HasCriteria
+class JoinStatement implements Statement
 {
+    /**
+     * The table which is being group by
+     *
+     * @var string|Raw|array<string|int, string|Raw>
+     */
+    protected $table;
+
     /**
      * The field which is being group by
      *
-     * @var string|Raw|JsonSelector|\Closure(QueryBuilderHandler $query):void
+     * @var string|Raw|JsonSelector|\Closure(JoinBuilder $joinBuilder):void
      */
     protected $field;
 
@@ -57,67 +65,69 @@ class JoinStatement implements Statement, HasCriteria
     protected $value;
 
     /**
-     * Joiner
+     * Type of join
      *
      * @var string
      */
-    protected $joiner;
+    protected $joinType;
+
 
     /**
      * Creates a Select Statement
      *
-     * @param string|Raw|JsonSelector|\Closure(QueryBuilderHandler $query):void $field
+     * @param string|Raw|array<string|int, string|Raw|string[]> $table
+     * @param string|Raw|JsonSelector|\Closure(JoinBuilder $joinBuilder):void $field
      * @param string $operator
      * @param string|int|float|bool|string[]|int[]|float[]|bool[] $value
-     * @param string $joiner
+     * @param string $joinType
      */
-    public function __construct($field, $operator = null, $value = null, string $joiner = 'AND')
-    {
-        // Verify valid field type.
-        $this->verifyField($field);
+    public function __construct(
+        $table,
+        $field,
+        $operator = null,
+        $value = null,
+        string $joinType = 'INNER'
+    ) {
+        // Verify valid table type.
+        $this->verifyTable($table);
+        $this->table = $table;
         $this->field = $field;
         $this->operator = $operator ?? '=';
         $this->value = $value;
-        $this->joiner = $joiner;
+        $this->joinType = $joinType;
     }
 
-    /** @inheritDoc */
-    public function getCriteriaType(): string
-    {
-        return HasCriteria::HAVING_CRITERIA;
-    }
 
     /** @inheritDoc */
     public function getType(): string
     {
-        return Statement::HAVING;
+        return Statement::JOIN;
     }
 
     /**
      * Verifies if the passed filed is of a valid type.
      *
-     * @param mixed $field
+     * @param mixed $table
      * @return void
      */
-    protected function verifyField($field): void
+    protected function verifyTable($table): void
     {
         if (
-            !is_string($field)
-            && ! is_a($field, Raw::class)
-            && !is_a($field, JsonSelector::class)
-            && !is_a($field, \Closure::class)
+            !is_string($table)
+            && !is_array($table)
+            && ! is_a($table, Raw::class)
         ) {
-            throw new TypeError("Only strings, Raw, JsonSelector and Closures may be used as fields in Where statements.");
+            throw new TypeError("Only strings and Raw may be used as tables in Where statements.");
         }
     }
     /**
-     * Gets the field.
+     * Gets the table.
      *
-     * @return string|\Closure(QueryBuilderHandler $query):void|Raw|JsonSelector
+     * @return string|Raw|array<string|int, string|Raw>
      */
-    public function getField()
+    public function getTable()
     {
-        return $this->field;
+        return $this->table;
     }
 
     /**
@@ -133,7 +143,7 @@ class JoinStatement implements Statement, HasCriteria
     /**
      * Get value for expression
      *
-     * @return string|int|float|bool|string[]|int[]|float[]|bool[]|null
+     * @return string|Raw|null
      */
     public function getValue()
     {
@@ -141,12 +151,22 @@ class JoinStatement implements Statement, HasCriteria
     }
 
     /**
-     * Get joiner
+     * Get field
+     *
+     * @return string|\Closure(JoinBuilder $query):void|Raw|JsonSelector
+     */
+    public function getField()
+    {
+        return $this->field;
+    }
+
+    /**
+     * Get the join type.
      *
      * @return string
      */
-    public function getJoiner(): string
+    public function getJoinType(): string
     {
-        return $this->joiner;
+        return $this->joinType;
     }
 }

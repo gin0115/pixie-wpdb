@@ -8,11 +8,13 @@ use Throwable;
 use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
+use function mb_strlen;
 use Pixie\HasConnection;
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
 use Pixie\JSON\JsonSelector;
 use Pixie\Hydration\Hydrator;
+use Pixie\Statement\JoinStatement;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
 use Pixie\QueryBuilder\Transaction;
@@ -25,7 +27,6 @@ use Pixie\QueryBuilder\TablePrefixer;
 use Pixie\Statement\GroupByStatement;
 use Pixie\Statement\OrderByStatement;
 use Pixie\Statement\StatementBuilder;
-use function mb_strlen;
 
 class QueryBuilderHandler implements HasConnection
 {
@@ -1017,8 +1018,6 @@ class QueryBuilderHandler implements HasConnection
             new HavingStatement($key, $operator, $value, $joiner)
         );
 
-        // dump($this->statementBuilder);
-
         $key                           = $this->addTablePrefix($key);
         $this->statements['havings'][] = compact('key', 'operator', 'value', 'joiner');
 
@@ -1419,6 +1418,11 @@ class QueryBuilderHandler implements HasConnection
      */
     public function join($table, $key, ?string $operator = null, $value = null, $type = 'inner')
     {
+        $table1 = $this->maybeFlipArrayValues(is_array($table) ? $table : [$table]);
+        $this->statementBuilder->addStatement(
+            new JoinStatement(end($table1) , $key, $operator, $value, $type)
+        );
+        
         // Potentially cast key from JSON
         if ($this->jsonHandler->isJsonSelector($key)) {
             /** @var string $key */

@@ -16,7 +16,7 @@ use WP_UnitTestCase;
 use Pixie\Connection;
 use Pixie\QueryBuilder\Raw;
 use Pixie\Tests\Logable_WPDB;
-use Pixie\Criteria\CriteriaBuilder;
+use Pixie\Parser\CriteriaBuilder;
 use Pixie\Statement\WhereStatement;
 
 /**
@@ -54,6 +54,5 @@ class TestCritieraBuilder extends WP_UnitTestCase
         $statement1 = new WhereStatement('table.field2', 'BETWEEN', [Binding::asInt('123'), 787879], 'OR');
         $builder = $this->getBuilder(['prefix' => 'ff_']);
         $builder->fromStatements([$statement,$statement1]);
-        // dump($builder->getCriteria());
     }
 }

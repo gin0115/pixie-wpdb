@@ -668,7 +668,10 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
     ##    JOIN {INNER, LEFT, RIGHT, FULL OUTER}    ##
     #################################################
 
-    /** @testdox It should be possible to create a query using (INNER) join for a relationship */
+    /**
+     * @testdox It should be possible to create a query using (INNER) join for a relationship
+     * @group join
+     */
     public function testJoin(): void
     {
         // Single Condition
@@ -682,7 +685,10 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
-    /** @testdox It should be possible to create a query using (OUTER) join for a relationship */
+    /**
+     * @testdox It should be possible to create a query using (OUTER) join for a relationship
+     * @group join
+     */
     public function testOuterJoin()
     {
         // Single Condition
@@ -696,7 +702,10 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
-    /** @testdox It should be possible to create a query using (RIGHT) join for a relationship */
+    /**
+     * @testdox It should be possible to create a query using (RIGHT) join for a relationship
+     * @group join
+     */
     public function testRightJoin()
     {
         // Single Condition
@@ -710,7 +719,10 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
-    /** @testdox It should be possible to create a query using (LEFT) join for a relationship */
+    /**
+     * @testdox It should be possible to create a query using (LEFT) join for a relationship
+     * @group join
+     */
     public function testLeftJoin()
     {
         // Single Condition
@@ -724,7 +736,10 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
-    /** @testdox It should be possible to create a query using (CROSS) join for a relationship */
+    /**
+     * @testdox It should be possible to create a query using (CROSS) join for a relationship
+     * @group join
+     */
     public function testCrossJoin()
     {
         // Single Condition
@@ -738,7 +753,10 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
-    /** @testdox It should be possible to create a query using (INNER) join for a relationship */
+    /**
+     * @testdox It should be possible to create a query using (INNER) join for a relationship
+     * @group join
+     */
     public function testInnerJoin()
     {
         // Single Condition
@@ -752,7 +770,10 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
-    /** @testdox It should be possible to create a conditional join using multiple ON with AND conditions */
+    /**
+     * @testdox It should be possible to create a conditional join using multiple ON with AND conditions
+     * @group join
+     */
     public function testMultipleJoinAndViaClosure()
     {
         $builder = $this->queryBuilderProvider('prefix_')
@@ -767,7 +788,10 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $this->assertValidSQL($builder->getQuery()->getRawSql());
     }
 
-    /** @testdox It should be possible to create a conditional join using multiple ON with OR conditions */
+    /**
+     * @testdox It should be possible to create a conditional join using multiple ON with OR conditions
+     * @group join
+     */
     public function testMultipleJoinOrViaClosure()
     {
         $builder = $this->queryBuilderProvider('prefix_')
@@ -780,6 +804,17 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
 
         // Check for valid SQL syntax
         $this->assertValidSQL($builder->getQuery()->getRawSql());
+    }
+
+    /**
+     * @testdox It should be possible to do a join with a table as an alias
+     * @group join
+     */
+    public function testJoinWithAlias(): void
+    {
+        $builder = $this->queryBuilderProvider('prefix_')
+        ->table('foo')
+        ->crossJoin(['bar' => 'foo'], 'bar.id', '=', 'foo.id');
     }
 
 

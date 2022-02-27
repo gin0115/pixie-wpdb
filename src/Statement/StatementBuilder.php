@@ -40,15 +40,17 @@ class StatementBuilder
      *  groupby: GroupByStatement[],
      *  where: WhereStatement[],
      *  having: HavingStatement[],
+     *  join: JoinStatement[],
      * }
      */
     protected $statements = [
-        Statement::SELECT  => [],
-        Statement::TABLE   => [],
+        Statement::SELECT   => [],
+        Statement::TABLE    => [],
         Statement::ORDER_BY => [],
         Statement::GROUP_BY => [],
-        Statement::WHERE => [],
-        Statement::HAVING => []
+        Statement::WHERE    => [],
+        Statement::HAVING   => [],
+        Statement::JOIN     => [],
     ];
 
     /**
@@ -78,11 +80,23 @@ class StatementBuilder
      *  groupby: GroupByStatement[],
      *  where: WhereStatement[],
      *  having: HavingStatement[],
+     *  join:JoinStatement[]
      *}
      */
     public function getStatements(): array
     {
         return $this->statements;
+    }
+
+    /**
+     * Adds a statement to the collection based on its type.
+     * @param Statement $statement
+     * @return StatementBuilder
+     */
+    public function addStatement(Statement $statement): self
+    {
+        $this->statements[$statement->getType()][] = $statement;
+        return $this;
     }
 
     /**
@@ -95,6 +109,12 @@ class StatementBuilder
     {
         $this->statements[Statement::SELECT][] = $statement;
         return $this;
+    }
+
+    public function has(string $statementType): bool
+    {
+        return \array_key_exists($statementType, $this->statements)
+        && 0 !== count($this->statements[$statementType]);
     }
 
     /**
@@ -275,6 +295,26 @@ class StatementBuilder
     public function hasHaving(): bool
     {
         return 0 < count($this->getHaving());
+    }
+
+    /**
+     * Get all JoinStatements
+     *
+     * @return JoinStatement[]
+     */
+    public function getJoin(): array
+    {
+        return $this->statements[Statement::JOIN];
+    }
+
+    /**
+     * Join statements exist.
+     *
+     * @return bool
+     */
+    public function hasJoin(): bool
+    {
+        return 0 < count($this->getJoin());
     }
 
     /**

@@ -28,10 +28,12 @@ namespace Pixie\Parser;
 
 use Pixie\Connection;
 use Pixie\WpdbHandler;
-use Pixie\Criteria\Criteria;
+use Pixie\Parser\Criteria;
 use Pixie\Parser\Normalizer;
-use Pixie\Criteria\CriteriaBuilder;
+use Pixie\Parser\CriteriaBuilder;
+use Pixie\Statement\JoinStatement;
 use Pixie\JSON\JsonSelectorHandler;
+use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\Statement\TableStatement;
 use Pixie\Statement\WhereStatement;
 use Pixie\Statement\HavingStatement;
@@ -47,6 +49,7 @@ class StatementParser
     protected const TEMPLATE_GROUP_BY = "GROUP BY %s";
     protected const TEMPLATE_LIMIT = "LIMIT %d";
     protected const TEMPLATE_OFFSET = "OFFSET %d";
+    protected const TEMPLATE_JOIN = "%s JOIN %s ON %s";
 
     /**
      * @var Connection
@@ -122,10 +125,7 @@ class StatementParser
             return is_a($statement, TableStatement::class);
         });
 
-        $tables = array_map(function (TableStatement $table): string {
-            return $this->normalizer->tableStatement($table);
-        }, $tables);
-
+        $tables = array_map([$this->normalizer,'tableStatement'], $tables);
         return join(', ', $tables);
     }
 
@@ -237,5 +237,49 @@ class StatementParser
         $criteriaHaving = new CriteriaBuilder($this->connection);
         $criteriaHaving->fromStatements($having);
         return $criteriaHaving->getCriteria();
+    }
+
+    /**
+     * Parses an array of Join statements
+     *
+     * @param array $join
+     * @return string
+     */
+    public function parseJoin(array $join): string
+    {
+        // @var JoinStatement[] $join
+        $join = array_filter($join, function ($statement): bool {
+            return is_a($statement, JoinStatement::class);
+        });
+
+        // Cast to string, with or without alias,
+        $joins = array_map(function (JoinStatement $statement): string {
+
+            // Extract the table and possible alias.
+            ['key' => $table, 'value' => $alias] = $statement->getTable();
+            $table = $this->normalizer->normalizeTable($table);
+
+            // If not already a closure, cast to.
+            $key = $statement->getField() instanceof \Closure
+                ? $statement->getField()
+                : JoinBuilder::createClosure(
+                    $this->normalizer->normalizeField($statement->getField()),
+                    $statement->getOperator(),
+                    $this->normalizer->normalizeField($statement->getValue())
+                );
+
+            // Populate the join builder
+            $builder = new JoinBuilder($this->connection);
+            $key($builder);
+
+            return sprintf(
+                self::TEMPLATE_JOIN,
+                strtoupper($statement->getJoinType()),
+                0 === $alias ? $table : sprintf(self::TEMPLATE_AS, $table, $alias),
+                $builder->getQuery('criteriaOnly', false)->getSql()
+            );
+        }, $join);
+
+        return join(' ', $joins);
     }
 }

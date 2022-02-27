@@ -6,18 +6,18 @@ use Closure;
 use Pixie\Binding;
 use Pixie\Exception;
 
+use function is_bool;
+
 use Pixie\Connection;
 
+use function is_float;
+
 use Pixie\QueryBuilder\Raw;
-
+use Pixie\Parser\CriteriaBuilder;
 use Pixie\Parser\StatementParser;
-
-use Pixie\Criteria\CriteriaBuilder;
 use Pixie\Statement\SelectStatement;
 use Pixie\Statement\StatementBuilder;
 use Pixie\QueryBuilder\NestedCriteria;
-use function is_bool;
-use function is_float;
 
 class WPDBAdapter
 {
@@ -53,9 +53,7 @@ class WPDBAdapter
 
         $where = $parser->parseWhere($col->getWhere());
         $having = $parser->parseHaving($col->getHaving());
-
-        // Joins
-        $joinString = $this->buildJoin($statements);
+        $join = $parser->parseJoin($col->getJoin());
 
         /** @var string[] */
         $sqlArray = [
@@ -63,7 +61,7 @@ class WPDBAdapter
             $parser->parseSelect($col->getSelect()),
             'FROM',
             $parser->parseTable($col->getTable()),
-            $joinString,
+            $parser->parseJoin($col->getJoin()),
             $where->getStatement(),
             $parser->parseGroupBy($col->getGroupBy()),
             $having->getStatement(),
@@ -573,7 +571,6 @@ class WPDBAdapter
                 // Merge the bindings we get from nestedCriteria object
                 $bindings = array_merge($bindings, $queryObject->getBindings());
 
-                // dump($statement['joiner'], $statement);
 
                 // Append the sql we get from the nestedCriteria object
                 $criteria .= $statement['joiner'] . ' (' . $queryObject->getSql() . ') ';
@@ -628,7 +625,6 @@ class WPDBAdapter
             } else {
                 // Usual where like criteria
                 if (!$bindValues) {
-                    // dump(7878789798798798798987);
                     // Specially for joins
                     // We are not binding values, lets sanitize then
                     $value = $this->stringifyValue($this->wrapSanitizer($value)) ?? '';
@@ -750,8 +746,8 @@ class WPDBAdapter
 
         foreach ($statements['joins'] as $joinArr) {
             if (is_array($joinArr['table'])) {
-                $mainTable  = $this->stringifyValue($this->wrapSanitizer($joinArr['table'][0]));
-                $aliasTable = $this->stringifyValue($this->wrapSanitizer($joinArr['table'][1]));
+                $mainTable  = $this->stringifyValue($this->wrapSanitizer(array_keys($joinArr['table'])[0]));
+                $aliasTable = $this->stringifyValue($this->wrapSanitizer(array_values($joinArr['table'])[0]));
                 $table      = $mainTable . ' AS ' . $aliasTable;
             } else {
                 $table = $joinArr['table'] instanceof Raw

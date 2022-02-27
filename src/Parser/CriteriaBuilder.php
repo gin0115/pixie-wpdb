@@ -21,10 +21,10 @@ declare(strict_types=1);
  * @author Glynn Quelch <glynn.quelch@gmail.com>
  * @license http://www.opensource.org/licenses/mit-license.html  MIT License
  * @package Gin0115\Pixie
- * @subpackage Criteria
+ * @subpackage Parser
  */
 
-namespace Pixie\Criteria;
+namespace Pixie\Parser;
 
 use Pixie\Binding;
 use Pixie\Exception;

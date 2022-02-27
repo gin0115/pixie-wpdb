@@ -5,6 +5,21 @@ namespace Pixie\QueryBuilder;
 class JoinBuilder extends QueryBuilderHandler
 {
     /**
+     * Returns the closure used to create a join statement.
+     *
+     * @param string|Raw|Closure $key
+     * @param string|null $operator
+     * @param mixed $value
+     * @return \Closure(JoinBuilder $joinBuilder):void
+     */
+    public static function createClosure($key, $operator, $value): \Closure
+    {
+        return function (JoinBuilder $joinBuilder) use ($key, $operator, $value): void {
+            $joinBuilder->on($key, $operator, $value);
+        };
+    }
+
+    /**
      * @param string|Raw $key
      * @param string|null $operator
      * @param mixed $value

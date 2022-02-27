@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Interface for all statements.
+ * Builds an criteria of a where/join sql statement
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -21,28 +21,12 @@ declare(strict_types=1);
  * @author Glynn Quelch <glynn.quelch@gmail.com>
  * @license http://www.opensource.org/licenses/mit-license.html  MIT License
  * @package Gin0115\Pixie
- * @subpackage QueryBuilder\Statement
+ * @subpackage Parser
  */
 
-namespace Pixie\Statement;
+namespace Pixie\Parser;
 
-interface Statement
-{
-    /**
-     * Statement Types.
-     */
-    public const SELECT   = 'select';
-    public const TABLE    = 'table';
-    public const ORDER_BY = 'orderby';
-    public const GROUP_BY = 'groupby';
-    public const WHERE    = 'where';
-    public const HAVING   = 'having';
-    public const JOIN     = 'join';
+class JoinBuilder {
 
-    /**
-     * Get the statement type
-     *
-     * @return string
-     */
-    public function getType(): string;
+    // $this->c
 }
