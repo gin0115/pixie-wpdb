@@ -26,11 +26,11 @@
  */
 
 // Generated code start...
-if (!trait_exists(Pixie\QueryBuilder\TablePrefixer::class)) {
-    require_once __DIR__ . '/QueryBuilder/TablePrefixer.php';
-}
 if (!interface_exists(Pixie\HasConnection::class)) {
     require_once __DIR__ . '/HasConnection.php';
+}
+if (!trait_exists(Pixie\QueryBuilder\TablePrefixer::class)) {
+    require_once __DIR__ . '/QueryBuilder/TablePrefixer.php';
 }
 if (!class_exists(Pixie\Binding::class)) {
     require_once __DIR__ . '/Binding.php';
@@ -53,11 +53,14 @@ if (!class_exists(Pixie\EventHandler::class)) {
 if (!class_exists(Pixie\QueryBuilder\QueryObject::class)) {
     require_once __DIR__ . '/QueryBuilder/QueryObject.php';
 }
+if (!class_exists(Pixie\QueryBuilder\NestedCriteria::class)) {
+    require_once __DIR__ . '/QueryBuilder/NestedCriteria.php';
+}
 if (!class_exists(Pixie\QueryBuilder\JoinBuilder::class)) {
     require_once __DIR__ . '/QueryBuilder/JoinBuilder.php';
 }
-if (!class_exists(Pixie\QueryBuilder\NestedCriteria::class)) {
-    require_once __DIR__ . '/QueryBuilder/NestedCriteria.php';
+if (!class_exists(Pixie\Event::class)) {
+    require_once __DIR__ . '/Event.php';
 }
 if (!class_exists(Pixie\JSON\JsonSelectorHandler::class)) {
     require_once __DIR__ . '/JSON/JsonSelectorHandler.php';
@@ -89,4 +92,4 @@ if (!class_exists(Pixie\AliasFacade::class)) {
 if (!class_exists(Pixie\JSON\JsonExpressionFactory::class)) {
     require_once __DIR__ . '/JSON/JsonExpressionFactory.php';
 }
-// CREATED ON Fri 4th February 2022
+// CREATED ON Fri 15th April 2022

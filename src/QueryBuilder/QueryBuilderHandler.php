@@ -656,9 +656,17 @@ class QueryBuilderHandler implements HasConnection
             $query->where($column, $value);
         }
 
-        return null !== $query->first()
-            ? $this->update(array_merge($values, $attributes))
-            : $this->insert(array_merge($values, $attributes));
+        // If we have a result, update it.
+        if (null !== $query->first()) {
+            foreach ($attributes as $column => $value) {
+                $this->where($column, $value);
+            }
+
+            return $this->update($values);
+        }
+
+        // Else insert
+        return $this->insert($values);
     }
 
     /**
