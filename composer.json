@@ -63,5 +63,10 @@
         "fixer": "php-cs-fixer fix --diff --rules=@PSR12 --show-progress=dots",
         "lint": "php-cs-fixer fix --diff --dry-run --rules=@PSR12",
         "build:loader": "php static-loader-creator.php"
+    },
+    "config": {
+        "allow-plugins": {
+            "roots/wordpress-core-installer": true
+        }
     }
 }
