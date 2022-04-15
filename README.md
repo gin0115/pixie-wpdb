@@ -155,6 +155,7 @@ A few features have been inspired by the [Pecee-pixie](https://github.com/skippe
 
 
 ## Changelog
+* 0.0.3 - More improvements to the `updateOrInsert()` method.
 * 0.0.2 - Improvements to the `updateOrInsert()` method
 * 0.0.1 - Various external and interal changes made to the initial code written by [Muhammad Usman](http://usman.it/)
 ___
