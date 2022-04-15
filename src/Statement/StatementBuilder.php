@@ -166,7 +166,17 @@ class StatementBuilder
      */
     public function hasTable(): bool
     {
-        return 0 < count($this->getTable());
+        return 0 < $this->countTable();
+    }
+
+    /**
+     * Counts the number of table statements.
+     *
+     * @return int
+     */
+    public function countTable(): int
+    {
+        return count($this->getTable());
     }
 
     /**
@@ -383,5 +393,12 @@ class StatementBuilder
     {
         $this->offset = $offset;
         return $this;
+    }
+
+    public function getInsert(): ?InsertStatement
+    {
+        return $this->has(Statement::INSERT)
+            ? current($this->statements[Statement::INSERT])
+            : null;
     }
 }

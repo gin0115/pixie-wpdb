@@ -38,6 +38,7 @@ interface Statement
     public const WHERE    = 'where';
     public const HAVING   = 'having';
     public const JOIN     = 'join';
+    public const INSERT   = 'insert';
 
     /**
      * Get the statement type

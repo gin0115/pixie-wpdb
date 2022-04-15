@@ -348,7 +348,11 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEmpty($this->arrayDifMD($expected, $fruitsRight));
     }
 
-    /** @testdox It should be possible to INSERT a single or multiple tables and return the primary key. It should then possible to get the same values back using find() */
+    /** 
+     * @testdox It should be possible to INSERT a single or multiple tables and return the primary key. It should then possible to get the same values back using find()
+     * @group insert 
+     * @group find
+     *  */
     public function testInsertAndFind(): void
     {
         $this->queryBuilderProvider('mock_', 'BB');

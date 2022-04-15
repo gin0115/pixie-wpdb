@@ -77,12 +77,8 @@ class WPDBAdapter
         if (! $col->has(Statement::TABLE)) {
             throw new Exception('No table specified.', 3);
         }
-        // if (!array_key_exists('tables', $statements)) {
-        // } elseif (!array_key_exists('selects', $statements)) {
-        //     $statements['selects'][] = '*';
-        // }
 
-        if (!$col->hasSelect()) {
+        if (!$col->has(Statement::SELECT)) {
             $col->addSelect(new SelectStatement('*'));
         }
 
@@ -212,6 +208,29 @@ class WPDBAdapter
         }
 
         list($sql, $bindings) = $this->buildCriteria($statements['criteria'], $bindValues);
+
+        return compact('sql', 'bindings');
+    }
+
+    /**
+     * Build a generic insert/ignore/replace query
+     *
+     * @param array<string|Closure, mixed|mixed[]> $statements
+     * @param array<string, mixed> $data
+     * @param string $type
+     *
+     * @return array{sql:string, bindings:mixed[]}
+     *
+     * @throws Exception
+     */
+    public function doInsertB(StatementBuilder $col): array
+    {
+        $tables = $this->statementParser->table($col, true);
+        
+        $sql = '';
+        $bindings = [];
+
+        dump($col, $tables);
 
         return compact('sql', 'bindings');
     }

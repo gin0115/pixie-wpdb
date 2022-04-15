@@ -30,6 +30,7 @@ use Pixie\Connection;
 use Pixie\WpdbHandler;
 use Pixie\Parser\Criteria;
 use Pixie\Parser\Normalizer;
+use Pixie\Statement\Statement;
 use Pixie\Parser\CriteriaBuilder;
 use Pixie\Statement\JoinStatement;
 use Pixie\JSON\JsonSelectorHandler;
@@ -41,6 +42,7 @@ use Pixie\Statement\SelectStatement;
 use Pixie\JSON\JsonExpressionFactory;
 use Pixie\Statement\GroupByStatement;
 use Pixie\Statement\OrderByStatement;
+use Pixie\Statement\StatementBuilder;
 
 class StatementParser
 {
@@ -90,6 +92,17 @@ class StatementParser
         }, $select);
 
         return join(', ', $select);
+    }
+
+    public function table(StatementBuilder $builder, bool $single = false): string
+    {
+        if (!$builder->has(Statement::TABLE)) {
+            return '';
+        }
+
+        return true === $single
+            ? $this->parseTable([current($builder->getTable())])
+            : $this->parseTable($builder->getTable());
     }
 
     /**
@@ -261,5 +274,12 @@ class StatementParser
         }, $join);
 
         return join(' ', $joins);
+    }
+
+    public function parseInsert(StatementBuilder $builder): string
+    {
+        $statement = $builder->getInsert();
+        dump($statement);
+        return '';
     }
 }

@@ -22,6 +22,7 @@ use Pixie\QueryBuilder\WPDBAdapter;
 use Pixie\Statement\TableStatement;
 use Pixie\Statement\WhereStatement;
 use Pixie\Statement\HavingStatement;
+use Pixie\Statement\InsertStatement;
 use Pixie\Statement\SelectStatement;
 use Pixie\QueryBuilder\TablePrefixer;
 use Pixie\Statement\GroupByStatement;
@@ -570,6 +571,11 @@ class QueryBuilderHandler implements HasConnection
         if (! is_null($eventResult)) {
             return $eventResult;
         }
+
+        $statement = new InsertStatement($data, $type);
+        $this->statementBuilder->addStatement($statement);
+        $q = $this->adapterInstance->doInsertB($this->statementBuilder);
+        dump($q);
 
         // If first value is not an array () not a batch insert)
         if (! is_array(current($data))) {
