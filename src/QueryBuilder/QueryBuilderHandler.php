@@ -28,6 +28,7 @@ use Pixie\QueryBuilder\TablePrefixer;
 use Pixie\Statement\GroupByStatement;
 use Pixie\Statement\OrderByStatement;
 use Pixie\Statement\StatementBuilder;
+use Pixie\Exception\StatementBuilderException;
 
 class QueryBuilderHandler implements HasConnection
 {
@@ -770,9 +771,11 @@ class QueryBuilderHandler implements HasConnection
      */
     public function select($fields): self
     {
+
         if (!is_array($fields)) {
             $fields = func_get_args();
         }
+        
         $fields2 = $this->maybeFlipArrayValues($fields);
         foreach ($fields2 as ['key' => $field, 'value' => $alias]) {
             // If no alias passed, but field is for JSON. thrown an exception.
@@ -791,6 +794,10 @@ class QueryBuilderHandler implements HasConnection
             $this->statementBuilder->addSelect($statement);
         }
 
+        
+return $this;
+
+// OLD CODE
         foreach ($fields as $field => $alias) {
             // If no alias passed, but field is for JSON. thrown an exception.
             if (is_numeric($field) && is_string($alias) && $this->jsonHandler->isJsonSelector($alias)) {

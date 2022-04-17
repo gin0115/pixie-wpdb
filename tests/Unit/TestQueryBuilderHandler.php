@@ -20,6 +20,7 @@ use Pixie\Tests\Logable_WPDB;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\Exception as PixieException;
 use Pixie\QueryBuilder\QueryBuilderHandler;
+use Pixie\Exception\StatementBuilderException;
 use Pixie\QueryBuilder\TransactionHaltException;
 
 class TestQueryBuilderHandler extends WP_UnitTestCase
@@ -176,14 +177,14 @@ class TestQueryBuilderHandler extends WP_UnitTestCase
     {
         $this->expectExceptionMessage("Failed count query - the column bar hasn't been selected in the query.");
         $this->expectException(Exception::class);
-        $this->queryBuilderProvider()->select('foo')->count('bar');
+        $this->queryBuilderProvider()->table('baz')->select('foo')->count('bar');
     }
 
     /** @testdox Attempting to do any aggregate (COUNT, SUM, MIN, MAX, AVERAGE) where the table has not been defined should throw an exception.  */
     public function testThrowsExceptionAttemptingToUseAggregateWithoutDefiningATable(): void
     {
         $this->expectExceptionMessage("No table selected");
-        $this->expectException(Exception::class);
+        $this->expectException(StatementBuilderException::class);
         $this->queryBuilderProvider()->select('bar')->count('bar');
     }
 
