@@ -94,7 +94,9 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
          )
          COLLATE {$this->wpdb->collate}";
 
+
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+
         dbDelta($sqlFoo);
         dbDelta($sqlBar);
         dbDelta($sqlJson);
@@ -442,12 +444,13 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $builder = $this->queryBuilderProvider();
 
         // UPDATE (was 12, now 24)
-        $builder->table('mock_foo')->updateOrInsert(['string' => 'first' ], ['number' => 24 ]);
+        $builder->table('mock_foo')->updateOrInsert(['string' => 'first' ], ['number' => 24, 'string' => 'first' ]);
         $this->assertEquals(24, $builder->table('mock_foo')->find('first', 'string')->number);
         $this->assertCount(1, $builder->table('mock_foo')->get());
 
         // CREATE
-        $builder->table('mock_foo')->updateOrInsert(['string' => 'second' ], ['number' => 42 ]);
+        $builder->table('mock_foo')->updateOrInsert(['string' => 'second' ], ['number' => 42, 'string' => 'second' ]);
+        dump($builder->table('mock_foo')->get());
         $this->assertEquals(42, $builder->table('mock_foo')->find('second', 'string')->number);
         $this->assertCount(2, $builder->table('mock_foo')->get());
     }
