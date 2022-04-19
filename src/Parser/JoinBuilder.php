@@ -26,7 +26,7 @@ declare(strict_types=1);
 
 namespace Pixie\Parser;
 
-class JoinBuilder {
-
+class JoinBuilder
+{
     // $this->c
 }

@@ -101,7 +101,7 @@ class StatementParser
         }
 
         return true === $single
-            ? $this->parseTable([current($builder->getTable())])
+            ? $this->parseTable([$builder->getTable()[0]])
             : $this->parseTable($builder->getTable());
     }
 
@@ -235,7 +235,7 @@ class StatementParser
     /**
      * Parses an array of Join statements
      *
-     * @param array $join
+     * @param JoinStatement[]|mixed[] $join
      * @return string
      */
     public function parseJoin(array $join): string
@@ -247,16 +247,16 @@ class StatementParser
 
         // Cast to string, with or without alias,
         $joins = array_map(function (JoinStatement $statement): string {
-
+            // dump($statement->getTable());
             // Extract the table and possible alias.
-            ['key' => $table, 'value' => $alias] = $statement->getTable();
-            $table = $this->normalizer->normalizeTable($table);
+            $alias = $statement->getTable()['value'];
+            $table = $this->normalizer->normalizeTable($statement->getTable()['key']);
 
             // If not already a closure, cast to.
             $key = $statement->getField() instanceof \Closure
                 ? $statement->getField()
                 : JoinBuilder::createClosure(
-                    $this->normalizer->normalizeField($statement->getField()),
+                    $this->normalizer->normalizeField($statement->getField()) ?? '', /** @phpstan-ignore-line Cant be closure filtered above*/
                     $statement->getOperator(),
                     $this->normalizer->normalizeField($statement->getValue())
                 );
@@ -279,7 +279,7 @@ class StatementParser
     public function parseInsert(StatementBuilder $builder): string
     {
         $statement = $builder->getInsert();
-        dump($statement);
+        // dump($statement);
         return '';
     }
 }

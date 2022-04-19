@@ -6,14 +6,12 @@ use Closure;
 use Pixie\Binding;
 use Pixie\Exception;
 
-use function is_bool;
-
 use Pixie\Connection;
 
-use function is_float;
-
 use Pixie\WpdbHandler;
+
 use Pixie\QueryBuilder\Raw;
+
 use Pixie\Parser\Normalizer;
 use Pixie\Statement\Statement;
 use Pixie\Parser\TablePrefixer;
@@ -24,6 +22,8 @@ use Pixie\Statement\SelectStatement;
 use Pixie\JSON\JsonExpressionFactory;
 use Pixie\Statement\StatementBuilder;
 use Pixie\QueryBuilder\NestedCriteria;
+use function is_bool;
+use function is_float;
 
 class WPDBAdapter
 {
@@ -226,11 +226,11 @@ class WPDBAdapter
     public function doInsertB(StatementBuilder $col): array
     {
         $tables = $this->statementParser->table($col, true);
-        
+
         $sql = '';
         $bindings = [];
 
-        dump($col, $tables);
+        // dump($col, $tables);
 
         return compact('sql', 'bindings');
     }

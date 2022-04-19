@@ -190,7 +190,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $builder->table('foo')->select('*')->where('tree', '=', 'value')->count();
 
         $log = $this->wpdb->usage_log['get_results'][0];
-        $this->assertEquals("SELECT COUNT(*) AS field FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
+        $this->assertEquals("SELECT COUNT(*) AS aggregateValue FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
 
         // Check for valid SQL syntax
         $this->assertValidSQL($log['query']);
@@ -1298,7 +1298,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $builder->table('foo')->where('tree', '=', 'value')->count('multi->value->three');
 
         $log = $this->wpdb->usage_log['get_results'][0];
-        $this->assertEquals("SELECT COUNT(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS field FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
+        $this->assertEquals("SELECT COUNT(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS aggregateValue FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
 
         // Check for valid SQL syntax
         $this->assertValidSQL($log['query']);
@@ -1311,7 +1311,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $builder->table('foo')->where('tree', '=', 'value')->min('multi->value->three');
 
         $log = $this->wpdb->usage_log['get_results'][0];
-        $this->assertEquals("SELECT MIN(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS field FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
+        $this->assertEquals("SELECT MIN(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS aggregateValue FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
 
         // Check for valid SQL syntax
         $this->assertValidSQL($log['query']);
@@ -1324,7 +1324,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $builder->table('foo')->where('tree', '=', 'value')->max('multi->value->three');
 
         $log = $this->wpdb->usage_log['get_results'][0];
-        $this->assertEquals("SELECT MAX(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS field FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
+        $this->assertEquals("SELECT MAX(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS aggregateValue FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
 
         // Check for valid SQL syntax
         $this->assertValidSQL($log['query']);
@@ -1337,7 +1337,7 @@ class TestQueryBuilderSQLGeneration extends WP_UnitTestCase
         $builder->table('foo')->where('tree', '=', 'value')->average('multi->value->three');
 
         $log = $this->wpdb->usage_log['get_results'][0];
-        $this->assertEquals("SELECT AVG(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS field FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
+        $this->assertEquals("SELECT AVG(JSON_UNQUOTE(JSON_EXTRACT(multi, \"$.value.three\"))) AS aggregateValue FROM (SELECT * FROM foo WHERE tree = 'value') as count LIMIT 1", $log['query']);
 
         // Check for valid SQL syntax
         $this->assertValidSQL($log['query']);

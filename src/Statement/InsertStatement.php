@@ -33,7 +33,6 @@ use Pixie\Statement\Statement;
 
 class InsertStatement implements Statement
 {
-
     protected const IGNORE  = 'INSERT IGNORE';
     protected const REPLACE = 'REPLACE';
 

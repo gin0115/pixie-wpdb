@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace Pixie\Statement;
 
+use Pixie\JSON\JsonSelector;
 use Pixie\Statement\TableStatement;
 
 class StatementBuilder
@@ -136,6 +137,40 @@ class StatementBuilder
     {
         return 0 < count($this->getSelect());
     }
+
+    /**
+     * Checks if a field has been added to the select.
+     *
+     * @param string|JsonSelector $field
+     * @parm bool $allowWildeCard
+     * @return bool
+     */
+    public function selectHasColumn($field, bool $allowWildCard = false): bool
+    {
+        // Extract field from JSON Selector.
+        if ($field instanceof JsonSelector) {
+            $field = $field->getColumn();
+        }
+
+        foreach ($this->getSelect() as $select) {
+            // Check if the field is a wildcard.
+            if (true === $allowWildCard && $select->getField() === '*') {
+                return true;
+            }
+
+            // If we have a base field name, we can check if it exists
+            if ($select->getField() === $field) {
+                return true;
+            }
+
+            // If we have a field alias, we can check if it exists
+            if (! is_null($select->getAlias()) && $select->getAlias() === $field) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 
     /**
      * Adds a table statement to the collection.

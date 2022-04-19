@@ -27,13 +27,14 @@ declare(strict_types=1);
 namespace Pixie\Exception;
 
 use Pixie\Exception;
+use Pixie\JSON\JsonSelector;
 use Pixie\Statement\StatementBuilder;
 
 class StatementBuilderException extends Exception
 {
     private $statementBuilder;
 
-    public function __construct(StatementBuilder $statementBuilder, $message, $code = 0, Exception $previous = null)
+    public function __construct(StatementBuilder $statementBuilder, string $message, int $code = 0, Exception $previous = null)
     {
         $this->statementBuilder = $statementBuilder;
         parent::__construct($message, $code, $previous);
@@ -58,5 +59,25 @@ class StatementBuilderException extends Exception
     public static function noTableSelected(StatementBuilder $statementBuilder): StatementBuilderException
     {
         return new self($statementBuilder, 'No table selected.');
+    }
+
+    /**
+     * Undocumented function
+     *
+     * @param \Pixie\Statement\StatementBuilder $statementBuilder
+     * @param string $aggregateMethod
+     * @param string|JsonSelector $column
+     * @return StatementBuilderException
+     */
+    public static function columnNotSelectedForAggregate(StatementBuilder $statementBuilder, string $aggregateMethod, $column): StatementBuilderException
+    {
+        return new self(
+            $statementBuilder,
+            sprintf(
+                'Failed %s query - the column %s hasn\'t been selected in the query.',
+                $aggregateMethod,
+                $column instanceof JsonSelector ? $column->getColumn() : $column
+            )
+        );
     }
 }

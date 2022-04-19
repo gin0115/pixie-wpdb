@@ -450,7 +450,6 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
 
         // CREATE
         $builder->table('mock_foo')->updateOrInsert(['string' => 'second' ], ['number' => 42, 'string' => 'second' ]);
-        dump($builder->table('mock_foo')->get());
         $this->assertEquals(42, $builder->table('mock_foo')->find('second', 'string')->number);
         $this->assertCount(2, $builder->table('mock_foo')->get());
     }

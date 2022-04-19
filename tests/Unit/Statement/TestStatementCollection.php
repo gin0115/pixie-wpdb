@@ -28,8 +28,8 @@ class TestStatementBuilder extends WP_UnitTestCase
     /** @testdox It should be possible to get the contents of the collection */
     public function testGetCollectionItems(): void
     {
-        $collection = new StatementBuilder();
-        $array = $collection->getStatements();
+        $builder = new StatementBuilder();
+        $array = $builder->getStatements();
 
         // Check all keys exist
         $this->assertArrayHasKey(Statement::SELECT, $array);
@@ -38,9 +38,9 @@ class TestStatementBuilder extends WP_UnitTestCase
         $this->assertArrayHasKey('table', $array);
 
         // Add values,
-        $collection->addSelect($this->createMock(SelectStatement::class));
-        $collection->addTable($this->createMock(TableStatement::class));
-        $array = $collection->getStatements();
+        $builder->addSelect($this->createMock(SelectStatement::class));
+        $builder->addTable($this->createMock(TableStatement::class));
+        $array = $builder->getStatements();
         $this->assertCount(1, $array['select']);
         $this->assertCount(1, $array['table']);
     }
@@ -48,34 +48,34 @@ class TestStatementBuilder extends WP_UnitTestCase
     /** @testdox It should be possible to add, fetch select statements and check if any set. */
     public function testSelectStatement(): void
     {
-        $collection = new StatementBuilder();
+        $builder = new StatementBuilder();
 
         // Should be empty
-        $this->assertFalse($collection->hasSelect());
-        $this->assertEmpty($collection->getSelect());
+        $this->assertFalse($builder->hasSelect());
+        $this->assertEmpty($builder->getSelect());
 
         $statement = $this->createMock(SelectStatement::class);
-        $collection->addSelect($statement);
+        $builder->addSelect($statement);
 
-        $this->assertTrue($collection->hasSelect());
-        $this->assertCount(1, $collection->getSelect());
-        $this->assertContains($statement, $collection->getSelect());
+        $this->assertTrue($builder->hasSelect());
+        $this->assertCount(1, $builder->getSelect());
+        $this->assertContains($statement, $builder->getSelect());
     }
 
     /** @testdox It should be possible to add, fetch table statements and check if any set. */
     public function testTableStatement(): void
     {
-        $collection = new StatementBuilder();
+        $builder = new StatementBuilder();
 
         // Should be empty
-        $this->assertFalse($collection->hasTable());
-        $this->assertEmpty($collection->getTable());
+        $this->assertFalse($builder->hasTable());
+        $this->assertEmpty($builder->getTable());
 
         $statement = $this->createMock(TableStatement::class);
-        $collection->addTable($statement);
+        $builder->addTable($statement);
 
-        $this->assertTrue($collection->hasTable());
-        $this->assertCount(1, $collection->getTable());
-        $this->assertContains($statement, $collection->getTable());
+        $this->assertTrue($builder->hasTable());
+        $this->assertCount(1, $builder->getTable());
+        $this->assertContains($statement, $builder->getTable());
     }
 }

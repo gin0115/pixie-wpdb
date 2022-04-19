@@ -162,7 +162,7 @@ class Normalizer
     /**
      * Casts a table (string or Raw) including table prefixing.
      *
-     * @var string|Raw $table
+     * @param string|Raw $table
      * @return string
      */
     public function normalizeTable($table): string

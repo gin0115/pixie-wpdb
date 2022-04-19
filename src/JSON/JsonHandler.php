@@ -67,4 +67,29 @@ class JsonHandler
     {
         return $this->jsonSelectorHandler()->isJsonSelector($expression);
     }
+
+    /**
+     * Returns a JSON Selector from the passed expression
+     *
+     * @param string $selector
+     * @return JsonSelector
+     */
+    public function asJsonSelector(string $selector): JsonSelector
+    {
+        return $this->jsonSelectorHandler()->toJsonSelector($selector);
+    }
+
+    /**
+     * Extract and unquote a JSON selector from the passed expression
+     *
+     * @param JsonSelector $jsonSelector
+     * @return string
+     */
+    public function extractAndUnquoteSelector(JsonSelector $jsonSelector): string
+    {
+        return $this->jsonExpressionFactory()->extractAndUnquote(
+            $jsonSelector->getColumn(),
+            $jsonSelector->getNodes()
+        );
+    }
 }

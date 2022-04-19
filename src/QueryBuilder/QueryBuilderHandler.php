@@ -28,6 +28,7 @@ use Pixie\QueryBuilder\TablePrefixer;
 use Pixie\Statement\GroupByStatement;
 use Pixie\Statement\OrderByStatement;
 use Pixie\Statement\StatementBuilder;
+use ParagonIE\Sodium\Core\Poly1305\State;
 use Pixie\Exception\StatementBuilderException;
 
 class QueryBuilderHandler implements HasConnection
@@ -405,37 +406,52 @@ class QueryBuilderHandler implements HasConnection
      * @see Taken from the pecee-pixie library - https://github.com/skipperbent/pecee-pixie/
      *
      * @param string $type
-     * @param string|Raw $field
+     * @param string $column
      *
      * @return float
      */
-    protected function aggregate(string $type, $field = '*'): float
+    protected function aggregate(string $type, $column = '*'): float
     {
-        // Parse a raw expression.
-        if ($field instanceof Raw) {
-            $field = $this->adapterInstance->parseRaw($field);
-        }
-
-        // Potentialy cast field from JSON
-        if ($this->jsonHandler->isJsonSelector($field)) {
-            $field = $this->jsonHandler->extractAndUnquoteFromJsonSelector($field);
+        // Potentially cast field from JSON
+        if ($this->jsonHandler->isJsonSelector($column)) {
+            $column = $this->jsonHandler->asJsonSelector($column);
         }
 
         // Verify that field exists
-        if ('*' !== $field && true === isset($this->statements['selects']) && false === \in_array($field, $this->statements['selects'], true)) {
-            throw new \Exception(sprintf('Failed %s query - the column %s hasn\'t been selected in the query.', $type, $field));
+        if (
+            '*' !== $column
+            && $this->statementBuilder->hasSelect()
+            && !$this->statementBuilder->selectHasColumn($column, true)
+        ) {
+            throw StatementBuilderException::columnNotSelectedForAggregate(
+                $this->statementBuilder,
+                $type, 
+                $column 
+                );
+            
         }
 
-        if (false === isset($this->statements['tables'])) {
-            throw new Exception('No table selected');
+        if (false === $this->statementBuilder->hasTable()) {
+            throw StatementBuilderException::noTableSelected($this->statementBuilder);
         }
+
+        // Compose the select statement.
+        $selectStatement = $this->raw(
+            sprintf(
+                '%s(%s) AS aggregateValue',
+                strtoupper($type),
+                $column instanceof JsonSelector
+                    ? $this->jsonHandler->extractAndUnquoteSelector($column)
+                    : $column
+            )
+        );
 
         $count = $this
             ->table($this->subQuery($this, 'count'))
-            ->select(array( $this->raw(sprintf('%s(%s) AS field', strtoupper($type), $field)) ))
+            ->select($selectStatement)
             ->first();
 
-        return true === isset($count->field) ? (float) $count->field : 0;
+        return true === isset($count->aggregateValue) ? (float) $count->aggregateValue : 0;
     }
 
     /**
@@ -576,7 +592,7 @@ class QueryBuilderHandler implements HasConnection
         $statement = new InsertStatement($data, $type);
         $this->statementBuilder->addStatement($statement);
         $q = $this->adapterInstance->doInsertB($this->statementBuilder);
-        dump($q);
+        // dump($q);
 
         // If first value is not an array () not a batch insert)
         if (! is_array(current($data))) {
@@ -771,15 +787,14 @@ class QueryBuilderHandler implements HasConnection
      */
     public function select($fields): self
     {
-
         if (!is_array($fields)) {
             $fields = func_get_args();
         }
-        
+
         $fields2 = $this->maybeFlipArrayValues($fields);
         foreach ($fields2 as ['key' => $field, 'value' => $alias]) {
             // If no alias passed, but field is for JSON. thrown an exception.
-            if (is_numeric($field) && is_string($alias) && $this->jsonHandler->isJsonSelector($alias)) {
+            if (! is_string($alias) && $this->jsonHandler->isJsonSelector($field)) {
                 throw new Exception('An alias must be used if you wish to select from JSON Object', 1);
             }
 
@@ -794,10 +809,10 @@ class QueryBuilderHandler implements HasConnection
             $this->statementBuilder->addSelect($statement);
         }
 
-        
-return $this;
 
-// OLD CODE
+        return $this;
+
+        // OLD CODE
         foreach ($fields as $field => $alias) {
             // If no alias passed, but field is for JSON. thrown an exception.
             if (is_numeric($field) && is_string($alias) && $this->jsonHandler->isJsonSelector($alias)) {
@@ -1429,7 +1444,7 @@ return $this;
     /*************************************************************************/
 
     /**
-     * @param string|Raw $table
+     * @param string[]|string|Raw $table
      * @param string|Raw|Closure $key
      * @param string|null $operator
      * @param mixed $value
@@ -1441,9 +1456,9 @@ return $this;
     {
         $table1 = $this->maybeFlipArrayValues(is_array($table) ? $table : [$table]);
         $this->statementBuilder->addStatement(
-            new JoinStatement(end($table1) , $key, $operator, $value, $type)
+            new JoinStatement($table1[count($table1)-1], $key, $operator, $value, $type)
         );
-        
+
         // Potentially cast key from JSON
         if ($this->jsonHandler->isJsonSelector($key)) {
             /** @var string $key */

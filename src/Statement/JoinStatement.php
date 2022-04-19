@@ -123,7 +123,7 @@ class JoinStatement implements Statement
     /**
      * Gets the table.
      *
-     * @return string|Raw|array<string|int, string|Raw>
+     * @return string|Raw|array<value:string|int, key:string|Raw>
      */
     public function getTable()
     {

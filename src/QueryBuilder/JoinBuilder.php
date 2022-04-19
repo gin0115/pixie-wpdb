@@ -7,7 +7,7 @@ class JoinBuilder extends QueryBuilderHandler
     /**
      * Returns the closure used to create a join statement.
      *
-     * @param string|Raw|Closure $key
+     * @param string|Raw $key
      * @param string|null $operator
      * @param mixed $value
      * @return \Closure(JoinBuilder $joinBuilder):void
