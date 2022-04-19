@@ -8,7 +8,6 @@ use Throwable;
 use Pixie\Binding;
 use Pixie\Exception;
 use Pixie\Connection;
-use function mb_strlen;
 use Pixie\HasConnection;
 use Pixie\JSON\JsonHandler;
 use Pixie\QueryBuilder\Raw;
@@ -30,6 +29,7 @@ use Pixie\Statement\OrderByStatement;
 use Pixie\Statement\StatementBuilder;
 use ParagonIE\Sodium\Core\Poly1305\State;
 use Pixie\Exception\StatementBuilderException;
+use function mb_strlen;
 
 class QueryBuilderHandler implements HasConnection
 {
@@ -425,10 +425,9 @@ class QueryBuilderHandler implements HasConnection
         ) {
             throw StatementBuilderException::columnNotSelectedForAggregate(
                 $this->statementBuilder,
-                $type, 
-                $column 
-                );
-            
+                $type,
+                $column
+            );
         }
 
         if (false === $this->statementBuilder->hasTable()) {
@@ -1456,7 +1455,13 @@ class QueryBuilderHandler implements HasConnection
     {
         $table1 = $this->maybeFlipArrayValues(is_array($table) ? $table : [$table]);
         $this->statementBuilder->addStatement(
-            new JoinStatement($table1[count($table1)-1], $key, $operator, $value, $type)
+            new JoinStatement(
+                $table1[count($table1) - 1],
+                $key,
+                $operator,
+                $value,
+                $type
+            )
         );
 
         // Potentially cast key from JSON
