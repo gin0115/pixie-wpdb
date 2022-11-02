@@ -36,7 +36,7 @@
         "phpstan/phpstan": "^1.0",
         "szepeviktor/phpstan-wordpress": "^1.0",
         "php-stubs/wordpress-stubs": "^5.9.0",
-        "roots/wordpress": "^5.9",
+        "roots/wordpress": "^6.1",
         "wp-phpunit/wp-phpunit": "^5.9",
         "symfony/var-dumper": "4.*",
         "yoast/phpunit-polyfills": "^1.0.0",
