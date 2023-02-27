@@ -40,7 +40,7 @@
         "wp-phpunit/wp-phpunit": "^5.9",
         "symfony/var-dumper": "4.*",
         "yoast/phpunit-polyfills": "^1.0.0",
-        "gin0115/wpunit-helpers": "~1.0.0",
+        "gin0115/wpunit-helpers": "~1.1.1",
         "friendsofphp/php-cs-fixer": "^3",
         "phpmyadmin/sql-parser": "dev-master"
     },
