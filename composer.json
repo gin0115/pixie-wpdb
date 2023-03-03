@@ -38,7 +38,7 @@
         "php-stubs/wordpress-stubs": "^5.9.0",
         "roots/wordpress": "^5.9",
         "wp-phpunit/wp-phpunit": "^5.9",
-        "symfony/var-dumper": "4.*",
+        "symfony/var-dumper": "6.*",
         "yoast/phpunit-polyfills": "^1.0.0",
         "gin0115/wpunit-helpers": "~1.0.0",
         "friendsofphp/php-cs-fixer": "^3",
