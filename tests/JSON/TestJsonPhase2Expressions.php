@@ -131,6 +131,35 @@ class TestJsonPhase2Expressions extends WP_UnitTestCase
         );
     }
 
+    /** @testdox [#28] A Raw value is passed through unquoted into a modification expression. */
+    public function testRawValuePassthrough(): void
+    {
+        $raw = new \Pixie\QueryBuilder\Raw('NOW()');
+        $this->assertEquals(
+            'JSON_SET(data, "$.ts", NOW())',
+            (string) $this->exprFactory()->set('data', 'ts', $raw)
+        );
+    }
+
+    /** @testdox [#28] A Raw document is passed through unquoted into a merge expression. */
+    public function testRawDocumentPassthrough(): void
+    {
+        $raw = new \Pixie\QueryBuilder\Raw("JSON_OBJECT('a', 1)");
+        $this->assertEquals(
+            "JSON_MERGE_PATCH(data, JSON_OBJECT('a', 1))",
+            (string) $this->exprFactory()->mergePatch('data', $raw)
+        );
+    }
+
+    /** @testdox [#28] A float value is inlined numerically. */
+    public function testFloatValue(): void
+    {
+        $this->assertEquals(
+            'JSON_SET(data, "$.ratio", 1.5)',
+            (string) $this->exprFactory()->set('data', 'ratio', 1.5)
+        );
+    }
+
     /** @testdox [#28] orderByCast() generates a CAST over JSON_UNQUOTE(JSON_EXTRACT()). */
     public function testOrderByCast(): void
     {

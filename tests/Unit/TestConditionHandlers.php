@@ -94,6 +94,30 @@ class TestConditionHandlers extends WP_UnitTestCase
         $this->assertEquals('', $handler->build([]));
     }
 
+    /** @testdox [#31] JoinConditionHandler builds a JOIN with a plain (non-aliased) string table. */
+    public function testJoinHandlerPlainStringTable(): void
+    {
+        $statements = $this->qb()->table('foo')
+            ->join('bar', 'foo.id', '=', 'bar.foo_id')
+            ->getStatements();
+
+        $handler = new JoinConditionHandler($this->adapter());
+
+        $this->assertEquals('INNER JOIN bar ON foo.id = bar.foo_id', $handler->build($statements));
+    }
+
+    /** @testdox [#31] JoinConditionHandler builds a JOIN with a Raw table expression. */
+    public function testJoinHandlerRawTable(): void
+    {
+        $statements = $this->qb()->table('foo')
+            ->join(new \Pixie\QueryBuilder\Raw('bar'), 'foo.id', '=', 'bar.foo_id')
+            ->getStatements();
+
+        $handler = new JoinConditionHandler($this->adapter());
+
+        $this->assertEquals('INNER JOIN bar ON foo.id = bar.foo_id', $handler->build($statements));
+    }
+
     /** @testdox [#31][BC] End-to-end query generation is unchanged after the extraction. */
     public function testEndToEndUnchanged(): void
     {
