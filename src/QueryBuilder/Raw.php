@@ -15,7 +15,7 @@ class Raw
     protected $bindings;
 
     /**
-     * @param string $value
+     * @param string        $value
      * @param mixed|mixed[] $bindings
      */
     public function __construct($value, $bindings = [])
@@ -27,7 +27,8 @@ class Raw
     /**
      * Create a Raw instance with no bindings
      *
-     * @param string $value
+     * @param  string $value
+     *
      * @return self
      */
     public static function val(string $value): self

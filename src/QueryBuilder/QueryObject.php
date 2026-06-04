@@ -22,9 +22,9 @@ class QueryObject
     protected $dbInstance;
 
     /**
-     * @param string $sql
+     * @param string  $sql
      * @param mixed[] $bindings
-     * @param wpdb $dbInstance
+     * @param wpdb    $dbInstance
      */
     public function __construct(string $sql, array $bindings, wpdb $dbInstance)
     {
@@ -61,16 +61,16 @@ class QueryObject
 
     /**
      * Uses WPDB::prepare() to interpolate the query passed.
-
      *
-     * @param string $query  The sql query with parameter placeholders
-     * @param mixed[]  $params The array of substitution parameters
+     * @param string  $query  The sql query with parameter placeholders
+     * @param mixed[] $params The array of substitution parameters
      *
      * @return string The interpolated query
      */
     protected function interpolateQuery($query, $params): string
     {
         // Only call this when we have valid params (avoids wpdb::prepare() incorrectly called error)
+        // @phpstan-ignore-next-line — the query builder produces a dynamic (non-literal) string by design.
         $value = empty($params) ? $query : $this->dbInstance->prepare($query, $params);
 
         return is_string($value) ? $value : '';

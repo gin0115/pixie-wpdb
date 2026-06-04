@@ -2,20 +2,25 @@
 
 namespace Pixie;
 
-use wpdb;
 use Exception;
-use Viocon\Container;
 use Pixie\AliasFacade;
 use Pixie\EventHandler;
 use Pixie\QueryBuilder\QueryBuilderHandler;
+use Viocon\Container;
+use wpdb;
+
+use function mb_strlen;
 
 class Connection
 {
-    /** Config keys */
+    /**
+     * Config keys
+     */
     public const CLONE_WPDB        = 'clone_wpdb';
     public const PREFIX            = 'prefix';
     public const SHOW_ERRORS       = 'show_errors';
     public const USE_WPDB_PREFIX   = 'use_wpdb_prefix';
+    public const THROW_ON_ERROR    = 'throw_on_error';
 
     /**
      * @var Container
@@ -49,15 +54,15 @@ class Connection
 
     /**
      * @param wpdb                 $wpdb
-     * @param array<string, mixed>  $adapterConfig
-     * @param string|null           $alias
-     * @param Container|null        $container
+     * @param array<string, mixed> $adapterConfig
+     * @param string|null          $alias
+     * @param Container|null       $container
      */
     public function __construct(
         wpdb $wpdb,
         array $adapterConfig = [],
         ?string $alias = null,
-        ?Container $container = null
+        ?Container $container = null,
     ) {
         $this->setAdapterConfig($adapterConfig);
         $this->dbInstance = $this->configureWpdb($wpdb);
@@ -78,23 +83,22 @@ class Connection
     /**
      * Configures the instance of WPDB based on adaptor config values.
      *
-     * @param \wpdb $wpdb
-     * @return \wpdb
+     * @param  wpdb $wpdb
+     *
+     * @return wpdb
      */
     protected function configureWpdb(wpdb $wpdb): wpdb
     {
         // Maybe clone instance.
-        if (
-            array_key_exists(self::CLONE_WPDB, $this->adapterConfig)
+        if (array_key_exists(self::CLONE_WPDB, $this->adapterConfig)
             && true === $this->adapterConfig[self::CLONE_WPDB]
         ) {
             $wpdb = clone $wpdb;
         }
 
         // Maybe set the prefix to WPDB's.
-        if (
-            array_key_exists(self::USE_WPDB_PREFIX, $this->adapterConfig)
-            && 0 < \mb_strlen($this->adapterConfig[self::USE_WPDB_PREFIX])
+        if (array_key_exists(self::USE_WPDB_PREFIX, $this->adapterConfig)
+            && 0 < mb_strlen($this->adapterConfig[self::USE_WPDB_PREFIX])
         ) {
             $this->adapterConfig[self::PREFIX] = $wpdb->prefix;
         }

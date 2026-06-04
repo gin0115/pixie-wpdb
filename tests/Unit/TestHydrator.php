@@ -30,9 +30,9 @@ class TestHydrator extends WP_UnitTestCase
         $model = $hydrator->from(['foo' => 'a', 'bar' => 'b']);
 
         $this->assertInstanceOf(ModelWithUnderscoreSetters::class, $model);
-        $this->assertObjectHasAttribute('foo', $model);
+        $this->assertObjectHasProperty('foo', $model);
         $this->assertEquals('a', $model->foo);
-        $this->assertObjectHasAttribute('bar', $model);
+        $this->assertObjectHasProperty('bar', $model);
         $this->assertEquals('b', $model->bar);
     }
 
@@ -43,9 +43,9 @@ class TestHydrator extends WP_UnitTestCase
         $model = $hydrator->from((object)['foo' => 'a', 'bar' => 'b']);
 
         $this->assertInstanceOf(ModelWithUnderscoreSetters::class, $model);
-        $this->assertObjectHasAttribute('foo', $model);
+        $this->assertObjectHasProperty('foo', $model);
         $this->assertEquals('a', $model->foo);
-        $this->assertObjectHasAttribute('bar', $model);
+        $this->assertObjectHasProperty('bar', $model);
         $this->assertEquals('b', $model->bar);
     }
 
@@ -56,9 +56,9 @@ class TestHydrator extends WP_UnitTestCase
         $model = $hydrator->from(['foo' => 'a', 'bar' => 'b']);
 
         $this->assertInstanceOf(ModelWithSetters::class, $model);
-        $this->assertObjectHasAttribute('foo', $model);
+        $this->assertObjectHasProperty('foo', $model);
         $this->assertEquals('a', $model->foo);
-        $this->assertObjectHasAttribute('bar', $model);
+        $this->assertObjectHasProperty('bar', $model);
         $this->assertEquals('b', $model->bar);
     }
 
@@ -69,9 +69,9 @@ class TestHydrator extends WP_UnitTestCase
         $model = $hydrator->from((object)['foo' => 'a', 'bar' => 'b']);
 
         $this->assertInstanceOf(ModelWithSetters::class, $model);
-        $this->assertObjectHasAttribute('foo', $model);
+        $this->assertObjectHasProperty('foo', $model);
         $this->assertEquals('a', $model->foo);
-        $this->assertObjectHasAttribute('bar', $model);
+        $this->assertObjectHasProperty('bar', $model);
         $this->assertEquals('b', $model->bar);
     }
 
@@ -82,9 +82,9 @@ class TestHydrator extends WP_UnitTestCase
         $model = $hydrator->from(['foo' => 'a', 'bar' => 'b']);
 
         $this->assertInstanceOf(ModelWithNoSetters::class, $model);
-        $this->assertObjectHasAttribute('foo', $model);
+        $this->assertObjectHasProperty('foo', $model);
         $this->assertEquals('a', $model->foo);
-        $this->assertObjectHasAttribute('bar', $model);
+        $this->assertObjectHasProperty('bar', $model);
         $this->assertEquals('b', $model->bar);
     }
 
@@ -95,9 +95,9 @@ class TestHydrator extends WP_UnitTestCase
         $model = $hydrator->from((object)['foo' => 'a', 'bar' => 'b']);
 
         $this->assertInstanceOf(ModelWithNoSetters::class, $model);
-        $this->assertObjectHasAttribute('foo', $model);
+        $this->assertObjectHasProperty('foo', $model);
         $this->assertEquals('a', $model->foo);
-        $this->assertObjectHasAttribute('bar', $model);
+        $this->assertObjectHasProperty('bar', $model);
         $this->assertEquals('b', $model->bar);
     }
 

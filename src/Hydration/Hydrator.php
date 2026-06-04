@@ -11,19 +11,19 @@ namespace Pixie\Hydration;
 use Exception;
 use stdClass;
 use Throwable;
+
 use function is_object;
 use function method_exists;
 use function trim;
 use function ucfirst;
 
 /**
- * @template T
+ * @template T of object
  */
 class Hydrator
 {
     /**
      * The model to hydrate
-
      *
      * @var class-string<T>
      */
@@ -37,8 +37,8 @@ class Hydrator
     protected $constructorArgs;
 
     /**
-
-     * @param class-string<T> $model
+     *
+     * @param class-string<T>          $model
      * @param array<string|int, mixed> $constructorArgs
      */
     public function __construct(string $model = stdClass::class, array $constructorArgs = [])
@@ -113,7 +113,6 @@ class Hydrator
 
     /**
      * Construct an instance of the model
-
      *
      * @return T
      */
@@ -121,7 +120,9 @@ class Hydrator
     {
         $class = $this->model;
         try {
-            /** @var T */
+            /**
+             * @var T
+             */
             $instance = empty($this->constructorArgs)
                 ? new $class()
                 : new $class(...$this->constructorArgs);
@@ -135,9 +136,9 @@ class Hydrator
     /**
      * Sets a property to the current model
      *
-     * @param T $model
+     * @param T      $model
      * @param string $property
-     * @param mixed $value
+     * @param mixed  $value
      *
      * @return T
      */
@@ -187,7 +188,7 @@ class Hydrator
      * Generates a generic setter method using either underscore [set_property()] or PSR2 style [setProperty()]
      *
      * @param string $property
-     * @param bool $underscore
+     * @param bool   $underscore
      *
      * @return string
      */

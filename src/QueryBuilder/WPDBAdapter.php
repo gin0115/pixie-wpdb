@@ -4,13 +4,14 @@ namespace Pixie\QueryBuilder;
 
 use Closure;
 use Pixie\Binding;
-use Pixie\Exception;
-
 use Pixie\Connection;
-
-use Pixie\QueryBuilder\Raw;
-
+use Pixie\Exception;
+use Pixie\QueryBuilder\Handler\JoinConditionHandler;
+use Pixie\QueryBuilder\Handler\SelectConditionHandler;
+use Pixie\QueryBuilder\Handler\TableConditionHandler;
+use Pixie\QueryBuilder\Handler\WhereConditionHandler;
 use Pixie\QueryBuilder\NestedCriteria;
+use Pixie\QueryBuilder\Raw;
 
 use function is_bool;
 use function is_float;
@@ -23,7 +24,7 @@ class WPDBAdapter
     protected $sanitizer = '';
 
     /**
-     * @var \Pixie\Connection
+     * @var Connection
      */
     protected $connection;
 
@@ -32,10 +33,46 @@ class WPDBAdapter
      */
     protected $container;
 
+    /**
+     * Self-contained identifier sanitiser (#48).
+     *
+     * @var Sanitizer
+     */
+    protected $sanitizerHandler;
+
+    /**
+     * Self-contained condition handlers (#31).
+     *
+     * @var TableConditionHandler
+     */
+    protected $tableConditionHandler;
+
+    /**
+     * @var SelectConditionHandler
+     */
+    protected $selectConditionHandler;
+
+    /**
+     * @var WhereConditionHandler
+     */
+    protected $whereConditionHandler;
+
+    /**
+     * @var JoinConditionHandler
+     */
+    protected $joinConditionHandler;
+
     public function __construct(Connection $connection)
     {
-        $this->connection = $connection;
-        $this->container  = $this->connection->getContainer();
+        $this->connection       = $connection;
+        $this->container        = $this->connection->getContainer();
+        $this->sanitizerHandler = new Sanitizer($this->sanitizer);
+
+        // Self-contained condition handlers (#31).
+        $this->tableConditionHandler  = new TableConditionHandler($this);
+        $this->selectConditionHandler = new SelectConditionHandler($this);
+        $this->whereConditionHandler  = new WhereConditionHandler($this);
+        $this->joinConditionHandler   = new JoinConditionHandler($this);
     }
 
     /**
@@ -55,10 +92,10 @@ class WPDBAdapter
             $statements['selects'][] = '*';
         }
 
-        // From
-        $tables = $this->arrayStr($statements['tables'], ', ');
-        // Select
-        $selects = $this->arrayStr($statements['selects'], ', ');
+        // From (delegated to TableConditionHandler #31)
+        $tables = $this->tableConditionHandler->build($statements['tables']);
+        // Select (delegated to SelectConditionHandler #31)
+        $selects = $this->selectConditionHandler->build($statements['selects']);
 
         // Wheres
         list($whereCriteria, $whereBindings) = $this->buildCriteriaWithType($statements, 'wheres', 'WHERE');
@@ -95,7 +132,9 @@ class WPDBAdapter
         // Joins
         $joinString = $this->buildJoin($statements);
 
-        /** @var string[] */
+        /**
+         * @var string[]
+         */
         $sqlArray = [
             'SELECT' . (isset($statements['distinct']) ? ' DISTINCT' : ''),
             $selects,
@@ -124,7 +163,7 @@ class WPDBAdapter
      * Build just criteria part of the query
      *
      * @param array<string|Closure, mixed|mixed[]> $statements
-     * @param bool $bindValues
+     * @param bool                                 $bindValues
      *
      * @return array{sql:string[]|string, bindings:array<mixed>}
      */
@@ -144,8 +183,8 @@ class WPDBAdapter
      * Build a generic insert/ignore/replace query
      *
      * @param array<string|Closure, mixed|mixed[]> $statements
-     * @param array<string, mixed> $data
-     * @param string $type
+     * @param array<string, mixed>                 $data
+     * @param string                               $type
      *
      * @return array{sql:string, bindings:mixed[]}
      *
@@ -183,11 +222,11 @@ class WPDBAdapter
         }
 
         $sqlArray = [
-        $type . ' INTO',
-        $this->wrapSanitizer($table),
-        '(' . $this->arrayStr($keys, ',') . ')',
-        'VALUES',
-        '(' . $this->arrayStr($values, ',') . ')',
+            $type . ' INTO',
+            $this->wrapSanitizer($table),
+            '(' . $this->arrayStr($keys, ',') . ')',
+            'VALUES',
+            '(' . $this->arrayStr($values, ',') . ')',
         ];
 
         if (isset($statements['onduplicate'])) {
@@ -219,11 +258,13 @@ class WPDBAdapter
     /**
      * Attempts to stringify a single of values.
      *
+     * Public so the extracted condition handlers (#31) can reuse it.
+     *
      * @param string|Closure|Raw $value
      *
      * @return string|null
      */
-    protected function stringifyValue($value): ?string
+    public function stringifyValue($value): ?string
     {
         if ($value instanceof Closure) {
             $value = $value();
@@ -242,7 +283,7 @@ class WPDBAdapter
      * Build Insert query
      *
      * @param array<string|Closure, mixed|mixed[]> $statements
-     * @param array<string, mixed> $data $data
+     * @param array<string, mixed>                 $data       $data
      *
      * @return array{sql:string, bindings:mixed[]}
      *
@@ -257,7 +298,7 @@ class WPDBAdapter
      * Build Insert Ignore query
      *
      * @param array<string|Closure, mixed|mixed[]> $statements
-     * @param array<string, mixed> $data $data
+     * @param array<string, mixed>                 $data       $data
      *
      * @return array{sql:string, bindings:mixed[]}
      *
@@ -272,7 +313,7 @@ class WPDBAdapter
      * Build Insert Ignore query
      *
      * @param array<string|Closure, mixed|mixed[]> $statements
-     * @param array<string, mixed> $data $data
+     * @param array<string, mixed>                 $data       $data
      *
      * @return array{sql:string, bindings:mixed[]}
      *
@@ -322,7 +363,7 @@ class WPDBAdapter
      * Build update query
      *
      * @param array<string|Closure, mixed|mixed[]> $statements
-     * @param array<string, mixed> $data
+     * @param array<string, mixed>                 $data
      *
      * @return array{sql:string, bindings:mixed[]}
      *
@@ -402,11 +443,11 @@ class WPDBAdapter
      * But it does wrap sanitizer and trims last glue
      *
      * @param array<string|int, string> $pieces
-     * @param string $glue
+     * @param string                    $glue
      *
      * @return string
      */
-    protected function arrayStr(array $pieces, string $glue): string
+    public function arrayStr(array $pieces, string $glue): string
     {
         $str = '';
         foreach ($pieces as $key => $piece) {
@@ -427,7 +468,7 @@ class WPDBAdapter
      *
      * @return string
      */
-    protected function concatenateQuery(array $pieces): string
+    public function concatenateQuery(array $pieces): string
     {
         $str = '';
         foreach ($pieces as $piece) {
@@ -440,19 +481,21 @@ class WPDBAdapter
     /**
      * Gets the type of a value, either from a binding or infered
      *
-     * @param mixed $value
+     * @param  mixed $value
+     *
      * @return string
      */
     public function getType($value): string
     {
-        return $value instanceof Binding && $value->getType() !== null
-            ? $value->getType() : $this->inferType($value) ;
+        return $value instanceof Binding && null !== $value->getType()
+            ? $value->getType() : $this->inferType($value);
     }
 
     /**
      * Get the value from a possible Bindings object.
      *
-     * @param mixed $value
+     * @param  mixed $value
+     *
      * @return mixed
      */
     public function getValue($value)
@@ -463,12 +506,14 @@ class WPDBAdapter
     /**
      * Attempts to parse a raw query, if bindings are defined then they will be bound first.
      *
-     * @param Raw $raw
+     * @param    Raw $raw
+     *
      * @requires string
      */
     public function parseRaw(Raw $raw): string
     {
         $bindings = $raw->getBindings();
+
         return 0 === count($bindings)
             ? (string) $raw
             : $this->interpolateQuery($raw->getValue(), $bindings);
@@ -477,8 +522,9 @@ class WPDBAdapter
     /**
      * Interpolates a query
      *
-     * @param string $query
-     * @param array<mixed> $bindings
+     * @param  string       $query
+     * @param  array<mixed> $bindings
+     *
      * @return string
      */
     public function interpolateQuery(string $query, array $bindings = []): string
@@ -487,9 +533,10 @@ class WPDBAdapter
             return $query;
         }
 
-
         $bindings = array_map([$this, 'getValue'], $bindings);
-        $query = $this->connection->getDbInstance()->prepare($query, $bindings) ;
+        // @phpstan-ignore-next-line — the query builder produces a dynamic (non-literal) string by design.
+        $query = $this->connection->getDbInstance()->prepare($query, $bindings);
+
         return is_string($query) ? $query : '';
     }
 
@@ -497,11 +544,11 @@ class WPDBAdapter
      * Build generic criteria string and bindings from statements, like "a = b and c = ?"
      *
      * @param array<string|Closure, mixed|mixed[]> $statements
-     * @param bool $bindValues
+     * @param bool                                 $bindValues
      *
      * @return array{0:string,1:string[]}
      */
-    protected function buildCriteria(array $statements, bool $bindValues = true): array
+    public function buildCriteria(array $statements, bool $bindValues = true): array
     {
         $criteria = '';
         $bindings = [];
@@ -511,7 +558,9 @@ class WPDBAdapter
 
             // If the value is a Raw Binding, cast to raw
             if ($value instanceof Binding && Binding::RAW === $value->getType()) {
-                /** @var Raw */
+                /**
+                 * @var Raw
+                 */
                 $value = $value->getValue();
             }
 
@@ -549,23 +598,27 @@ class WPDBAdapter
                         $value[1] = $this->getValue($value[1]);
 
                         // Parse any raws.
-                        $value = array_map(function ($value) {
-                            return $value instanceof Raw
+                        $value = array_map(
+                            function ($value) {
+                                return $value instanceof Raw
                                 ? $this->parseRaw($value)
                                 : $value;
-                        }, $value);
+                            },
+                            $value
+                        );
                         break;
                     default:
                         $valuePlaceholder = '';
                         foreach ($statement['value'] as $subValue) {
                             // Get its value.
                             if ($this->getValue($subValue) instanceof Raw) {
-                                /** @var Raw $subValue */
+                                /**
+                                 * @var Raw $subValue
+                                 */
                                 $subValue = $this->getValue($subValue);
                                 $valuePlaceholder .= sprintf('%s, ', $this->parseRaw($subValue));
                                 continue;
                             }
-
 
                             // Add in format placeholders.
                             $valuePlaceholder .= sprintf('%s, ', $this->getType($subValue)); // glynn
@@ -630,60 +683,32 @@ class WPDBAdapter
     /**
      * Wrap values with adapter's sanitizer like, '`'
      *
+     * The wrapping logic now lives in the self-contained Sanitizer class (#48);
+     * this method is retained as a backwards-compatible delegating wrapper.
+     *
      * @param string|Raw|Closure $value
      *
      * @return string|Closure
      */
     public function wrapSanitizer($value)
     {
-        // Its a raw query, just cast as string, object has __toString()
-        if ($value instanceof Raw) {
-            return $this->parseRaw($value);
-        } elseif ($value instanceof Closure) {
-            return $value;
-        }
-
-        // Separate our table and fields which are joined with a ".",
-        // like my_table.id
-        $valueArr = explode('.', $value, 2);
-
-        foreach ($valueArr as $key => $subValue) {
-            // Don't wrap if we have *, which is not a usual field
-            $valueArr[$key] = '*' == trim($subValue) ? $subValue : $this->sanitizer . $subValue . $this->sanitizer;
-        }
-
-        // Join these back with "." and return
-        return implode('.', $valueArr);
+        return $this->sanitizerHandler->wrap($value, [$this, 'parseRaw']);
     }
 
     /**
      * Build criteria string and binding with various types added, like WHERE and Having
      *
      * @param array<string|Closure, mixed|mixed[]> $statements
-     * @param string $key
-     * @param string $type
-     * @param bool $bindValues
+     * @param string                               $key
+     * @param string                               $type
+     * @param bool                                 $bindValues
      *
      * @return array{0:string, 1:string[]}
      */
     protected function buildCriteriaWithType(array $statements, string $key, string $type, bool $bindValues = true)
     {
-        $criteria = '';
-        $bindings = [];
-
-        if (isset($statements[$key])) {
-            // Get the generic/adapter agnostic criteria string from parent
-            list($criteria, $bindings) = $this->buildCriteria($statements[$key], $bindValues);
-
-            if ($criteria) {
-                $criteria = $type . ' ' . $criteria;
-            }
-        }
-
-        // Remove any multiple whitespace.
-        $criteria = (string) preg_replace('!\s+!', ' ', $criteria);
-
-        return [$criteria, $bindings];
+        // Delegated to the self-contained WhereConditionHandler (#31).
+        return $this->whereConditionHandler->build($statements, $key, $type, $bindValues);
     }
 
     /**
@@ -695,37 +720,7 @@ class WPDBAdapter
      */
     protected function buildJoin(array $statements): string
     {
-        $sql = '';
-
-        if (!array_key_exists('joins', $statements) || !is_array($statements['joins'])) {
-            return $sql;
-        }
-
-        foreach ($statements['joins'] as $joinArr) {
-            if (is_array($joinArr['table'])) {
-                $mainTable  = $this->stringifyValue($this->wrapSanitizer($joinArr['table'][0]));
-                $aliasTable = $this->stringifyValue($this->wrapSanitizer($joinArr['table'][1]));
-                $table      = $mainTable . ' AS ' . $aliasTable;
-            } else {
-                $table = $joinArr['table'] instanceof Raw
-                    ? $this->parseRaw($joinArr['table'])
-                    : $this->wrapSanitizer($joinArr['table']);
-            }
-            $joinBuilder = $joinArr['joinBuilder'];
-
-            /** @var string[] */
-            $sqlArr = [
-                $sql,
-                strtoupper($joinArr['type']),
-                'JOIN',
-                $table,
-                'ON',
-                $joinBuilder->getQuery('criteriaOnly', false)->getSql(),
-            ];
-
-            $sql = $this->concatenateQuery($sqlArr);
-        }
-
-        return $sql;
+        // Delegated to the self-contained JoinConditionHandler (#31).
+        return $this->joinConditionHandler->build($statements);
     }
 }

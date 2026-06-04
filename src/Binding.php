@@ -8,11 +8,11 @@ use Pixie\QueryBuilder\Raw;
 class Binding
 {
     public const STRING = '%s';
-    public const BOOL = '%d';
-    public const INT = '%d';
-    public const FLOAT = '%f';
-    public const JSON = '%s';
-    public const RAW = ':RAW';
+    public const BOOL   = '%d';
+    public const INT    = '%d';
+    public const FLOAT  = '%f';
+    public const JSON   = '%s';
+    public const RAW    = ':RAW';
 
     /**
      * Holds the value to bind with
@@ -36,14 +36,14 @@ class Binding
     protected $isRaw = false;
 
     /**
-     * @param mixed $value
+     * @param mixed       $value
      * @param string|null $type
      */
     public function __construct($value, ?string $type = null)
     {
         $this->verifyType($type);
         $this->value = $value;
-        $this->type = $type;
+        $this->type  = $type;
         if (self::RAW === $type) {
             $this->isRaw = true;
         }
@@ -52,7 +52,8 @@ class Binding
     /**
      * Creates a binding for a String
      *
-     * @param mixed $value
+     * @param  mixed $value
+     *
      * @return self
      */
     public static function asString($value): self
@@ -63,7 +64,8 @@ class Binding
     /**
      * Creates a binding for a Float
      *
-     * @param mixed $value
+     * @param  mixed $value
+     *
      * @return self
      */
     public static function asFloat($value): self
@@ -74,7 +76,8 @@ class Binding
     /**
      * Creates a binding for a Int
      *
-     * @param mixed $value
+     * @param  mixed $value
+     *
      * @return self
      */
     public static function asInt($value): self
@@ -85,7 +88,8 @@ class Binding
     /**
      * Creates a binding for a Bool
      *
-     * @param mixed $value
+     * @param  mixed $value
+     *
      * @return self
      */
     public static function asBool($value): self
@@ -96,7 +100,8 @@ class Binding
     /**
      * Creates a binding for a JSON
      *
-     * @param mixed $value
+     * @param  mixed $value
+     *
      * @return self
      */
     public static function asJSON($value): self
@@ -107,7 +112,8 @@ class Binding
     /**
      * Creates a binding for a Raw
      *
-     * @param mixed $value
+     * @param  mixed $value
+     *
      * @return self
      */
     public static function asRaw($value): self
@@ -118,9 +124,11 @@ class Binding
     /**
      * Verifies that the passed type is allowed
      *
-     * @param string|null $type
+     * @param  string|null $type
+     *
      * @return void
-     * @throws Exception if not a valid type.
+     *
+     * @throws Exception if not a valid type
      */
     protected function verifyType(?string $type): void
     {
@@ -147,7 +155,7 @@ class Binding
      */
     public function getValue()
     {
-        return ! $this->hasTypeDefined()
+        return !$this->hasTypeDefined()
             ? new Raw($this->value)
             : $this->value;
     }

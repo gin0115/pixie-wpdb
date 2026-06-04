@@ -3,20 +3,22 @@
 namespace Pixie\QueryBuilder;
 
 use Closure;
-use Pixie\Exception;
 use Pixie\Connection;
+use Pixie\Exception;
 use Pixie\QueryBuilder\Raw;
+
+use function substr_count;
 
 trait TablePrefixer
 {
     /**
-         * Add table prefix (if given) on given string.
-         *
-         * @param array<string|int, string|int|float|bool|Raw|Closure>|string|int|float|bool|Raw|Closure     $values
-         * @param bool $tableFieldMix If we have mixes of field and table names with a "."
-         *
-         * @return mixed|mixed[]
-         */
+     * Add table prefix (if given) on given string.
+     *
+     * @param array<string|int, string|int|float|bool|Raw|Closure>|string|int|float|bool|Raw|Closure $values
+     * @param bool                                                                                   $tableFieldMix If we have mixes of field and table names with a "."
+     *
+     * @return mixed|mixed[]
+     */
     public function addTablePrefix($values, bool $tableFieldMix = true)
     {
         if (is_null($this->getTablePrefix())) {
@@ -50,12 +52,11 @@ trait TablePrefixer
             }
 
             // Do prefix if the target is an expression or function.
-            if (
-                !$tableFieldMix
+            if (!$tableFieldMix
                 || (
                     is_string($target) // Must be a string
-                    && (bool) preg_match('/^[A-Za-z0-9_.]+$/', $target) // Can only contain letters, numbers, underscore and full stops
-                    && 1 === \substr_count($target, '.') // Contains a single full stop ONLY.
+                && (bool) preg_match('/^[A-Za-z0-9_.]+$/', $target) // Can only contain letters, numbers, underscore and full stops
+                && 1 === substr_count($target, '.') // Contains a single full stop ONLY.
                 )
             ) {
                 $target = $this->getTablePrefix() . $target;
@@ -76,9 +77,9 @@ trait TablePrefixer
     protected function getTablePrefix(): ?string
     {
         $adapterConfig = $this->getConnection()->getAdapterConfig();
-        return isset($adapterConfig[Connection::PREFIX])
-            ? $adapterConfig[Connection::PREFIX]
-            : null;
+
+        return $adapterConfig[Connection::PREFIX]
+            ?? null;
     }
 
     abstract public function getConnection(): Connection;

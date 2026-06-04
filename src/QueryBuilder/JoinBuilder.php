@@ -2,12 +2,14 @@
 
 namespace Pixie\QueryBuilder;
 
+use Pixie\QueryBuilder\Statement\CriteriaStatement;
+
 class JoinBuilder extends QueryBuilderHandler
 {
     /**
-     * @param string|Raw $key
+     * @param string|Raw  $key
      * @param string|null $operator
-     * @param mixed $value
+     * @param mixed       $value
      *
      * @return static
      */
@@ -17,9 +19,9 @@ class JoinBuilder extends QueryBuilderHandler
     }
 
     /**
-     * @param string|Raw $key
+     * @param string|Raw  $key
      * @param string|null $operator
-     * @param mixed $value
+     * @param mixed       $value
      *
      * @return static
      */
@@ -29,9 +31,9 @@ class JoinBuilder extends QueryBuilderHandler
     }
 
     /**
-     * @param string|Raw $key
+     * @param string|Raw  $key
      * @param string|null $operator
-     * @param mixed $value
+     * @param mixed       $value
      *
      * @return static
      */
@@ -39,7 +41,7 @@ class JoinBuilder extends QueryBuilderHandler
     {
         $key                            = $this->addTablePrefix($key);
         $value                          = $this->addTablePrefix($value);
-        $this->statements['criteria'][] = compact('key', 'operator', 'value', 'joiner');
+        $this->statements['criteria'][] = new CriteriaStatement($key, $operator, $value, $joiner);
 
         return $this;
     }

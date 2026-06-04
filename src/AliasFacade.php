@@ -8,7 +8,6 @@ use Pixie\QueryBuilder\QueryBuilderHandler;
  * This class gives the ability to access non-static methods statically
  *
  * Class AliasFacade
- *
  */
 class AliasFacade
 {
@@ -18,7 +17,7 @@ class AliasFacade
     protected static $queryBuilderInstance;
 
     /**
-     * @param string $method
+     * @param string  $method
      * @param mixed[] $args
      *
      * @return mixed
