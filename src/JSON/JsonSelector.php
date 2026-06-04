@@ -19,13 +19,13 @@ class JsonSelector
     protected $nodes;
 
     /**
-     * @param string $column
+     * @param string   $column
      * @param string[] $nodes
      */
     public function __construct(string $column, array $nodes)
     {
         $this->column = $column;
-        $this->nodes = $nodes;
+        $this->nodes  = $nodes;
     }
 
     /**

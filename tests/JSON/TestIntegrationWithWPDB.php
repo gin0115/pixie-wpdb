@@ -214,10 +214,10 @@ class TestIntegrationWithWPDB extends WP_UnitTestCase
         $this->assertEquals('a', $arrayValues->string);
         $this->assertEquals('[1, 2, 3, 4]', $arrayValues->jsonVALUE);
         $this->assertCount(4, \json_decode($arrayValues->jsonVALUE));
-        $this->assertContains('1', \json_decode($arrayValues->jsonVALUE));
-        $this->assertContains('2', \json_decode($arrayValues->jsonVALUE));
-        $this->assertContains('3', \json_decode($arrayValues->jsonVALUE));
-        $this->assertContains('4', \json_decode($arrayValues->jsonVALUE));
+        $this->assertContainsEquals('1', \json_decode($arrayValues->jsonVALUE));
+        $this->assertContainsEquals('2', \json_decode($arrayValues->jsonVALUE));
+        $this->assertContainsEquals('3', \json_decode($arrayValues->jsonVALUE));
+        $this->assertContainsEquals('4', \json_decode($arrayValues->jsonVALUE));
 
         // Pluck a single item from an array using its key.
         $pluckArrayValue = $this->jsonQueryBuilderProvider('mock_')

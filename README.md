@@ -28,12 +28,38 @@ An expressive, query builder for WordPRess it can also be referred as a Database
 $thing = QB::table('someTable')->where('something','=', 'something else')->first();
 ```
 
+## New in v0.2
+
+The v0.2 refinements add the following, all backwards-compatible:
+
+* **Opt-in throw on WPDB error** — set `Connection::THROW_ON_ERROR` to have a `$wpdb` error raise a `Pixie\WpDbException` instead of failing silently.
+* **Table aliases** — alias a selection or join table with the array syntax `['table' => 'alias']`, e.g. `->table(['posts' => 'p'])` / `->join(['users' => 'u'], …)`.
+* **`when()`** — Eloquent-style conditional: `->when($condition, fn($q) => $q->where(…), fn($q) => …)`.
+* **JSON Support Phase 2** — verbose, portable JSON modification expressions via `$qb->jsonExpression()`: `set`, `insert`, `replace`, `appendArray`, `insertArray`, `remove`, `merge`, `mergePatch`, `mergePreserve`, plus `orderByJson($col, $nodes, $dir, $castType)`. Uses the verbose `JSON_*` function syntax (never `->`/`->>`) so it runs on MySQL 5.7+ and MariaDB 10.2+.
+
+```php
+// Throw on WPDB error (opt-in)
+$connection = new Connection($wpdb, [Connection::THROW_ON_ERROR => true]);
+
+// Aliased tables + conditional clause
+$qb->table(['posts' => 'p'])
+   ->join(['users' => 'u'], 'p.post_author', '=', 'u.ID')
+   ->when($onlyPublished, fn($q) => $q->where('p.post_status', '=', 'publish'))
+   ->get();
+
+// JSON modification (portable JSON_SET) in an update
+$qb->table('settings')->where('id', '=', 1)
+   ->update(['data' => $qb->jsonExpression()->set('data', ['profile', 'name'], 'Sam')]);
+```
+
+Internally the v0.2 work also relocated identifier sanitisation into a `Sanitizer` class, converted query statements and events to value objects, and uncoupled the where/table/select/join builders into self-contained handlers — all with no public API changes.
+
 # Install
 
 ## Perquisites
 
-* WordPress 5.7+ (tested upto 5.9)
-* PHP 7.1+ (includes support for PHP8)
+* WordPress 5.7+ (tested up to 6.9)
+* PHP 8.0+
 * MySql 5.7+ or MariaDB 10.2+
 * Composer (optional)
 
@@ -94,6 +120,7 @@ Values
 | use_wpdb_prefix   | Connection:: USE_WPDB_PREFIX        | BOOL | If true will use WPDB prefix and ignore custom prefix
 | clone_wpdb      | Connection:: CLONE_WPDB       | BOOL | If true, will clone WPDB to not use reference to the instance (usually the $GLOBAL)|
 | show_errors | Connection:: SHOW_ERRORS | BOOL | If set to true will configure WPDB to show/hide errors |
+| throw_on_error | Connection:: THROW_ON_ERROR | BOOL | If true, a `$wpdb` error during execution throws a `Pixie\WpDbException` instead of failing silently. Off by default. |
  
 
 ```php
@@ -155,6 +182,7 @@ A few features have been inspired by the [Pecee-pixie](https://github.com/skippe
 
 
 ## Changelog
+* 0.2.0 - v0.2 refinements: opt-in throw on WPDB error (`THROW_ON_ERROR`), table aliases via `['table' => 'alias']` for selection and joins, Eloquent-style `when()`, JSON Support Phase 2 (portable `JSON_*` modification expressions + `orderByJson` cast-to-type), sanitiser relocated to a `Sanitizer` class, statements & events as value objects, query builders uncoupled into self-contained condition handlers. Toolchain updated to WordPress 6.9, PHP floor 8.0, PHPUnit ^8||^9, PHPStan ^2. No breaking API changes.
 * 0.0.3 - More improvements to the `updateOrInsert()` method.
 * 0.0.2 - Improvements to the `updateOrInsert()` method
 * 0.0.1 - Various external and interal changes made to the initial code written by [Muhammad Usman](http://usman.it/)

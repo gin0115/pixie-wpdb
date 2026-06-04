@@ -2,8 +2,8 @@
 
 namespace Pixie\JSON;
 
-use Pixie\Exception;
 use Pixie\Connection;
+use Pixie\Exception;
 use Pixie\HasConnection;
 use Pixie\QueryBuilder\TablePrefixer;
 
@@ -11,7 +11,9 @@ class JsonSelectorHandler implements HasConnection
 {
     use TablePrefixer;
 
-    /** @var Connection */
+    /**
+     * @var Connection
+     */
     protected $connection;
 
     public function __construct(Connection $connection)
@@ -22,7 +24,7 @@ class JsonSelectorHandler implements HasConnection
     /**
      * Returns the current connection instance.
      *
-     * @return connection
+     * @return Connection
      */
     public function getConnection(): Connection
     {
@@ -33,22 +35,25 @@ class JsonSelectorHandler implements HasConnection
      * Checks if the passed expression is for JSON
      * this->denotes->json
      *
-     * @param string $expression
+     * @param  string $expression
+     *
      * @return bool
      */
     public function isJsonSelector($expression): bool
     {
         return is_string($expression)
-        && 2 <= count(array_diff(explode('->', $expression), array("")));
+        && 2 <= count(array_diff(explode('->', $expression), ['']));
     }
 
     /**
-    * Gets the column name form a potential array
-    *
-    * @param string $expression
-    * @return string
-    * @throws Exception If invalid JSON Selector string passed.
-    */
+     * Gets the column name form a potential array
+     *
+     * @param  string $expression
+     *
+     * @return string
+     *
+     * @throws Exception if invalid JSON Selector string passed
+     */
     public function getColumn(string $expression): string
     {
         return $this->toJsonSelector($expression)->getColumn();
@@ -57,9 +62,11 @@ class JsonSelectorHandler implements HasConnection
     /**
      * Gets all JSON object keys while removing the column name.
      *
-     * @param string $expression
+     * @param  string $expression
+     *
      * @return string[]
-     * @throws Exception If invalid JSON Selector string passed.
+     *
+     * @throws Exception if invalid JSON Selector string passed
      */
     public function getNodes(string $expression): array
     {
@@ -69,22 +76,30 @@ class JsonSelectorHandler implements HasConnection
     /**
      * Casts a valid JSON selector to a JsonSelector object.
      *
-     * @param string $expression
+     * @param  string $expression
+     *
      * @return JsonSelector
-     * @throws Exception If invalid JSON Selector string passed.
+     *
+     * @throws Exception if invalid JSON Selector string passed
      */
     public function toJsonSelector(string $expression): JsonSelector
     {
-        if (! $this->isJsonSelector($expression)) {
+        if (!$this->isJsonSelector($expression)) {
             throw new Exception('JSON expression must contain at least 2 values, the table column and at least 1 node.', 1);
         }
 
-        /** @var string[] Check done above. */
-        $parts = array_diff(explode('->', $expression), array(""));
+        /**
+         * @var string[] check done above
+         */
+        $parts = array_diff(explode('->', $expression), ['']);
 
-        /** @var string */
+        /**
+         * @var string
+         */
         $column = array_shift($parts);
-        /** @var string[] */
+        /**
+         * @var string[]
+         */
         $nodes = $parts;
 
         return new JsonSelector($column, $nodes);

@@ -5,6 +5,10 @@ includes:
     - vendor/szepeviktor/phpstan-wordpress/extension.neon
 parameters:
     level: 4
+    # WPDB hands back `mixed`; PHPDoc types on our own code are documentation,
+    # not runtime guarantees, so defensive is_string()/is_object() guards must
+    # stay. Don't treat PHPDoc types as certain when narrowing.
+    treatPhpDocTypesAsCertain: false
     inferPrivatePropertyTypeFromConstructor: true
     paths:
         - %currentWorkingDirectory%/src/

@@ -9,7 +9,9 @@ use Pixie\QueryBuilder\Raw;
 class EventHandler
 {
     /**
-     * @var array<string, array<string, Closure>>
+     * Registered events as Event objects, keyed by table then event name (#50).
+     *
+     * @var array<string, array<string, Event>>
      */
     protected $events = [];
 
@@ -19,15 +21,37 @@ class EventHandler
     protected $firedEvents = [];
 
     /**
+     * Returns the registered event handlers as closures, keyed by table then
+     * event name. Kept in this (closure leaf) shape for backwards compatibility.
+     *
      * @return array<string, array<string, Closure>>
      */
     public function getEvents()
+    {
+        $events = [];
+        foreach ($this->events as $table => $tableEvents) {
+            // Preserve table keys even when empty (e.g. after removeEvent()).
+            $events[$table] = [];
+            foreach ($tableEvents as $name => $event) {
+                $events[$table][$name] = $event->getAction();
+            }
+        }
+
+        return $events;
+    }
+
+    /**
+     * Returns the registered Event objects, keyed by table then event name.
+     *
+     * @return array<string, array<string, Event>>
+     */
+    public function getRegisteredEvents(): array
     {
         return $this->events;
     }
 
     /**
-     * @param string $event
+     * @param string     $event
      * @param string|Raw $table
      *
      * @return Closure|null
@@ -38,26 +62,38 @@ class EventHandler
             return null;
         }
 
-        return $this->events[$table][$event] ?? null;
+        $registered = $this->events[$table][$event] ?? null;
+
+        return $registered instanceof Event ? $registered->getAction() : null;
     }
 
     /**
-     * @param string $event
+     * Register an event from an Event object (#50).
+     *
+     * @param Event $event
+     *
+     * @return void
+     */
+    public function register(Event $event): void
+    {
+        $this->events[$event->getTable()][$event->getName()] = $event;
+    }
+
+    /**
+     * @param string      $event
      * @param string|null $table
-     * @param Closure $action
+     * @param Closure     $action
      *
      * @return void
      */
     public function registerEvent(string $event, ?string $table, Closure $action)
     {
-        $table = $table ?? ':any';
-
-        $this->events[$table][$event] = $action;
+        $this->register(new Event($event, $table, $action));
     }
 
     /**
      * @param string $event
-     * @param string  $table
+     * @param string $table
      *
      * @return void
      */
@@ -68,7 +104,7 @@ class EventHandler
 
     /**
      * @param QueryBuilderHandler $queryBuilder
-     * @param string $event
+     * @param string              $event
      *
      * @return mixed
      */

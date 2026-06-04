@@ -2,30 +2,33 @@
 
 namespace Pixie\QueryBuilder;
 
-use wpdb;
 use Closure;
-use Throwable;
 use Pixie\Binding;
-use Pixie\Exception;
 use Pixie\Connection;
-
+use Pixie\Exception;
 use Pixie\HasConnection;
-
-use Pixie\JSON\JsonHandler;
-use Pixie\QueryBuilder\Raw;
 use Pixie\Hydration\Hydrator;
+use Pixie\JSON\JsonHandler;
 use Pixie\JSON\JsonSelectorHandler;
 use Pixie\QueryBuilder\JoinBuilder;
 use Pixie\QueryBuilder\QueryObject;
+use Pixie\QueryBuilder\Raw;
+use Pixie\QueryBuilder\Statement\CriteriaStatement;
+use Pixie\QueryBuilder\Statement\JoinStatement;
+use Pixie\QueryBuilder\Statement\OrderByStatement;
+use Pixie\QueryBuilder\TablePrefixer;
 use Pixie\QueryBuilder\Transaction;
 use Pixie\QueryBuilder\WPDBAdapter;
-use Pixie\QueryBuilder\TablePrefixer;
+use Pixie\WpDbException;
+use Throwable;
+use wpdb;
+
 use function mb_strlen;
 
 class QueryBuilderHandler implements HasConnection
 {
     /**
-     * @method add
+     * Provides addTablePrefix() and related table-prefixing helpers.
      */
     use TablePrefixer;
 
@@ -52,12 +55,12 @@ class QueryBuilderHandler implements HasConnection
     /**
      * @var string|string[]|null
      */
-    protected $sqlStatement = null;
+    protected $sqlStatement;
 
     /**
      * @var string|null
      */
-    protected $tablePrefix = null;
+    protected $tablePrefix;
 
     /**
      * @var WPDBAdapter
@@ -87,16 +90,24 @@ class QueryBuilderHandler implements HasConnection
     protected $jsonHandler;
 
     /**
-     * @param \Pixie\Connection|null $connection
-     * @param string $fetchMode
-     * @param mixed[] $hydratorConstructorArgs
+     * When true, a WPDB error after execution throws a WpDbException
+     * instead of failing silently. Opt-in, defaults to false for BC.
+     *
+     * @var bool
+     */
+    protected $throwOnError = false;
+
+    /**
+     * @param Connection|null $connection
+     * @param string                 $fetchMode
+     * @param mixed[]                $hydratorConstructorArgs
      *
      * @throws Exception if no connection passed and not previously established
      */
     final public function __construct(
-        Connection $connection = null,
+        ?Connection $connection = null,
         string $fetchMode = \OBJECT,
-        ?array $hydratorConstructorArgs = null
+        ?array $hydratorConstructorArgs = null,
     ) {
         if (is_null($connection)) {
             // throws if connection not already established.
@@ -135,16 +146,42 @@ class QueryBuilderHandler implements HasConnection
         if (isset($adapterConfig[Connection::PREFIX])) {
             $this->tablePrefix = $adapterConfig[Connection::PREFIX];
         }
+
+        if (isset($adapterConfig[Connection::THROW_ON_ERROR])) {
+            $this->throwOnError = (bool) $adapterConfig[Connection::THROW_ON_ERROR];
+        }
+    }
+
+    /**
+     * Throws a WpDbException if WPDB reported an error during the last
+     * execution and the connection opted in via Connection::THROW_ON_ERROR.
+     *
+     * @param string|null $sql the statement that was executed, for context
+     *
+     * @return void
+     *
+     * @throws WpDbException
+     */
+    protected function handleQueryError(?string $sql = null): void
+    {
+        if (false === $this->throwOnError) {
+            return;
+        }
+
+        if ('' !== $this->dbInstance()->last_error) {
+            throw WpDbException::fromWpdb($this->dbInstance(), $sql);
+        }
     }
 
     /**
      * Fetch query results as object of specified type
      *
-     * @param string $className
-     * @param array<int, mixed> $constructorArgs
+     * @param  string            $className
+     * @param  array<int, mixed> $constructorArgs
+     *
      * @return static
      */
-    public function asObject($className, $constructorArgs = array()): self
+    public function asObject($className, $constructorArgs = []): self
     {
         return $this->setFetchMode($className, $constructorArgs);
     }
@@ -152,7 +189,7 @@ class QueryBuilderHandler implements HasConnection
     /**
      * Set the fetch mode
      *
-     * @param string $mode
+     * @param string                 $mode
      * @param array<int, mixed>|null $constructorArgs
      *
      * @return static
@@ -172,7 +209,7 @@ class QueryBuilderHandler implements HasConnection
      *
      * @throws Exception
      */
-    public function newQuery(Connection $connection = null): self
+    public function newQuery(?Connection $connection = null): self
     {
         if (is_null($connection)) {
             $connection = $this->connection;
@@ -187,7 +224,7 @@ class QueryBuilderHandler implements HasConnection
     /**
      * Returns a new instance of the current, with the passed connection.
      *
-     * @param \Pixie\Connection $connection
+     * @param Connection $connection
      *
      * @return static
      */
@@ -199,8 +236,9 @@ class QueryBuilderHandler implements HasConnection
     /**
      * Interpolates a query
      *
-     * @param string $query
-     * @param array<mixed> $bindings
+     * @param  string       $query
+     * @param  array<mixed> $bindings
+     *
      * @return string
      */
     public function interpolateQuery(string $query, array $bindings = []): string
@@ -232,10 +270,6 @@ class QueryBuilderHandler implements HasConnection
         $start        = microtime(true);
         $sqlStatement = empty($bindings) ? $sql : $this->interpolateQuery($sql, $bindings);
 
-        if (!is_string($sqlStatement)) {
-            throw new Exception('Could not interpolate query', 1);
-        }
-
         return [$sqlStatement, microtime(true) - $start];
     }
 
@@ -264,13 +298,15 @@ class QueryBuilderHandler implements HasConnection
             $executionTime      = $statement[1];
         }
 
-        $start  = microtime(true);
-        $result = $this->dbInstance()->get_results(
-            is_array($this->sqlStatement) ? (end($this->sqlStatement) ?: '') : $this->sqlStatement,
+        $executedSql = is_array($this->sqlStatement) ? (end($this->sqlStatement) ?: '') : $this->sqlStatement;
+        $start       = microtime(true);
+        $result      = $this->dbInstance()->get_results(
+            $executedSql,
             // If we are using the hydrator, return as OBJECT and let the hydrator map the correct model.
-            $this->useHydrator() ? OBJECT : $this->getFetchMode()
+            $this->useHydrator() ? OBJECT : $this->getFetchMode() // @phpstan-ignore-line
         );
         $executionTime += microtime(true) - $start;
+        $this->handleQueryError(is_string($executedSql) ? $executedSql : null);
         $this->sqlStatement = null;
 
         // Ensure we have an array of results.
@@ -331,7 +367,7 @@ class QueryBuilderHandler implements HasConnection
      * Shortcut of ->where('key','=','value')->get();
      *
      * @param string $fieldName
-     * @param mixed $value
+     * @param mixed  $value
      *
      * @return array<mixed,mixed>|null Can return any object using hydrator
      */
@@ -344,7 +380,7 @@ class QueryBuilderHandler implements HasConnection
 
     /**
      * @param string $fieldName
-     * @param mixed $value
+     * @param mixed  $value
      *
      * @return \stdClass\array<mixed,mixed>|object|null Can return any object using hydrator
      */
@@ -357,9 +393,10 @@ class QueryBuilderHandler implements HasConnection
 
     /**
      * @param string $fieldName
-     * @param mixed $value
+     * @param mixed  $value
      *
      * @return \stdClass\array<mixed,mixed>|object Can return any object using hydrator
+     *
      * @throws Exception If fails to find
      */
     public function findOrFail($value, $fieldName = 'id')
@@ -368,6 +405,7 @@ class QueryBuilderHandler implements HasConnection
         if (null === $result) {
             throw new Exception("Failed to find {$fieldName}={$value}", 1);
         }
+
         return $result;
     }
 
@@ -376,7 +414,7 @@ class QueryBuilderHandler implements HasConnection
      *
      * @see Taken from the pecee-pixie library - https://github.com/skipperbent/pecee-pixie/
      *
-     * @param string $type
+     * @param string     $type
      * @param string|Raw $field
      *
      * @return float
@@ -397,7 +435,6 @@ class QueryBuilderHandler implements HasConnection
         if ('*' !== $field && true === isset($this->statements['selects']) && false === \in_array($field, $this->statements['selects'], true)) {
             throw new \Exception(sprintf('Failed %s query - the column %s hasn\'t been selected in the query.', $type, $field));
         }
-
 
         if (false === isset($this->statements['tables'])) {
             throw new Exception('No table selected');
@@ -492,7 +529,7 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string $type
+     * @param string                   $type
      * @param bool|array<mixed, mixed> $dataToBePassed
      *
      * @return mixed
@@ -516,7 +553,7 @@ class QueryBuilderHandler implements HasConnection
 
     /**
      * @param QueryBuilderHandler $queryBuilder
-     * @param string|null $alias
+     * @param string|null         $alias
      *
      * @return Raw
      */
@@ -534,7 +571,7 @@ class QueryBuilderHandler implements HasConnection
      * Handles the various insert operations based on the type.
      *
      * @param array<int|string, mixed|mixed[]> $data
-     * @param string $type
+     * @param string                           $type
      *
      * @return int|int[]|mixed|null can return a single row id, array of row ids, null (for failed) or any other value short circuited from event
      */
@@ -551,6 +588,7 @@ class QueryBuilderHandler implements HasConnection
 
             list($preparedQuery, $executionTime) = $this->statement($queryObject->getSql(), $queryObject->getBindings());
             $this->dbInstance->get_results($preparedQuery);
+            $this->handleQueryError(is_string($preparedQuery) ? $preparedQuery : null);
 
             // Check we have a result.
             $return = 1 === $this->dbInstance->rows_affected ? $this->dbInstance->insert_id : null;
@@ -563,6 +601,7 @@ class QueryBuilderHandler implements HasConnection
 
                 list($preparedQuery, $time) = $this->statement($queryObject->getSql(), $queryObject->getBindings());
                 $this->dbInstance->get_results($preparedQuery);
+                $this->handleQueryError(is_string($preparedQuery) ? $preparedQuery : null);
                 $executionTime += $time;
 
                 if (1 === $this->dbInstance->rows_affected) {
@@ -611,7 +650,7 @@ class QueryBuilderHandler implements HasConnection
     /**
      * @param array<string, mixed> $data
      *
-     * @return int|null Number of row effected, null for none.
+     * @return int|null number of row effected, null for none
      */
     public function update(array $data): ?int
     {
@@ -620,9 +659,10 @@ class QueryBuilderHandler implements HasConnection
             return $eventResult;
         }
         $queryObject                         = $this->getQuery('update', $data);
-        $r = $this->statement($queryObject->getSql(), $queryObject->getBindings());
+        $r                                   = $this->statement($queryObject->getSql(), $queryObject->getBindings());
         list($preparedQuery, $executionTime) = $r;
         $this->dbInstance()->get_results($preparedQuery);
+        $this->handleQueryError(is_string($preparedQuery) ? $preparedQuery : null);
         $this->fireEvents('after-update', $queryObject, $executionTime);
 
         return 0 !== (int) $this->dbInstance()->rows_affected
@@ -685,6 +725,7 @@ class QueryBuilderHandler implements HasConnection
 
         list($preparedQuery, $executionTime) = $this->statement($queryObject->getSql(), $queryObject->getBindings());
         $this->dbInstance()->get_results($preparedQuery);
+        $this->handleQueryError(is_string($preparedQuery) ? $preparedQuery : null);
         $this->fireEvents('after-delete', $queryObject, $executionTime);
 
         return $this->dbInstance()->rows_affected;
@@ -701,10 +742,38 @@ class QueryBuilderHandler implements HasConnection
     {
         $instance =  $this->constructCurrentBuilderClass($this->connection);
         $this->setFetchMode($this->getFetchMode(), $this->hydratorConstructorArgs);
+        $tables = $this->normalizeAliasedTables($tables);
         $tables = $this->addTablePrefix($tables, false);
         $instance->addStatement('tables', $tables);
 
         return $instance;
+    }
+
+    /**
+     * Expands any table arguments supplied as a ['table' => 'alias'] array into
+     * the flat table map used internally, so a table can be aliased the same way
+     * a select field is. Scalar/Raw/Closure tables are passed through untouched.
+     *
+     * @param array<int|string, mixed> $tables
+     *
+     * @return array<int|string, mixed>
+     */
+    protected function normalizeAliasedTables(array $tables): array
+    {
+        $normalized = [];
+        foreach ($tables as $key => $table) {
+            // A ['table' => 'alias'] map passed as a single variadic argument.
+            if (is_int($key) && is_array($table)) {
+                foreach ($table as $realTable => $alias) {
+                    $normalized[$realTable] = $alias;
+                }
+                continue;
+            }
+
+            $normalized[$key] = $table;
+        }
+
+        return $normalized;
     }
 
     /**
@@ -714,10 +783,38 @@ class QueryBuilderHandler implements HasConnection
      */
     public function from(...$tables): self
     {
+        $tables = $this->normalizeAliasedTables($tables);
         $tables = $this->addTablePrefix($tables, false);
         $this->addStatement('tables', $tables);
 
         return $this;
+    }
+
+    /**
+     * Conditionally apply modifications to the query (Eloquent-style).
+     *
+     * When $conditional is truthy the $true closure is invoked with this query
+     * builder; otherwise the optional $false closure is invoked. Whatever the
+     * invoked closure returns is passed back (so it can return its own value),
+     * falling back to this builder instance for fluent chaining.
+     *
+     * @param bool         $conditional whether to apply the $true branch
+     * @param Closure      $true        Applied when $conditional is true. Receives $this.
+     * @param Closure|null $false       Applied when $conditional is false. Receives $this.
+     *
+     * @return static|mixed
+     */
+    public function when(bool $conditional, Closure $true, ?Closure $false = null)
+    {
+        if ($conditional) {
+            $result = $true($this);
+        } elseif (null !== $false) {
+            $result = $false($this);
+        } else {
+            return $this;
+        }
+
+        return $result ?? $this;
     }
 
     /**
@@ -739,11 +836,11 @@ class QueryBuilderHandler implements HasConnection
 
             // If no alias passed, but field is for JSON. thrown an exception.
             if (is_numeric($field) && is_string($alias) && $this->jsonHandler->isJsonSelector($alias)) {
-                throw new Exception("An alias must be used if you wish to select from JSON Object", 1);
+                throw new Exception('An alias must be used if you wish to select from JSON Object', 1);
             }
 
             // Treat each array as a single table, to retain order added
-            $field = is_numeric($field)
+            $field       = is_numeric($field)
                 ? $field = $alias // If single colum
                 : $field = [$field => $alias]; // Has alias
 
@@ -782,7 +879,7 @@ class QueryBuilderHandler implements HasConnection
 
     /**
      * @param string|array<string|int, mixed> $fields
-     * @param string          $defaultDirection
+     * @param string                          $defaultDirection
      *
      * @return static
      */
@@ -807,21 +904,29 @@ class QueryBuilderHandler implements HasConnection
             if (!$field instanceof Raw) {
                 $field = $this->addTablePrefix($field);
             }
-            $this->statements['orderBys'][] = compact('field', 'type');
+            $this->statements['orderBys'][] = new OrderByStatement($field, $type);
         }
 
         return $this;
     }
 
     /**
-     * @param string|Raw $key The database column which holds the JSON value
-     * @param string|Raw|string[] $jsonKey The json key/index to search
-     * @param string $defaultDirection
+     * @param  string|Raw          $key              The database column which holds the JSON value
+     * @param  string|Raw|string[] $jsonKey          The json key/index to search
+     * @param  string              $defaultDirection
+     * @param  string|null         $cast             Optional SQL type to CAST the extracted value to (#28),
+     *                                               e.g. 'UNSIGNED' or 'DECIMAL(10,2)'. Null = no cast
+     *                                               (BC).
+     *
      * @return static
      */
-    public function orderByJson($key, $jsonKey, string $defaultDirection = 'ASC'): self
+    public function orderByJson($key, $jsonKey, string $defaultDirection = 'ASC', ?string $cast = null): self
     {
-        $key = $this->jsonHandler->jsonExpressionFactory()->extractAndUnquote($key, $jsonKey);
+        $factory = $this->jsonHandler->jsonExpressionFactory();
+        $key     = null !== $cast
+            ? $factory->orderByCast($key, $jsonKey, $cast)
+            : $factory->extractAndUnquote($key, $jsonKey);
+
         return $this->orderBy($key, $defaultDirection);
     }
 
@@ -850,25 +955,25 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|string[]|Raw|Raw[]       $key
-     * @param string $operator
-     * @param mixed $value
-     * @param string $joiner
+     * @param string|string[]|Raw|Raw[] $key
+     * @param string                    $operator
+     * @param mixed                     $value
+     * @param string                    $joiner
      *
      * @return static
      */
     public function having($key, string $operator, $value, string $joiner = 'AND')
     {
         $key                           = $this->addTablePrefix($key);
-        $this->statements['havings'][] = compact('key', 'operator', 'value', 'joiner');
+        $this->statements['havings'][] = new CriteriaStatement($key, $operator, $value, $joiner);
 
         return $this;
     }
 
     /**
-     * @param string|string[]|Raw|Raw[]       $key
-     * @param string $operator
-     * @param mixed $value
+     * @param string|string[]|Raw|Raw[] $key
+     * @param string                    $operator
+     * @param mixed                     $value
      *
      * @return static
      */
@@ -878,9 +983,9 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|Raw $key
+     * @param string|Raw        $key
      * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
-     * @param mixed|null $value
+     * @param mixed|null        $value
      *
      * @return static
      */
@@ -896,9 +1001,9 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|Raw|\Closure(QueryBuilderHandler):void $key
-     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
-     * @param mixed|null $value
+     * @param string|Raw|Closure(QueryBuilderHandler):void $key
+     * @param string|mixed|null                             $operator Can be used as value, if 3rd arg not passed
+     * @param mixed|null                                    $value
      *
      * @return static
      */
@@ -914,9 +1019,9 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|Raw $key
+     * @param string|Raw        $key
      * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
-     * @param mixed|null $value
+     * @param mixed|null        $value
      *
      * @return static
      */
@@ -932,9 +1037,9 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|Raw $key
+     * @param string|Raw        $key
      * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
-     * @param mixed|null $value
+     * @param mixed|null        $value
      *
      * @return static
      */
@@ -950,7 +1055,7 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|Raw $key
+     * @param string|Raw         $key
      * @param mixed[]|string|Raw $values
      *
      * @return static
@@ -961,7 +1066,7 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|Raw $key
+     * @param string|Raw         $key
      * @param mixed[]|string|Raw $values
      *
      * @return static
@@ -972,7 +1077,7 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|Raw $key
+     * @param string|Raw         $key
      * @param mixed[]|string|Raw $values
      *
      * @return static
@@ -983,7 +1088,7 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|Raw $key
+     * @param string|Raw         $key
      * @param mixed[]|string|Raw $values
      *
      * @return static
@@ -995,8 +1100,8 @@ class QueryBuilderHandler implements HasConnection
 
     /**
      * @param string|Raw $key
-     * @param mixed $valueFrom
-     * @param mixed $valueTo
+     * @param mixed      $valueFrom
+     * @param mixed      $valueTo
      *
      * @return static
      */
@@ -1007,8 +1112,8 @@ class QueryBuilderHandler implements HasConnection
 
     /**
      * @param string|Raw $key
-     * @param mixed $valueFrom
-     * @param mixed $valueTo
+     * @param mixed      $valueFrom
+     * @param mixed      $valueTo
      *
      * @return static
      */
@@ -1020,22 +1125,25 @@ class QueryBuilderHandler implements HasConnection
     /**
      * Handles all function call based where conditions
      *
-     * @param string|Raw $key
-     * @param string $function
-     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
-     * @param mixed|null $value
+     * @param  string|Raw        $key
+     * @param  string            $function
+     * @param  string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param  mixed|null        $value
+     *
      * @return static
      */
     protected function whereFunctionCallHandler($key, $function, $operator, $value): self
     {
         $key = \sprintf('%s(%s)', $function, $this->addTablePrefix($key));
+
         return $this->where($key, $operator, $value);
     }
 
     /**
-     * @param string|Raw $key
-     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
-     * @param mixed|null $value
+     * @param  string|Raw        $key
+     * @param  string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param  mixed|null        $value
+     *
      * @return self
      */
     public function whereMonth($key, $operator = null, $value = null): self
@@ -1045,13 +1153,15 @@ class QueryBuilderHandler implements HasConnection
             $value    = $operator;
             $operator = '=';
         }
+
         return $this->whereFunctionCallHandler($key, 'MONTH', $operator, $value);
     }
 
     /**
-     * @param string|Raw $key
-     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
-     * @param mixed|null $value
+     * @param  string|Raw        $key
+     * @param  string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param  mixed|null        $value
+     *
      * @return self
      */
     public function whereDay($key, $operator = null, $value = null): self
@@ -1061,13 +1171,15 @@ class QueryBuilderHandler implements HasConnection
             $value    = $operator;
             $operator = '=';
         }
+
         return $this->whereFunctionCallHandler($key, 'DAY', $operator, $value);
     }
 
     /**
-     * @param string|Raw $key
-     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
-     * @param mixed|null $value
+     * @param  string|Raw        $key
+     * @param  string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param  mixed|null        $value
+     *
      * @return self
      */
     public function whereYear($key, $operator = null, $value = null): self
@@ -1077,13 +1189,15 @@ class QueryBuilderHandler implements HasConnection
             $value    = $operator;
             $operator = '=';
         }
+
         return $this->whereFunctionCallHandler($key, 'YEAR', $operator, $value);
     }
 
     /**
-     * @param string|Raw $key
-     * @param string|mixed|null $operator Can be used as value, if 3rd arg not passed
-     * @param mixed|null $value
+     * @param  string|Raw        $key
+     * @param  string|mixed|null $operator Can be used as value, if 3rd arg not passed
+     * @param  mixed|null        $value
+     *
      * @return self
      */
     public function whereDate($key, $operator = null, $value = null): self
@@ -1093,6 +1207,7 @@ class QueryBuilderHandler implements HasConnection
             $value    = $operator;
             $operator = '=';
         }
+
         return $this->whereFunctionCallHandler($key, 'DATE', $operator, $value);
     }
 
@@ -1138,8 +1253,8 @@ class QueryBuilderHandler implements HasConnection
 
     /**
      * @param string|Raw $key
-     * @param string $prefix
-     * @param string $operator
+     * @param string     $prefix
+     * @param string     $operator
      *
      * @return static
      */
@@ -1159,11 +1274,10 @@ class QueryBuilderHandler implements HasConnection
         return $this->{$operator . 'Where'}($this->raw("{$key} IS{$prefix} NULL"));
     }
 
-
     /**
      * Runs a transaction
      *
-     * @param \Closure(Transaction):void $callback
+     * @param Closure(Transaction):void $callback
      *
      * @return static
      */
@@ -1197,10 +1311,11 @@ class QueryBuilderHandler implements HasConnection
      * Handles the transaction call.
      * Catches any WPDB Errors (printed)
      *
-     * @param Closure    $callback
+     * @param Closure     $callback
      * @param Transaction $transaction
      *
      * @return void
+     *
      * @throws Exception
      */
     protected function handleTransactionCall(Closure $callback, Transaction $transaction): void
@@ -1220,36 +1335,34 @@ class QueryBuilderHandler implements HasConnection
         }
     }
 
-    /*************************************************************************/
-    /*************************************************************************/
-    /*************************************************************************/
-    /**                              JOIN JOIN                              **/
-    /**                                 JOIN                                **/
-    /**                              JOIN JOIN                              **/
-    /*************************************************************************/
-    /*************************************************************************/
-    /*************************************************************************/
+    /**
+     * JOIN JOIN
+     **/
+    /**
+     * JOIN
+     **/
+    /**
+     * JOIN JOIN
+     **/
 
     /**
-     * @param string|Raw $table
+     * @param string|Raw         $table
      * @param string|Raw|Closure $key
-     * @param string|null $operator
-     * @param mixed $value
-     * @param string $type
+     * @param string|null        $operator
+     * @param mixed              $value
+     * @param string             $type
      *
      * @return static
      */
     public function join($table, $key, ?string $operator = null, $value = null, $type = 'inner')
     {
         // Potentially cast key from JSON
-        if ($this->jsonHandler->isJsonSelector($key)) {
-            /** @var string $key */
-            $key = $this->jsonHandler->extractAndUnquoteFromJsonSelector($key); /** @phpstan-ignore-line */
+        if (is_string($key) && $this->jsonHandler->isJsonSelector($key)) {
+            $key = $this->jsonHandler->extractAndUnquoteFromJsonSelector($key);
         }
 
         // Potentially cast value from json
-        if ($this->jsonHandler->isJsonSelector($value)) {
-            /** @var string $value */
+        if (is_string($value) && $this->jsonHandler->isJsonSelector($value)) {
             $value = $this->jsonHandler->extractAndUnquoteFromJsonSelector($value);
         }
 
@@ -1267,15 +1380,16 @@ class QueryBuilderHandler implements HasConnection
         $key($joinBuilder);
         $table = $this->addTablePrefix($table, false);
         // Get the criteria only query from the joinBuilder object
-        $this->statements['joins'][] = compact('type', 'table', 'joinBuilder');
+        $this->statements['joins'][] = new JoinStatement($type, $table, $joinBuilder);
+
         return $this;
     }
 
     /**
-     * @param string|Raw $table
+     * @param string|Raw         $table
      * @param string|Raw|Closure $key
-     * @param string|null $operator
-     * @param mixed $value
+     * @param string|null        $operator
+     * @param mixed              $value
      *
      * @return static
      */
@@ -1285,10 +1399,10 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|Raw $table
+     * @param string|Raw         $table
      * @param string|Raw|Closure $key
-     * @param string|null $operator
-     * @param mixed $value
+     * @param string|null        $operator
+     * @param mixed              $value
      *
      * @return static
      */
@@ -1298,10 +1412,10 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|Raw $table
+     * @param string|Raw         $table
      * @param string|Raw|Closure $key
-     * @param string|null $operator
-     * @param mixed $value
+     * @param string|null        $operator
+     * @param mixed              $value
      *
      * @return static
      */
@@ -1311,10 +1425,10 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|Raw $table
+     * @param string|Raw         $table
      * @param string|Raw|Closure $key
-     * @param string|null $operator
-     * @param mixed $value
+     * @param string|null        $operator
+     * @param mixed              $value
      *
      * @return static
      */
@@ -1324,10 +1438,10 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string|Raw $table
+     * @param string|Raw         $table
      * @param string|Raw|Closure $key
-     * @param string|null $operator
-     * @param mixed $value
+     * @param string|null        $operator
+     * @param mixed              $value
      *
      * @return static
      */
@@ -1339,16 +1453,18 @@ class QueryBuilderHandler implements HasConnection
     /**
      * Shortcut to join 2 tables on the same key name with equals
      *
-     * @param string $table
-     * @param string $key
-     * @param string $type
+     * @param  string $table
+     * @param  string $key
+     * @param  string $type
+     *
      * @return self
+     *
      * @throws Exception If base table is set as more than 1 or 0
      */
     public function joinUsing(string $table, string $key, string $type = 'INNER'): self
     {
-        if (!array_key_exists('tables', $this->statements) || count($this->statements['tables']) !== 1) {
-            throw new Exception("JoinUsing can only be used with a single table set as the base of the query", 1);
+        if (!array_key_exists('tables', $this->statements) || 1 !== count($this->statements['tables'])) {
+            throw new Exception('JoinUsing can only be used with a single table set as the base of the query', 1);
         }
         $baseTable = end($this->statements['tables']);
 
@@ -1358,14 +1474,15 @@ class QueryBuilderHandler implements HasConnection
         }
 
         $remoteKey = $table = $this->addTablePrefix("{$table}.{$key}", true);
-        $localKey = $table = $this->addTablePrefix("{$baseTable}.{$key}", true);
+        $localKey  = $table = $this->addTablePrefix("{$baseTable}.{$key}", true);
+
         return $this->join($table, $remoteKey, '=', $localKey, $type);
     }
 
     /**
      * Add a raw query
      *
-     * @param string|Raw $value
+     * @param string|Raw    $value
      * @param mixed|mixed[] $bindings
      *
      * @return Raw
@@ -1407,9 +1524,9 @@ class QueryBuilderHandler implements HasConnection
 
     /**
      * @param string|Raw|Closure $key
-     * @param string|null      $operator
-     * @param mixed|null       $value
-     * @param string $joiner
+     * @param string|null        $operator
+     * @param mixed|null         $value
+     * @param string             $joiner
      *
      * @return static
      */
@@ -1424,14 +1541,13 @@ class QueryBuilderHandler implements HasConnection
             $key = $this->jsonHandler->extractAndUnquoteFromJsonSelector($key);
         }
 
-        $this->statements['wheres'][] = compact('key', 'operator', 'value', 'joiner');
+        $this->statements['wheres'][] = new CriteriaStatement($key, $operator, $value, $joiner);
+
         return $this;
     }
 
-
-
     /**
-     * @param string $key
+     * @param string             $key
      * @param mixed|mixed[]|bool $value
      *
      * @return void
@@ -1450,7 +1566,7 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string $event
+     * @param string     $event
      * @param string|Raw $table
      *
      * @return callable|null
@@ -1461,9 +1577,9 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string $event
+     * @param string     $event
      * @param string|Raw $table
-     * @param Closure $action
+     * @param Closure    $action
      *
      * @return void
      */
@@ -1479,7 +1595,7 @@ class QueryBuilderHandler implements HasConnection
     }
 
     /**
-     * @param string $event
+     * @param string     $event
      * @param string|Raw $table
      *
      * @return void

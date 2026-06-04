@@ -6,19 +6,25 @@ use Pixie\Connection;
 
 class JsonHandler
 {
-    /** @var Connection */
+    /**
+     * @var Connection
+     */
     protected $connection;
 
-    /** @var JsonSelectorHandler */
+    /**
+     * @var JsonSelectorHandler
+     */
     protected $jsonSelectorHandler;
 
-    /** @var JsonExpressionFactory */
+    /**
+     * @var JsonExpressionFactory
+     */
     protected $jsonExpressionFactory;
 
     public function __construct(Connection $connection)
     {
-        $this->connection = $connection;
-        $this->jsonSelectorHandler = new JsonSelectorHandler($connection);
+        $this->connection            = $connection;
+        $this->jsonSelectorHandler   = new JsonSelectorHandler($connection);
         $this->jsonExpressionFactory = new JsonExpressionFactory($connection);
     }
 
@@ -45,12 +51,14 @@ class JsonHandler
     /**
      * Parses a JSON selector and returns as an Extract and Unquote expression.
      *
-     * @param string $selector
+     * @param  string $selector
+     *
      * @return string
      */
     public function extractAndUnquoteFromJsonSelector(string $selector): string
     {
         $selector = $this->jsonSelectorHandler()->toJsonSelector($selector);
+
         return $this->jsonExpressionFactory()->extractAndUnquote(
             $selector->getColumn(),
             $selector->getNodes()
@@ -60,7 +68,8 @@ class JsonHandler
     /**
      * Checks if the passed values is a valid JSON Selector
      *
-     * @param mixed $expression
+     * @param  mixed $expression
+     *
      * @return bool
      */
     public function isJsonSelector($expression): bool
